@@ -1,0 +1,75 @@
+appId: com.wavqcstudio.app
+productName: WAV QC Studio
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**
+  - package.json
+
+extraFiles:
+  - from: build/development-source
+    to: Development
+    filter:
+      - "**/*"
+
+extraResources:
+  - from: ../backend
+    to: backend
+    filter:
+      - "**/*"
+      - "!**/__pycache__/**"
+      - "!**/*.pyc"
+  - from: ../training
+    to: training
+    filter:
+      - "install_gpt_sovits_runtime.ps1"
+      - "training.7z"
+      - "!cache/**"
+      - "!runtime/**"
+      - "!vendor/**"
+      - "!work/**"
+      - "!__pycache__/**"
+      - "!**/*.pyc"
+  - from: ../requirements.txt
+    to: requirements.txt
+  - from: ../requirements_noise.txt
+    to: requirements_noise.txt
+  - from: ../requirements_slicer.txt
+    to: requirements_slicer.txt
+  - from: ../setup_and_run.ps1
+    to: setup_and_run.ps1
+  - from: ../cleanup_onnxruntime_conflicts.py
+    to: cleanup_onnxruntime_conflicts.py
+  - from: ../verify_onnx_gpu.py
+    to: verify_onnx_gpu.py
+  - from: ../config
+    to: config
+    filter:
+      - "**/*"
+  - from: ../deepspeed
+    to: deepspeed
+    filter:
+      - "**/*"
+
+win:
+  target:
+    - nsis
+  executableName: WavQcStudio
+  signAndEditExecutable: false
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  language: "1042"
+  installerLanguages:
+    - ko_KR
+  displayLanguageSelector: false
+  shortcutName: WAV QC Studio
+  artifactName: wav-qc-studio-${version}-setup.${ext}
+  script: build/install-only.nsi
+  include: build/installer.nsh

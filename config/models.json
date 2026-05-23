@@ -1,0 +1,72 @@
+{
+  "batch_transcription": {
+    "asr_model": "large-v3",
+    "language": "ko",
+    "beam_size": 5,
+    "vad_filter": true,
+    "compute_type_cpu": "int8",
+    "compute_type_cuda": "float16",
+    "suppress_numerals": true,
+    "initial_prompt": ""
+  },
+  "word_alignment": {
+    "language_code": "ko",
+    "device": "auto",
+    "low_score_threshold": 0.72,
+    "missing_score_threshold": 0.2
+  },
+  "noise": {
+    "sample_rate": 16000,
+    "personalized": false,
+    "num_threads": 2,
+    "require_cuda_provider": true,
+    "bak_bad_threshold": 3.0
+  },
+  "speaker": {
+    "backend": "diarizen",
+    "diarizen_model_id": "BUT-FIT/diarizen-wavlm-large-s80-md-v2",
+    "diarizen_cache_dir": null,
+    "vad_model_path": "vad_multilingual_marblenet",
+    "diarizer_model_path": "diar_msdd_telephonic",
+    "embedding_model_path": "titanet_large",
+    "cluster_distance_threshold": 0.3,
+    "batch_qc_cluster_distance_threshold": 0.35,
+    "batch_qc_match_sample_clip_sec": 30.0,
+    "batch_qc_match_max_session_sec": 180.0,
+    "batch_qc_match_verification_samples": 5,
+    "batch_qc_match_gap_sec": 0.75,
+    "batch_qc_match_audio_cache_items": 96,
+    "batch_qc_match_random_seed": "batch_qc_sample_matching_v1",
+    "min_segment_sec": 1.0,
+    "max_concat_sec_per_local_speaker": 12.0,
+    "max_num_speakers": 8,
+    "msdd_infer_batch_size": 8,
+    "msdd_sigmoid_threshold": 0.7,
+    "temp_root_dir": null,
+    "fallback_to_embedding_vad": true,
+    "fallback_vad_top_db": 35.0,
+    "fallback_min_gap_sec": 0.15,
+    "fallback_max_seg_sec": 8.0,
+    "fallback_min_speech_sec": 0.35,
+    "msdd_diar_window_length": 50,
+    "msdd_overlap_infer_spk_limit": 5,
+    "fast_mode": false,
+    "msdd_min_duration_sec": 30.0,
+    "msdd_single_scale": true,
+    "msdd_single_window_sec": 1.5,
+    "msdd_single_shift_sec": 0.75,
+    "fallback_max_segments": 4,
+    "msdd_precheck_enabled": true,
+    "msdd_precheck_min_total_speech_sec": 2.4,
+    "msdd_precheck_min_longest_speech_sec": 1.0,
+    "msdd_precheck_min_segments": 2
+  },
+  "runtime": {
+    "recursive_default": true,
+    "supported_extensions": [
+      ".wav"
+    ],
+    "workers": 1,
+    "require_gpu": true
+  }
+}

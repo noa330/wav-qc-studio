@@ -1,0 +1,38 @@
+# Core numeric / audio
+numpy<2
+pandas>=2.2,<3
+scipy>=1.11,<2
+soundfile>=0.12,<1
+librosa>=0.10,<0.12
+
+# Torch stack (setup_and_run.bat still installs the CUDA wheels first)
+torch>=2.6,<2.7
+torchaudio>=2.6,<2.7
+
+# Utilities
+tqdm>=4.66,<5
+click>=8.1,<9
+scikit-learn>=1.5,<2
+huggingface-hub>=0.27,<1
+transformers>=4.49,<5
+accelerate>=1.2,<2
+safetensors>=0.5,<1
+
+# ASR / speaker / quality
+faster-whisper>=1.1,<2
+torchmetrics>=1.6,<2
+omegaconf>=2.3,<3
+toml>=0.10,<1
+diarizen @ git+https://github.com/BUTSpeechFIT/DiariZen.git
+pyannote.audio @ git+https://github.com/BUTSpeechFIT/DiariZen.git#subdirectory=pyannote-audio
+
+# ONNX Runtime GPU is installed by setup_and_run.bat / repair_gpu_runtime.bat
+
+
+
+# Device information
+
+py-cpuinfo>=9,<10
+
+py3nvml>=0.2,<0.3
+

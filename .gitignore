@@ -1,0 +1,55 @@
+# Local tools and virtual environments
+.tools/
+.tmp/
+.model_cache/
+.venv/
+.venv_noise/
+.ven_slice/
+.dotnet/
+__pycache__/
+*.pyc
+*.pyo
+
+# Frontend dependencies and build output
+frontend/node_modules/
+frontend/out/
+frontend/dist/
+frontend/release/
+frontend/build/development-source/
+frontend/*.tsbuildinfo
+frontend/*.log
+
+# Training runtime/cache output
+training/cache/
+training/runtime/
+training/vendor/
+training/work/
+training/**/__pycache__/
+
+# Runtime artifacts and large generated files
+/build/
+input/
+*.zip
+*.7z
+!training/training.7z
+*.exe
+*.onnx
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.wav
+*.mp3
+
+# Manual copy/backup folders
+*복사본*/
+*백업*/
+*버림*/
+* - 복사본*
+* 백업*
+
+# Legacy local UI experiments
+WavQcStudioRemake/
+/src/
+run_ui_only.bat
+run_ui_only.ps1

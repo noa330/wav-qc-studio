@@ -1,0 +1,12 @@
+* text=auto
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.nsi text eol=crlf
+*.nsh text eol=crlf
+*.py text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.css text eol=lf
+*.md text eol=lf

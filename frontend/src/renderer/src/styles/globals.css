@@ -1,0 +1,313 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@font-face {
+  font-family: "Noto Sans KR";
+  src: url("../assets/fonts/NotoSansKR-Regular.ttf") format("truetype");
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Noto Sans KR";
+  src: url("../assets/fonts/NotoSansKR-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+}
+
+@font-face {
+  font-family: "Noto Sans KR";
+  src: url("../assets/fonts/NotoSansKR-Bold.ttf") format("truetype");
+  font-weight: 700;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: 4px;
+  --radius-md: 5px;
+  --radius-lg: 6px;
+  --radius-xl: 7px;
+}
+
+:root {
+  --background: #0f151f;
+  --foreground: #f2f7ff;
+  --card: #131924;
+  --card-foreground: #f2f7ff;
+  --popover: #131924;
+  --popover-foreground: #f2f7ff;
+  --primary: #7954d1;
+  --primary-foreground: #f2f7ff;
+  --secondary: #1c222f;
+  --secondary-foreground: #f2f7ff;
+  --muted: #242a39;
+  --muted-foreground: #89909f;
+  --accent: #392872;
+  --accent-foreground: #f2f7ff;
+  --destructive: #e45961;
+  --border: #19202a;
+  --input: #0d131c;
+  --ring: #7954d1;
+
+  --window-background: #0f151f;
+  --panel-bg: #131924;
+  --field-bg: #0d131c;
+  --shell-chrome-card-bg: #0b111a;
+  --panel-stroke: #19202a;
+  --table-header-bg: #1c222f;
+  --table-row-hover: #252b36;
+  --soft-selection-hover: #252b36;
+  --soft-selection-selected: #392872;
+  --nav-selected-bg: #392872;
+  --slider-rail: #242a39;
+  --accent-blue: #7954d1;
+  --primary-text: #f2f7ff;
+  --secondary-text: #89909f;
+  --icon-brush: #9ca3af;
+  --control-arrow: #f2f7ff;
+  --chip-dot: #73829a;
+  --chip-checked-bg: #304765;
+  --chip-checked-dot: #9bc0ff;
+  --chip-positive-bg: #2b436f;
+  --chip-positive-border: #19202a;
+  --chip-positive-dot: #a9c5ff;
+  --chip-negative-bg: #5a2d34;
+  --chip-negative-border: #19202a;
+  --chip-negative-dot: #ff8c96;
+  --neutral-button: #1b222d;
+  --neutral-button-stroke: #232a35;
+  --purple-start: #833bd3;
+  --purple-end: #582cc0;
+  --startup-widget-bg: #0b111a;
+  --startup-widget-surface: #101625;
+  --startup-widget-stroke: #283145;
+  --startup-widget-shadow: rgba(0, 0, 0, .46);
+  --startup-widget-glow: rgba(121, 84, 209, .32);
+  --startup-widget-highlight: rgba(255, 255, 255, .05);
+  --startup-widget-mask: #000;
+  --startup-widget-wave: #33216f;
+  --startup-widget-step-pending: #4f5870;
+  --waveform-base: #d9ffffff;
+  --waveform-selection-fill: #36276a;
+  --waveform-selected-wave: #846cc3;
+  --waveform-ruler-minor: #19202a;
+  --waveform-ruler-major: #19202a;
+  --waveform-ruler-axis: #19202a;
+  --waveform-ruler-text: #89909f;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    margin: 0;
+    overflow: hidden;
+    font-family: "Noto Sans KR", "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button {
+    color: inherit;
+    transition:
+      transform 120ms ease,
+      filter 120ms ease,
+      background-color 120ms ease,
+      border-color 120ms ease,
+      color 120ms ease;
+    transform-origin: center;
+  }
+
+  button:not(:disabled):active {
+    transform: scale(0.97);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button {
+      transition: none;
+    }
+
+    button:not(:disabled):active {
+      transform: none;
+    }
+  }
+}
+
+@layer utilities {
+  .wpf-card {
+    border: 1px solid var(--panel-stroke);
+    border-radius: 5px;
+    background: var(--panel-bg);
+  }
+
+  .wpf-field {
+    border: 1px solid var(--panel-stroke);
+    border-radius: 5px;
+    background: var(--field-bg);
+  }
+
+  .wpf-button {
+    height: 38px;
+    border: 1px solid var(--neutral-button-stroke);
+    border-radius: 5px;
+    background: var(--table-header-bg);
+    color: var(--primary-text);
+  }
+
+  .wpf-primary-button {
+    height: 38px;
+    border-radius: 5px;
+    background: linear-gradient(90deg, var(--purple-start), var(--purple-end));
+    color: var(--primary-text);
+  }
+
+  .wpf-danger-button {
+    height: 38px;
+    border: 1px solid #c2525f;
+    border-radius: 5px;
+    background: #922e3a;
+    color: var(--primary-text);
+  }
+
+  .wpf-danger-button:hover {
+    background: #a53745;
+  }
+
+  .app-scrollbar,
+  .scroll-window-viewport {
+    overflow-anchor: none;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb, #5a6275) transparent;
+  }
+
+  .workspace-panel-body-content[data-body-layout="fill"] > * {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+  }
+
+
+  .app-scrollbar::-webkit-scrollbar,
+  .scroll-window-viewport::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .app-scrollbar::-webkit-scrollbar-track,
+  .scroll-window-viewport::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .app-scrollbar::-webkit-scrollbar-thumb,
+  .scroll-window-viewport::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: #5a6275;
+    background-clip: content-box;
+  }
+
+  .app-scrollbar::-webkit-scrollbar-button,
+  .scroll-window-viewport::-webkit-scrollbar-button {
+    width: 10px;
+    height: 10px;
+    background: transparent;
+  }
+
+  .scroll-window-spacer {
+    width: 100%;
+  }
+
+  .scroll-window-item {
+    position: absolute;
+    left: 0;
+    right: 0;
+  }
+
+  .workspace-transition-active > .grid .workspace-panel-card {
+    visibility: hidden;
+  }
+
+  .workspace-transition-layer {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    overflow: hidden;
+  }
+
+  .workspace-transition-card {
+    position: absolute;
+    left: 0;
+    top: 0;
+    overflow: hidden;
+    border-radius: 5px;
+    transition-property: transform, width, height, opacity;
+    transition-timing-function: cubic-bezier(.2, .72, .22, 1);
+    will-change: transform, width, height, opacity;
+  }
+
+  .workspace-transition-surface {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .workspace-transition-shell {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    pointer-events: none;
+    user-select: none;
+    transform: none !important;
+  }
+
+  .workspace-transition-shell * {
+    pointer-events: none !important;
+    animation: none !important;
+    transition: none !important;
+    caret-color: transparent;
+  }
+
+  .workspace-transition-shell .sticky {
+    position: static !important;
+  }
+}

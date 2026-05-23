@@ -1,0 +1,4293 @@
+[
+  {
+    "id": 0,
+    "label": "Accelerating, revving, vroom",
+    "translation": "가속, 엔진 공회전, 브룸 소리",
+    "category": "기타 소리",
+    "description": "‘가속’라는 뜻입니다. ‘엔진 회전음’라는 뜻입니다. ‘브룸 엔진음’라는 뜻입니다."
+  },
+  {
+    "id": 1,
+    "label": "Air brake",
+    "translation": "에어 브레이크",
+    "category": "교통/이동수단",
+    "description": "‘에어 브레이크’라는 뜻입니다."
+  },
+  {
+    "id": 2,
+    "label": "Air conditioning",
+    "translation": "에어컨",
+    "category": "기계/도구",
+    "description": "‘에어컨’라는 뜻입니다."
+  },
+  {
+    "id": 3,
+    "label": "Air horn, truck horn",
+    "translation": "공기 경적, 트럭 경적",
+    "category": "교통/이동수단",
+    "description": "‘공기 경적’라는 뜻입니다. ‘트럭 경적’라는 뜻입니다."
+  },
+  {
+    "id": 4,
+    "label": "Aircraft",
+    "translation": "항공기",
+    "category": "교통/이동수단",
+    "description": "‘항공기’라는 뜻입니다."
+  },
+  {
+    "id": 5,
+    "label": "Aircraft engine",
+    "translation": "항공기 엔진",
+    "category": "교통/이동수단",
+    "description": "‘항공기 엔진’라는 뜻입니다."
+  },
+  {
+    "id": 6,
+    "label": "Alarm",
+    "translation": "경보음",
+    "category": "신호/전자음",
+    "description": "위험이나 시간을 알리기 위해 반복적으로 울리는 경보음입니다."
+  },
+  {
+    "id": 7,
+    "label": "Alarm clock",
+    "translation": "알람 시계",
+    "category": "신호/전자음",
+    "description": "‘알람 시계’라는 뜻입니다."
+  },
+  {
+    "id": 8,
+    "label": "Alert",
+    "translation": "알림음",
+    "category": "신호/전자음",
+    "description": "‘알림음’라는 뜻입니다."
+  },
+  {
+    "id": 9,
+    "label": "Ambulance (siren)",
+    "translation": "구급차 사이렌",
+    "category": "교통/이동수단",
+    "description": "‘구급차’라는 뜻입니다. 괄호 안의 세부 표기는 사이렌이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 10,
+    "label": "Animal",
+    "translation": "동물",
+    "category": "동물",
+    "description": "‘동물’라는 뜻입니다."
+  },
+  {
+    "id": 11,
+    "label": "Applause",
+    "translation": "박수",
+    "category": "기타 소리",
+    "description": "손뼉을 반복해서 치는 박수 소리입니다."
+  },
+  {
+    "id": 12,
+    "label": "Arrow",
+    "translation": "화살 소리",
+    "category": "기타 소리",
+    "description": "‘화살 소리’라는 뜻입니다."
+  },
+  {
+    "id": 13,
+    "label": "Artillery fire",
+    "translation": "포격음",
+    "category": "자연/날씨/물",
+    "description": "‘포격음’라는 뜻입니다."
+  },
+  {
+    "id": 14,
+    "label": "Audio logo",
+    "translation": "오디오 로고",
+    "category": "신호/전자음",
+    "description": "‘오디오 로고’라는 뜻입니다."
+  },
+  {
+    "id": 15,
+    "label": "Babbling",
+    "translation": "옹알이",
+    "category": "사람/음성",
+    "description": "명확한 단어가 되지 않은 옹알이나 중얼거림입니다."
+  },
+  {
+    "id": 16,
+    "label": "Baby cry, infant cry",
+    "translation": "아기 울음, 영아 울음",
+    "category": "사람/음성",
+    "description": "‘아기 울음’라는 뜻입니다. ‘영아 울음’라는 뜻입니다."
+  },
+  {
+    "id": 17,
+    "label": "Baby laughter",
+    "translation": "아기 웃음",
+    "category": "사람/음성",
+    "description": "‘아기 웃음’라는 뜻입니다."
+  },
+  {
+    "id": 18,
+    "label": "Background noise",
+    "translation": "배경 소음",
+    "category": "환경/배경",
+    "description": "‘배경 소음’라는 뜻입니다."
+  },
+  {
+    "id": 19,
+    "label": "Bang",
+    "translation": "쾅 소리",
+    "category": "충격/재질음",
+    "description": "무언가 세게 부딪히거나 폭발하듯 쾅 하고 나는 소리입니다."
+  },
+  {
+    "id": 20,
+    "label": "Bark",
+    "translation": "짖는 소리",
+    "category": "동물",
+    "description": "개가 짧고 강하게 짖는 소리입니다."
+  },
+  {
+    "id": 21,
+    "label": "Basketball bounce",
+    "translation": "농구공 튀는 소리",
+    "category": "기타 소리",
+    "description": "‘농구공 튀는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 22,
+    "label": "Bathroom sounds",
+    "translation": "욕실 소리",
+    "category": "생활/가정",
+    "description": "‘욕실 소리’라는 뜻입니다."
+  },
+  {
+    "id": 23,
+    "label": "Bathtub (filling or washing)",
+    "translation": "욕조에 물 받거나 씻는 소리",
+    "category": "생활/가정",
+    "description": "욕조에 물을 받을 때의 물소리나 욕조 안에서 씻을 때 나는 물 움직임 소리입니다."
+  },
+  {
+    "id": 24,
+    "label": "Battle cry",
+    "translation": "전투 함성",
+    "category": "사람/음성",
+    "description": "‘전투 함성’라는 뜻입니다."
+  },
+  {
+    "id": 25,
+    "label": "Bee, wasp, etc.",
+    "translation": "벌, 말벌 등",
+    "category": "동물",
+    "description": "‘벌’라는 뜻입니다. ‘말벌’라는 뜻입니다. ‘등’라는 뜻입니다."
+  },
+  {
+    "id": 26,
+    "label": "Beep, bleep",
+    "translation": "삐, 블립 소리",
+    "category": "동물",
+    "description": "전자기기가 짧게 삐 하고 내는 신호음입니다. ‘블립음’라는 뜻입니다."
+  },
+  {
+    "id": 27,
+    "label": "Bell",
+    "translation": "종",
+    "category": "음악/악기",
+    "description": "‘종’라는 뜻입니다."
+  },
+  {
+    "id": 28,
+    "label": "Bellow",
+    "translation": "고함",
+    "category": "음악/악기",
+    "description": "‘고함’라는 뜻입니다."
+  },
+  {
+    "id": 29,
+    "label": "Belly laugh",
+    "translation": "배꼽 잡는 웃음",
+    "category": "음악/악기",
+    "description": "‘배꼽 잡는 웃음’라는 뜻입니다."
+  },
+  {
+    "id": 30,
+    "label": "Bicycle bell",
+    "translation": "자전거 벨",
+    "category": "음악/악기",
+    "description": "‘자전거 벨’라는 뜻입니다."
+  },
+  {
+    "id": 31,
+    "label": "Bicycle, tricycle",
+    "translation": "자전거, 세발자전거",
+    "category": "교통/이동수단",
+    "description": "‘자전거’라는 뜻입니다. ‘세발자전거’라는 뜻입니다."
+  },
+  {
+    "id": 32,
+    "label": "Bird",
+    "translation": "새",
+    "category": "동물",
+    "description": "‘새’라는 뜻입니다."
+  },
+  {
+    "id": 33,
+    "label": "Bird flight, flapping wings",
+    "translation": "새 비행, 날개 퍼덕임",
+    "category": "동물",
+    "description": "‘새 날갯짓’라는 뜻입니다. ‘날개 퍼덕임’라는 뜻입니다."
+  },
+  {
+    "id": 34,
+    "label": "Bird vocalization, bird call, bird song",
+    "translation": "새 울음, 새 부름, 새 노래",
+    "category": "동물",
+    "description": "‘새 울음소리’라는 뜻입니다. ‘새 부름’라는 뜻입니다. ‘새 노래’라는 뜻입니다."
+  },
+  {
+    "id": 35,
+    "label": "Biting",
+    "translation": "무는 소리",
+    "category": "기타 소리",
+    "description": "‘무는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 36,
+    "label": "Bleat",
+    "translation": "매애 울음",
+    "category": "동물",
+    "description": "양이나 염소가 매애 하고 우는 소리입니다."
+  },
+  {
+    "id": 37,
+    "label": "Blender, food processor",
+    "translation": "블렌더, 푸드 프로세서",
+    "category": "기타 소리",
+    "description": "‘블렌더’라는 뜻입니다. ‘푸드 프로세서’라는 뜻입니다."
+  },
+  {
+    "id": 38,
+    "label": "Boat, Water vehicle",
+    "translation": "배, 수상 교통수단",
+    "category": "교통/이동수단",
+    "description": "‘배’라는 뜻입니다. ‘수상 교통수단’라는 뜻입니다."
+  },
+  {
+    "id": 39,
+    "label": "Boiling",
+    "translation": "끓는 소리",
+    "category": "자연/날씨/물",
+    "description": "‘끓는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 40,
+    "label": "Boing",
+    "translation": "통 튀는 소리",
+    "category": "기타 소리",
+    "description": "‘통 튀는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 41,
+    "label": "Booing",
+    "translation": "야유",
+    "category": "기타 소리",
+    "description": "불만이나 야유를 나타내는 우우 소리입니다."
+  },
+  {
+    "id": 42,
+    "label": "Boom",
+    "translation": "붐 울림",
+    "category": "충격/재질음",
+    "description": "낮고 크게 울리는 붐 소리입니다."
+  },
+  {
+    "id": 43,
+    "label": "Bouncing",
+    "translation": "튀는 소리",
+    "category": "기타 소리",
+    "description": "‘튀는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 44,
+    "label": "Bow-wow",
+    "translation": "멍멍 소리",
+    "category": "기타 소리",
+    "description": "개가 멍멍 하고 짖는 의성어에 해당하는 소리입니다."
+  },
+  {
+    "id": 45,
+    "label": "Breaking",
+    "translation": "깨지는 소리",
+    "category": "충격/재질음",
+    "description": "‘깨지는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 46,
+    "label": "Breathing",
+    "translation": "숨소리",
+    "category": "사람/음성",
+    "description": "‘숨소리’라는 뜻입니다."
+  },
+  {
+    "id": 47,
+    "label": "Brief tone",
+    "translation": "짧은 신호음",
+    "category": "기타 소리",
+    "description": "‘짧은 신호음’라는 뜻입니다."
+  },
+  {
+    "id": 48,
+    "label": "Burping, eructation",
+    "translation": "트림",
+    "category": "사람/음성",
+    "description": "‘트림’라는 뜻입니다."
+  },
+  {
+    "id": 49,
+    "label": "Burst, pop",
+    "translation": "터짐, 팝 소리",
+    "category": "기타 소리",
+    "description": "‘터짐’라는 뜻입니다. ‘팝 소리’라는 뜻입니다."
+  },
+  {
+    "id": 50,
+    "label": "Bus",
+    "translation": "버스",
+    "category": "교통/이동수단",
+    "description": "‘버스’라는 뜻입니다."
+  },
+  {
+    "id": 51,
+    "label": "Busy signal",
+    "translation": "통화 중 신호",
+    "category": "교통/이동수단",
+    "description": "‘통화 중 신호’라는 뜻입니다."
+  },
+  {
+    "id": 52,
+    "label": "Buzz",
+    "translation": "윙윙거림",
+    "category": "기타 소리",
+    "description": "벌, 전기 장치, 진동 모터처럼 윙윙거리는 소리입니다."
+  },
+  {
+    "id": 53,
+    "label": "Buzzer",
+    "translation": "부저",
+    "category": "신호/전자음",
+    "description": "‘부저’라는 뜻입니다."
+  },
+  {
+    "id": 54,
+    "label": "Cacophony",
+    "translation": "불협화음",
+    "category": "환경/배경",
+    "description": "‘불협화음’라는 뜻입니다."
+  },
+  {
+    "id": 55,
+    "label": "Camera",
+    "translation": "카메라",
+    "category": "신호/전자음",
+    "description": "‘카메라’라는 뜻입니다."
+  },
+  {
+    "id": 56,
+    "label": "Canidae, wild dogs, wolves",
+    "translation": "개과 동물, 들개, 늑대",
+    "category": "동물",
+    "description": "‘개과 동물’라는 뜻입니다. ‘들개’라는 뜻입니다. ‘늑대’라는 뜻입니다."
+  },
+  {
+    "id": 57,
+    "label": "Cap gun",
+    "translation": "장난감 총",
+    "category": "기타 소리",
+    "description": "‘장난감 총’라는 뜻입니다."
+  },
+  {
+    "id": 58,
+    "label": "Car",
+    "translation": "자동차",
+    "category": "교통/이동수단",
+    "description": "‘자동차’라는 뜻입니다."
+  },
+  {
+    "id": 59,
+    "label": "Car alarm",
+    "translation": "자동차 경보기",
+    "category": "교통/이동수단",
+    "description": "‘자동차 경보기’라는 뜻입니다."
+  },
+  {
+    "id": 60,
+    "label": "Car passing by",
+    "translation": "자동차 지나가는 소리",
+    "category": "교통/이동수단",
+    "description": "‘자동차 지나가는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 61,
+    "label": "Carbon monoxide detector, CO detector",
+    "translation": "일산화탄소 감지기, 일산화탄소 감지기",
+    "category": "교통/이동수단",
+    "description": "‘일산화탄소 감지기’라는 뜻입니다. ‘일산화탄소 감지기’라는 뜻입니다."
+  },
+  {
+    "id": 62,
+    "label": "Cart",
+    "translation": "카트",
+    "category": "교통/이동수단",
+    "description": "‘카트’라는 뜻입니다."
+  },
+  {
+    "id": 63,
+    "label": "Cash register",
+    "translation": "금전 등록기",
+    "category": "생활/가정",
+    "description": "‘금전 등록기’라는 뜻입니다."
+  },
+  {
+    "id": 64,
+    "label": "Cat",
+    "translation": "고양이",
+    "category": "동물",
+    "description": "‘고양이’라는 뜻입니다."
+  },
+  {
+    "id": 65,
+    "label": "Caterwaul",
+    "translation": "고양이 울부짖음",
+    "category": "동물",
+    "description": "고양이가 길고 날카롭게 울부짖는 소리입니다."
+  },
+  {
+    "id": 66,
+    "label": "Cattle, bovinae",
+    "translation": "소, 소아과 동물",
+    "category": "동물",
+    "description": "‘소’라는 뜻입니다. ‘소아과 동물’라는 뜻입니다."
+  },
+  {
+    "id": 67,
+    "label": "Caw",
+    "translation": "까악 울음",
+    "category": "동물",
+    "description": "까마귀가 까악 하고 우는 소리입니다."
+  },
+  {
+    "id": 68,
+    "label": "Cellphone buzz, vibrating alert",
+    "translation": "휴대전화 진동음, 진동 알림",
+    "category": "신호/전자음",
+    "description": "‘휴대전화 진동음’라는 뜻입니다. ‘진동 알림’라는 뜻입니다."
+  },
+  {
+    "id": 69,
+    "label": "Chain",
+    "translation": "쇠사슬",
+    "category": "충격/재질음",
+    "description": "‘쇠사슬’라는 뜻입니다."
+  },
+  {
+    "id": 70,
+    "label": "Chainsaw",
+    "translation": "전기톱",
+    "category": "기계/도구",
+    "description": "‘전기톱’라는 뜻입니다."
+  },
+  {
+    "id": 71,
+    "label": "Change ringing (campanology)",
+    "translation": "교회 종 변화 울림",
+    "category": "기타 소리",
+    "description": "변화 울림은 여러 종을 정해진 순서로 바꾸어 치는 종 울림입니다. 괄호 안의 세부 표기는 종 울림 연구나 연주법을 뜻합니다."
+  },
+  {
+    "id": 72,
+    "label": "Channel, environment and background",
+    "translation": "채널, 환경, 배경",
+    "category": "환경/배경",
+    "description": "‘채널’라는 뜻입니다. ‘환경’라는 뜻입니다. ‘배경’라는 뜻입니다."
+  },
+  {
+    "id": 73,
+    "label": "Chant",
+    "translation": "구호",
+    "category": "기타 소리",
+    "description": "‘구호’라는 뜻입니다."
+  },
+  {
+    "id": 74,
+    "label": "Cheering",
+    "translation": "환호",
+    "category": "기타 소리",
+    "description": "응원하거나 기뻐서 크게 환호하는 소리입니다."
+  },
+  {
+    "id": 75,
+    "label": "Chewing, mastication",
+    "translation": "씹는 소리, 저작음",
+    "category": "사람/음성",
+    "description": "‘씹는 소리’라는 뜻입니다. ‘저작음’라는 뜻입니다."
+  },
+  {
+    "id": 76,
+    "label": "Chicken, rooster",
+    "translation": "닭, 수탉",
+    "category": "동물",
+    "description": "‘닭’라는 뜻입니다. ‘수탉’라는 뜻입니다."
+  },
+  {
+    "id": 77,
+    "label": "Child singing",
+    "translation": "어린이 노래",
+    "category": "사람/음성",
+    "description": "‘어린이 노래’라는 뜻입니다."
+  },
+  {
+    "id": 78,
+    "label": "Child speech, kid speaking",
+    "translation": "어린이 말소리, 아이가 말하는 소리",
+    "category": "사람/음성",
+    "description": "‘어린이 말소리’라는 뜻입니다. ‘아이가 말하는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 79,
+    "label": "Children playing",
+    "translation": "아이들 노는 소리",
+    "category": "기타 소리",
+    "description": "‘아이들 노는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 80,
+    "label": "Children shouting",
+    "translation": "아이들 외침",
+    "category": "사람/음성",
+    "description": "‘아이들 외침’라는 뜻입니다."
+  },
+  {
+    "id": 81,
+    "label": "Chime",
+    "translation": "차임",
+    "category": "기타 소리",
+    "description": "‘차임’라는 뜻입니다."
+  },
+  {
+    "id": 82,
+    "label": "Chipmunk",
+    "translation": "다람쥐",
+    "category": "기타 소리",
+    "description": "‘다람쥐’라는 뜻입니다."
+  },
+  {
+    "id": 83,
+    "label": "Chirp tone",
+    "translation": "짹 하는 전자음",
+    "category": "동물",
+    "description": "‘짹 하는 전자음’라는 뜻입니다."
+  },
+  {
+    "id": 84,
+    "label": "Chirp, tweet",
+    "translation": "짹짹, 지저귐",
+    "category": "동물",
+    "description": "‘짹짹’라는 뜻입니다. ‘지저귐’라는 뜻입니다."
+  },
+  {
+    "id": 85,
+    "label": "Choir",
+    "translation": "합창",
+    "category": "사람/음성",
+    "description": "‘합창’라는 뜻입니다."
+  },
+  {
+    "id": 86,
+    "label": "Chop",
+    "translation": "쪼개는 소리",
+    "category": "기타 소리",
+    "description": "‘쪼개는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 87,
+    "label": "Chopping (food)",
+    "translation": "음식 써는 소리",
+    "category": "기타 소리",
+    "description": "‘써는 소리’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 88,
+    "label": "Chorus effect",
+    "translation": "코러스 효과",
+    "category": "기타 소리",
+    "description": "‘코러스 효과’라는 뜻입니다."
+  },
+  {
+    "id": 89,
+    "label": "Chuckle, chortle",
+    "translation": "킬킬 웃음, 껄껄 웃음",
+    "category": "사람/음성",
+    "description": "‘킬킬 웃음’라는 뜻입니다. ‘껄껄 웃음’라는 뜻입니다."
+  },
+  {
+    "id": 90,
+    "label": "Church bell",
+    "translation": "교회 종",
+    "category": "음악/악기",
+    "description": "‘교회 종’라는 뜻입니다."
+  },
+  {
+    "id": 91,
+    "label": "Civil defense siren",
+    "translation": "민방위 사이렌",
+    "category": "신호/전자음",
+    "description": "‘민방위 사이렌’라는 뜻입니다."
+  },
+  {
+    "id": 92,
+    "label": "Clang",
+    "translation": "쨍그랑 소리",
+    "category": "충격/재질음",
+    "description": "금속이 부딪혀 쨍그랑 울리는 소리입니다."
+  },
+  {
+    "id": 93,
+    "label": "Clapping",
+    "translation": "손뼉 소리",
+    "category": "기타 소리",
+    "description": "‘손뼉 소리’라는 뜻입니다."
+  },
+  {
+    "id": 94,
+    "label": "Clatter",
+    "translation": "덜그럭 소리",
+    "category": "충격/재질음",
+    "description": "여러 물건이 덜그럭거리며 부딪히는 소리입니다."
+  },
+  {
+    "id": 95,
+    "label": "Clickety-clack",
+    "translation": "딸깍딸깍 소리",
+    "category": "충격/재질음",
+    "description": "‘딸깍딸깍 소리’라는 뜻입니다."
+  },
+  {
+    "id": 96,
+    "label": "Clicking",
+    "translation": "딸깍 소리",
+    "category": "충격/재질음",
+    "description": "스위치나 마우스처럼 딸깍 하고 반복되는 소리입니다."
+  },
+  {
+    "id": 97,
+    "label": "Clip-clop",
+    "translation": "말발굽 소리",
+    "category": "기타 소리",
+    "description": "‘말발굽 소리’라는 뜻입니다."
+  },
+  {
+    "id": 98,
+    "label": "Clock",
+    "translation": "시계",
+    "category": "신호/전자음",
+    "description": "‘시계’라는 뜻입니다."
+  },
+  {
+    "id": 99,
+    "label": "Cluck",
+    "translation": "꼬꼬댁 소리",
+    "category": "기타 소리",
+    "description": "‘꼬꼬댁 소리’라는 뜻입니다."
+  },
+  {
+    "id": 100,
+    "label": "Clunk",
+    "translation": "쿵 덜컥 소리",
+    "category": "충격/재질음",
+    "description": "무거운 물체가 둔탁하게 쿵 덜컥 하는 소리입니다."
+  },
+  {
+    "id": 101,
+    "label": "Coin (dropping)",
+    "translation": "동전 떨어지는 소리",
+    "category": "충격/재질음",
+    "description": "‘동전’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 102,
+    "label": "Computer keyboard",
+    "translation": "컴퓨터 키보드",
+    "category": "신호/전자음",
+    "description": "‘컴퓨터 키보드’라는 뜻입니다."
+  },
+  {
+    "id": 103,
+    "label": "Conversation",
+    "translation": "대화",
+    "category": "사람/음성",
+    "description": "둘 이상의 사람이 서로 주고받는 말소리입니다."
+  },
+  {
+    "id": 104,
+    "label": "Coo",
+    "translation": "구구 울음",
+    "category": "기타 소리",
+    "description": "비둘기 등이 구구 하고 낮게 우는 소리입니다."
+  },
+  {
+    "id": 105,
+    "label": "Cough",
+    "translation": "기침",
+    "category": "사람/음성",
+    "description": "기침할 때 나는 짧고 강한 호흡 소리입니다."
+  },
+  {
+    "id": 106,
+    "label": "Cowbell",
+    "translation": "카우벨",
+    "category": "음악/악기",
+    "description": "‘카우벨’라는 뜻입니다."
+  },
+  {
+    "id": 107,
+    "label": "Crack",
+    "translation": "갈라지는 소리",
+    "category": "충격/재질음",
+    "description": "딱 갈라지거나 금이 가며 나는 소리입니다."
+  },
+  {
+    "id": 108,
+    "label": "Crackle",
+    "translation": "지직거림",
+    "category": "충격/재질음",
+    "description": "불꽃, 비닐, 전기 잡음처럼 잘게 지직거리는 소리입니다."
+  },
+  {
+    "id": 109,
+    "label": "Creak",
+    "translation": "삐걱거림",
+    "category": "충격/재질음",
+    "description": "문, 나무, 금속이 움직이며 삐걱거리는 소리입니다."
+  },
+  {
+    "id": 110,
+    "label": "Cricket",
+    "translation": "귀뚜라미",
+    "category": "동물",
+    "description": "‘귀뚜라미’라는 뜻입니다."
+  },
+  {
+    "id": 111,
+    "label": "Croak",
+    "translation": "개굴거림",
+    "category": "기타 소리",
+    "description": "개구리나 까마귀처럼 거칠게 개굴거리거나 까악거리는 소리입니다."
+  },
+  {
+    "id": 112,
+    "label": "Crockery breaking and smashing",
+    "translation": "그릇 깨지고 부서지는 소리",
+    "category": "생활/가정",
+    "description": "‘그릇 깨지고 부서지는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 113,
+    "label": "Crow",
+    "translation": "까마귀",
+    "category": "동물",
+    "description": "‘까마귀’라는 뜻입니다."
+  },
+  {
+    "id": 114,
+    "label": "Crowd",
+    "translation": "군중",
+    "category": "동물",
+    "description": "‘군중’라는 뜻입니다."
+  },
+  {
+    "id": 115,
+    "label": "Crowing, cock-a-doodle-doo",
+    "translation": "수탉 꼬끼오 울음",
+    "category": "동물",
+    "description": "‘수탉 꼬끼오 울음’라는 뜻입니다."
+  },
+  {
+    "id": 116,
+    "label": "Crumpling, crinkling",
+    "translation": "구겨짐, 바스락거림",
+    "category": "충격/재질음",
+    "description": "‘구겨짐’라는 뜻입니다. ‘바스락거림’라는 뜻입니다."
+  },
+  {
+    "id": 117,
+    "label": "Crunch",
+    "translation": "바삭 씹히는 소리",
+    "category": "기타 소리",
+    "description": "‘바삭 씹히는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 118,
+    "label": "Crushing",
+    "translation": "으깨는 소리",
+    "category": "충격/재질음",
+    "description": "‘으깨는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 119,
+    "label": "Crying, sobbing",
+    "translation": "울음, 흐느낌",
+    "category": "사람/음성",
+    "description": "‘울음’라는 뜻입니다. ‘흐느낌’라는 뜻입니다."
+  },
+  {
+    "id": 120,
+    "label": "Cupboard open or close",
+    "translation": "찬장 여닫는 소리",
+    "category": "생활/가정",
+    "description": "‘찬장 여닫는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 121,
+    "label": "Cutlery, silverware",
+    "translation": "식기류, 은식기",
+    "category": "생활/가정",
+    "description": "‘식기류’라는 뜻입니다. ‘은식기’라는 뜻입니다."
+  },
+  {
+    "id": 122,
+    "label": "Deformable shell",
+    "translation": "변형되는 껍질",
+    "category": "충격/재질음",
+    "description": "‘변형되는 껍질’라는 뜻입니다."
+  },
+  {
+    "id": 123,
+    "label": "Dental drill, dentist's drill",
+    "translation": "치과 드릴, 치과의사 드릴",
+    "category": "기계/도구",
+    "description": "치과 드릴은 치아를 깎거나 치료할 때 고속 회전 드릴에서 나는 날카로운 소리입니다. 치과의사 드릴은 같은 의미의 세부 표기입니다."
+  },
+  {
+    "id": 124,
+    "label": "Dial tone",
+    "translation": "전화 발신음",
+    "category": "신호/전자음",
+    "description": "‘전화 발신음’라는 뜻입니다."
+  },
+  {
+    "id": 125,
+    "label": "Digestive",
+    "translation": "소화기관 소리",
+    "category": "기타 소리",
+    "description": "‘소화기관 소리’라는 뜻입니다."
+  },
+  {
+    "id": 126,
+    "label": "Ding",
+    "translation": "딩 소리",
+    "category": "기타 소리",
+    "description": "작은 종이나 알림이 딩 하고 울리는 소리입니다."
+  },
+  {
+    "id": 127,
+    "label": "Ding-dong",
+    "translation": "딩동 소리",
+    "category": "기타 소리",
+    "description": "초인종이나 종이 딩동 하고 두 음으로 울리는 소리입니다."
+  },
+  {
+    "id": 128,
+    "label": "Dishes, pots, and pans",
+    "translation": "접시, 냄비, 팬",
+    "category": "생활/가정",
+    "description": "‘접시’라는 뜻입니다. ‘냄비’라는 뜻입니다. ‘팬’라는 뜻입니다."
+  },
+  {
+    "id": 129,
+    "label": "Distortion",
+    "translation": "왜곡음",
+    "category": "기타 소리",
+    "description": "‘왜곡음’라는 뜻입니다."
+  },
+  {
+    "id": 130,
+    "label": "Dog",
+    "translation": "개",
+    "category": "동물",
+    "description": "‘개’라는 뜻입니다."
+  },
+  {
+    "id": 131,
+    "label": "Domestic animals, pets",
+    "translation": "가축, 반려동물",
+    "category": "동물",
+    "description": "‘가축’라는 뜻입니다. ‘반려동물’라는 뜻입니다."
+  },
+  {
+    "id": 132,
+    "label": "Dong, bong",
+    "translation": "동, 봉 울림",
+    "category": "기타 소리",
+    "description": "‘동’라는 뜻입니다. ‘봉 울림’라는 뜻입니다."
+  },
+  {
+    "id": 133,
+    "label": "Donkey, ass",
+    "translation": "당나귀",
+    "category": "동물",
+    "description": "‘당나귀’라는 뜻입니다. ‘당나귀’라는 뜻입니다."
+  },
+  {
+    "id": 134,
+    "label": "Door",
+    "translation": "문",
+    "category": "생활/가정",
+    "description": "‘문’라는 뜻입니다."
+  },
+  {
+    "id": 135,
+    "label": "Doorbell",
+    "translation": "초인종",
+    "category": "음악/악기",
+    "description": "‘초인종’라는 뜻입니다."
+  },
+  {
+    "id": 136,
+    "label": "Drawer open or close",
+    "translation": "서랍 여닫는 소리",
+    "category": "생활/가정",
+    "description": "‘서랍 여닫는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 137,
+    "label": "Drill",
+    "translation": "드릴",
+    "category": "기계/도구",
+    "description": "‘드릴’라는 뜻입니다."
+  },
+  {
+    "id": 138,
+    "label": "Drip",
+    "translation": "물방울 떨어지는 소리",
+    "category": "자연/날씨/물",
+    "description": "‘물방울 떨어지는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 139,
+    "label": "Duck call (hunting tool)",
+    "translation": "사냥용 오리 부름 피리",
+    "category": "동물",
+    "description": "‘오리 부름 피리’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 140,
+    "label": "Ducks, geese, waterfowl",
+    "translation": "오리, 거위, 물새",
+    "category": "동물",
+    "description": "‘오리’라는 뜻입니다. ‘거위’라는 뜻입니다. ‘물새’라는 뜻입니다."
+  },
+  {
+    "id": 141,
+    "label": "Echo",
+    "translation": "메아리",
+    "category": "환경/배경",
+    "description": "‘메아리’라는 뜻입니다."
+  },
+  {
+    "id": 142,
+    "label": "Effects unit",
+    "translation": "이펙터",
+    "category": "기타 소리",
+    "description": "‘이펙터’라는 뜻입니다."
+  },
+  {
+    "id": 143,
+    "label": "Electric rotor drone, quadcopter",
+    "translation": "전동 로터 드론, 쿼드콥터",
+    "category": "교통/이동수단",
+    "description": "‘전동 로터 드론’라는 뜻입니다. ‘쿼드콥터’라는 뜻입니다."
+  },
+  {
+    "id": 144,
+    "label": "Electric shaver, electric razor",
+    "translation": "전기면도기",
+    "category": "생활/가정",
+    "description": "‘전기면도기’라는 뜻입니다."
+  },
+  {
+    "id": 145,
+    "label": "Electric toothbrush",
+    "translation": "전동 칫솔",
+    "category": "생활/가정",
+    "description": "‘전동 칫솔’라는 뜻입니다."
+  },
+  {
+    "id": 146,
+    "label": "Electronic tuner",
+    "translation": "전자 튜너",
+    "category": "신호/전자음",
+    "description": "‘전자 튜너’라는 뜻입니다."
+  },
+  {
+    "id": 147,
+    "label": "Emergency vehicle",
+    "translation": "긴급 차량",
+    "category": "교통/이동수단",
+    "description": "‘긴급 차량’라는 뜻입니다."
+  },
+  {
+    "id": 148,
+    "label": "Engine",
+    "translation": "엔진",
+    "category": "교통/이동수단",
+    "description": "‘엔진’라는 뜻입니다."
+  },
+  {
+    "id": 149,
+    "label": "Engine knocking",
+    "translation": "엔진 노킹",
+    "category": "교통/이동수단",
+    "description": "‘엔진 노킹’라는 뜻입니다."
+  },
+  {
+    "id": 150,
+    "label": "Engine starting",
+    "translation": "엔진 시동",
+    "category": "교통/이동수단",
+    "description": "‘엔진 시동’라는 뜻입니다."
+  },
+  {
+    "id": 151,
+    "label": "Environmental noise",
+    "translation": "환경 소음",
+    "category": "환경/배경",
+    "description": "‘환경 소음’라는 뜻입니다."
+  },
+  {
+    "id": 152,
+    "label": "Error signal",
+    "translation": "오류 신호음",
+    "category": "기타 소리",
+    "description": "‘오류 신호음’라는 뜻입니다."
+  },
+  {
+    "id": 153,
+    "label": "Eruption",
+    "translation": "분출음",
+    "category": "자연/날씨/물",
+    "description": "‘분출음’라는 뜻입니다."
+  },
+  {
+    "id": 154,
+    "label": "Explosion",
+    "translation": "폭발음",
+    "category": "자연/날씨/물",
+    "description": "‘폭발음’라는 뜻입니다."
+  },
+  {
+    "id": 155,
+    "label": "Fart",
+    "translation": "방귀",
+    "category": "사람/음성",
+    "description": "방귀처럼 장내 가스가 배출될 때 나는 소리입니다."
+  },
+  {
+    "id": 156,
+    "label": "Female singing",
+    "translation": "여성 노래",
+    "category": "사람/음성",
+    "description": "‘여성 노래’라는 뜻입니다."
+  },
+  {
+    "id": 157,
+    "label": "Female speech, woman speaking",
+    "translation": "여성 말소리, 여자가 말하는 소리",
+    "category": "사람/음성",
+    "description": "‘여성 말소리’라는 뜻입니다. ‘여자가 말하는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 158,
+    "label": "Filing (rasp)",
+    "translation": "줄질 소리",
+    "category": "기계/도구",
+    "description": "‘줄질’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 159,
+    "label": "Fill (with liquid)",
+    "translation": "액체를 채우는 소리",
+    "category": "자연/날씨/물",
+    "description": "‘채우는 소리’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 160,
+    "label": "Finger snapping",
+    "translation": "손가락 튕기는 소리",
+    "category": "충격/재질음",
+    "description": "‘손가락 튕기는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 161,
+    "label": "Fire",
+    "translation": "불",
+    "category": "자연/날씨/물",
+    "description": "‘불’라는 뜻입니다."
+  },
+  {
+    "id": 162,
+    "label": "Fire alarm",
+    "translation": "화재 경보기",
+    "category": "신호/전자음",
+    "description": "‘화재 경보기’라는 뜻입니다."
+  },
+  {
+    "id": 163,
+    "label": "Fire engine, fire truck (siren)",
+    "translation": "소방차 사이렌",
+    "category": "교통/이동수단",
+    "description": "‘소방차’라는 뜻입니다. 괄호 안의 세부 표기는 사이렌이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 164,
+    "label": "Firecracker",
+    "translation": "폭죽",
+    "category": "자연/날씨/물",
+    "description": "‘폭죽’라는 뜻입니다."
+  },
+  {
+    "id": 165,
+    "label": "Fireworks",
+    "translation": "불꽃놀이",
+    "category": "자연/날씨/물",
+    "description": "‘불꽃놀이’라는 뜻입니다."
+  },
+  {
+    "id": 166,
+    "label": "Fixed-wing aircraft, airplane",
+    "translation": "고정익 항공기, 비행기",
+    "category": "교통/이동수단",
+    "description": "‘고정익 항공기’라는 뜻입니다. ‘비행기’라는 뜻입니다."
+  },
+  {
+    "id": 167,
+    "label": "Fizz",
+    "translation": "보글보글 탄산음",
+    "category": "자연/날씨/물",
+    "description": "탄산이나 거품이 보글보글 올라오는 소리입니다."
+  },
+  {
+    "id": 168,
+    "label": "Flap",
+    "translation": "퍼덕임",
+    "category": "기타 소리",
+    "description": "‘퍼덕임’라는 뜻입니다."
+  },
+  {
+    "id": 169,
+    "label": "Fly, housefly",
+    "translation": "파리, 집파리",
+    "category": "동물",
+    "description": "‘파리’라는 뜻입니다. ‘집파리’라는 뜻입니다."
+  },
+  {
+    "id": 170,
+    "label": "Foghorn",
+    "translation": "안개 경적",
+    "category": "교통/이동수단",
+    "description": "‘안개 경적’라는 뜻입니다."
+  },
+  {
+    "id": 171,
+    "label": "Fowl",
+    "translation": "가금류",
+    "category": "동물",
+    "description": "‘가금류’라는 뜻입니다."
+  },
+  {
+    "id": 172,
+    "label": "Frog",
+    "translation": "개구리",
+    "category": "동물",
+    "description": "‘개구리’라는 뜻입니다."
+  },
+  {
+    "id": 173,
+    "label": "Frying (food)",
+    "translation": "음식 튀기는 소리",
+    "category": "자연/날씨/물",
+    "description": "‘튀기는 소리’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 174,
+    "label": "Fusillade",
+    "translation": "연속 사격음",
+    "category": "기타 소리",
+    "description": "‘연속 사격음’라는 뜻입니다."
+  },
+  {
+    "id": 175,
+    "label": "Gargling",
+    "translation": "가글 소리",
+    "category": "기타 소리",
+    "description": "입안이나 목에서 물을 굴리며 가글할 때 나는 소리입니다."
+  },
+  {
+    "id": 176,
+    "label": "Gasp",
+    "translation": "헉 하는 숨소리",
+    "category": "사람/음성",
+    "description": "놀라거나 숨이 차서 헉 하고 들이마시는 소리입니다."
+  },
+  {
+    "id": 177,
+    "label": "Gears",
+    "translation": "기어",
+    "category": "기계/도구",
+    "description": "‘기어’라는 뜻입니다."
+  },
+  {
+    "id": 178,
+    "label": "Generic impact sounds",
+    "translation": "일반 충격음",
+    "category": "기타 소리",
+    "description": "‘일반 충격음’라는 뜻입니다."
+  },
+  {
+    "id": 179,
+    "label": "Giggle",
+    "translation": "킥킥 웃음",
+    "category": "사람/음성",
+    "description": "작고 가볍게 킥킥 웃는 소리입니다."
+  },
+  {
+    "id": 180,
+    "label": "Glass",
+    "translation": "유리",
+    "category": "충격/재질음",
+    "description": "‘유리’라는 뜻입니다."
+  },
+  {
+    "id": 181,
+    "label": "Glass chink, clink",
+    "translation": "유리 짤랑, 딸깍 소리",
+    "category": "충격/재질음",
+    "description": "‘유리 짤랑’라는 뜻입니다. ‘딸깍 소리’라는 뜻입니다."
+  },
+  {
+    "id": 182,
+    "label": "Glass shatter",
+    "translation": "유리 깨짐",
+    "category": "충격/재질음",
+    "description": "‘유리 깨짐’라는 뜻입니다."
+  },
+  {
+    "id": 183,
+    "label": "Goat",
+    "translation": "염소",
+    "category": "동물",
+    "description": "‘염소’라는 뜻입니다."
+  },
+  {
+    "id": 184,
+    "label": "Gobble",
+    "translation": "칠면조 꺽꺽 울음",
+    "category": "동물",
+    "description": "칠면조가 꺽꺽거리듯 내는 울음소리입니다."
+  },
+  {
+    "id": 185,
+    "label": "Grind",
+    "translation": "갈리는 소리",
+    "category": "기타 소리",
+    "description": "‘갈리는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 186,
+    "label": "Groan",
+    "translation": "신음",
+    "category": "기타 소리",
+    "description": "‘신음’라는 뜻입니다."
+  },
+  {
+    "id": 187,
+    "label": "Growling",
+    "translation": "으르렁거림",
+    "category": "동물",
+    "description": "동물이나 사람이 낮게 으르렁거리는 소리입니다."
+  },
+  {
+    "id": 188,
+    "label": "Grunt",
+    "translation": "끙끙거림",
+    "category": "기타 소리",
+    "description": "‘끙끙거림’라는 뜻입니다."
+  },
+  {
+    "id": 189,
+    "label": "Gull, seagull",
+    "translation": "갈매기",
+    "category": "기타 소리",
+    "description": "‘갈매기’라는 뜻입니다. ‘갈매기’라는 뜻입니다."
+  },
+  {
+    "id": 190,
+    "label": "Gunshot, gunfire",
+    "translation": "총성, 총격음",
+    "category": "자연/날씨/물",
+    "description": "‘총성’라는 뜻입니다. ‘총격음’라는 뜻입니다."
+  },
+  {
+    "id": 191,
+    "label": "Gurgling, bubbling",
+    "translation": "꾸르륵거림, 거품 소리",
+    "category": "기타 소리",
+    "description": "액체나 배 속에서 꾸르륵거리는 소리입니다. ‘거품 소리’라는 뜻입니다."
+  },
+  {
+    "id": 192,
+    "label": "Gush",
+    "translation": "콸콸 흐르는 소리",
+    "category": "자연/날씨/물",
+    "description": "‘콸콸 흐르는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 193,
+    "label": "Hair dryer",
+    "translation": "헤어드라이어",
+    "category": "생활/가정",
+    "description": "‘헤어드라이어’라는 뜻입니다."
+  },
+  {
+    "id": 194,
+    "label": "Hammer",
+    "translation": "망치",
+    "category": "기계/도구",
+    "description": "‘망치’라는 뜻입니다."
+  },
+  {
+    "id": 195,
+    "label": "Hands",
+    "translation": "손 소리",
+    "category": "기타 소리",
+    "description": "‘손 소리’라는 뜻입니다."
+  },
+  {
+    "id": 196,
+    "label": "Heart sounds, heartbeat",
+    "translation": "심장 소리, 심장 박동",
+    "category": "기타 소리",
+    "description": "‘심장 소리’라는 뜻입니다. ‘심장 박동’라는 뜻입니다."
+  },
+  {
+    "id": 197,
+    "label": "Heavy engine (low frequency)",
+    "translation": "저주파 대형 엔진음",
+    "category": "교통/이동수단",
+    "description": "‘무거운 엔진음’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 198,
+    "label": "Helicopter",
+    "translation": "헬리콥터",
+    "category": "교통/이동수단",
+    "description": "‘헬리콥터’라는 뜻입니다."
+  },
+  {
+    "id": 199,
+    "label": "Hiccup",
+    "translation": "딸꾹질",
+    "category": "사람/음성",
+    "description": "횡격막 수축으로 딸꾹 하고 나는 소리입니다."
+  },
+  {
+    "id": 200,
+    "label": "Hiss",
+    "translation": "쉭 소리",
+    "category": "기타 소리",
+    "description": "증기, 바람, 뱀처럼 쉭 하고 새는 소리입니다."
+  },
+  {
+    "id": 201,
+    "label": "Honk",
+    "translation": "빵 경적",
+    "category": "기타 소리",
+    "description": "‘빵 경적’라는 뜻입니다."
+  },
+  {
+    "id": 202,
+    "label": "Hoot",
+    "translation": "후우 울음",
+    "category": "기타 소리",
+    "description": "올빼미가 후우 하고 우는 소리입니다."
+  },
+  {
+    "id": 203,
+    "label": "Horse",
+    "translation": "말",
+    "category": "동물",
+    "description": "‘말’라는 뜻입니다."
+  },
+  {
+    "id": 204,
+    "label": "Howl",
+    "translation": "울부짖음",
+    "category": "동물",
+    "description": "개, 늑대, 바람 등이 길게 울부짖는 소리입니다."
+  },
+  {
+    "id": 205,
+    "label": "Howl (wind)",
+    "translation": "바람 울부짖는 소리",
+    "category": "동물",
+    "description": "개, 늑대, 바람 등이 길게 울부짖는 소리입니다. 괄호 안의 세부 표기는 바람이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 206,
+    "label": "Hubbub, speech noise, speech babble",
+    "translation": "웅성거림, 말소리 잡음, 말소리 웅얼거림",
+    "category": "사람/음성",
+    "description": "‘웅성거림’라는 뜻입니다. ‘말소리 잡음’라는 뜻입니다. ‘말소리 웅얼거림’라는 뜻입니다."
+  },
+  {
+    "id": 207,
+    "label": "Hum",
+    "translation": "웅웅거림",
+    "category": "기타 소리",
+    "description": "기계나 사람이 낮고 지속적으로 웅웅거리는 소리입니다."
+  },
+  {
+    "id": 208,
+    "label": "Human group actions",
+    "translation": "사람 집단 행동 소리",
+    "category": "사람/음성",
+    "description": "‘사람 집단 행동 소리’라는 뜻입니다."
+  },
+  {
+    "id": 209,
+    "label": "Human locomotion",
+    "translation": "사람 이동 소리",
+    "category": "사람/음성",
+    "description": "‘사람 이동 소리’라는 뜻입니다."
+  },
+  {
+    "id": 210,
+    "label": "Human sounds",
+    "translation": "사람 소리",
+    "category": "사람/음성",
+    "description": "‘사람 소리’라는 뜻입니다."
+  },
+  {
+    "id": 211,
+    "label": "Human voice",
+    "translation": "사람 목소리",
+    "category": "사람/음성",
+    "description": "‘사람 목소리’라는 뜻입니다."
+  },
+  {
+    "id": 212,
+    "label": "Humming",
+    "translation": "허밍",
+    "category": "사람/음성",
+    "description": "입을 다물거나 낮게 음을 이어 내는 허밍 소리입니다."
+  },
+  {
+    "id": 213,
+    "label": "Ice cream truck, ice cream van",
+    "translation": "아이스크림 트럭, 아이스크림 밴",
+    "category": "교통/이동수단",
+    "description": "‘아이스크림 트럭’라는 뜻입니다. ‘아이스크림 밴’라는 뜻입니다."
+  },
+  {
+    "id": 214,
+    "label": "Idling",
+    "translation": "공회전",
+    "category": "기타 소리",
+    "description": "‘공회전’라는 뜻입니다."
+  },
+  {
+    "id": 215,
+    "label": "Insect",
+    "translation": "곤충",
+    "category": "동물",
+    "description": "‘곤충’라는 뜻입니다."
+  },
+  {
+    "id": 216,
+    "label": "Inside, large room or hall",
+    "translation": "실내, 큰 방 또는 홀",
+    "category": "환경/배경",
+    "description": "‘실내’라는 뜻입니다. ‘큰 방 또는 홀’라는 뜻입니다."
+  },
+  {
+    "id": 217,
+    "label": "Inside, public space",
+    "translation": "실내, 공공장소",
+    "category": "환경/배경",
+    "description": "‘실내’라는 뜻입니다. ‘공공장소’라는 뜻입니다."
+  },
+  {
+    "id": 218,
+    "label": "Inside, small room",
+    "translation": "실내, 작은 방",
+    "category": "환경/배경",
+    "description": "‘실내’라는 뜻입니다. ‘작은 방’라는 뜻입니다."
+  },
+  {
+    "id": 219,
+    "label": "Jackhammer",
+    "translation": "착암기",
+    "category": "기계/도구",
+    "description": "‘착암기’라는 뜻입니다."
+  },
+  {
+    "id": 220,
+    "label": "Jet engine",
+    "translation": "제트 엔진",
+    "category": "교통/이동수단",
+    "description": "‘제트 엔진’라는 뜻입니다."
+  },
+  {
+    "id": 221,
+    "label": "Jingle bell",
+    "translation": "징글벨",
+    "category": "음악/악기",
+    "description": "‘징글벨’라는 뜻입니다."
+  },
+  {
+    "id": 222,
+    "label": "Jingle, tinkle",
+    "translation": "징글, 딸랑임",
+    "category": "기타 소리",
+    "description": "‘징글’라는 뜻입니다. ‘딸랑임’라는 뜻입니다."
+  },
+  {
+    "id": 223,
+    "label": "Kettle whistle",
+    "translation": "주전자 휘파람 소리",
+    "category": "기타 소리",
+    "description": "‘주전자 휘파람 소리’라는 뜻입니다."
+  },
+  {
+    "id": 224,
+    "label": "Keypress tone",
+    "translation": "키 입력음",
+    "category": "신호/전자음",
+    "description": "‘키 입력음’라는 뜻입니다."
+  },
+  {
+    "id": 225,
+    "label": "Keys jangling",
+    "translation": "열쇠 짤랑임",
+    "category": "신호/전자음",
+    "description": "‘열쇠 짤랑임’라는 뜻입니다."
+  },
+  {
+    "id": 226,
+    "label": "Kitchen and dining room sounds",
+    "translation": "부엌과 식당 소리",
+    "category": "생활/가정",
+    "description": "‘부엌과 식당 소리’라는 뜻입니다."
+  },
+  {
+    "id": 227,
+    "label": "Knife",
+    "translation": "칼",
+    "category": "생활/가정",
+    "description": "‘칼’라는 뜻입니다."
+  },
+  {
+    "id": 228,
+    "label": "Knock",
+    "translation": "노크",
+    "category": "충격/재질음",
+    "description": "‘노크’라는 뜻입니다."
+  },
+  {
+    "id": 229,
+    "label": "Laughter",
+    "translation": "웃음",
+    "category": "사람/음성",
+    "description": "웃을 때 나는 사람의 소리입니다."
+  },
+  {
+    "id": 230,
+    "label": "Lawn mower",
+    "translation": "잔디깎이",
+    "category": "생활/가정",
+    "description": "‘잔디깎이’라는 뜻입니다."
+  },
+  {
+    "id": 231,
+    "label": "Light engine (high frequency)",
+    "translation": "고주파 소형 엔진음",
+    "category": "교통/이동수단",
+    "description": "‘가벼운 엔진음’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 232,
+    "label": "Liquid",
+    "translation": "액체",
+    "category": "자연/날씨/물",
+    "description": "‘액체’라는 뜻입니다."
+  },
+  {
+    "id": 233,
+    "label": "Livestock, farm animals, working animals",
+    "translation": "가축, 농장 동물, 일하는 동물",
+    "category": "동물",
+    "description": "‘가축’라는 뜻입니다. ‘농장 동물’라는 뜻입니다. ‘일하는 동물’라는 뜻입니다."
+  },
+  {
+    "id": 234,
+    "label": "Lock",
+    "translation": "자물쇠",
+    "category": "기타 소리",
+    "description": "‘자물쇠’라는 뜻입니다."
+  },
+  {
+    "id": 235,
+    "label": "Machine gun",
+    "translation": "기관총",
+    "category": "기계/도구",
+    "description": "‘기관총’라는 뜻입니다."
+  },
+  {
+    "id": 236,
+    "label": "Mains hum",
+    "translation": "전원 험",
+    "category": "기계/도구",
+    "description": "‘전원 험’라는 뜻입니다."
+  },
+  {
+    "id": 237,
+    "label": "Male singing",
+    "translation": "남성 노래",
+    "category": "사람/음성",
+    "description": "‘남성 노래’라는 뜻입니다."
+  },
+  {
+    "id": 238,
+    "label": "Male speech, man speaking",
+    "translation": "남성 말소리, 남자가 말하는 소리",
+    "category": "사람/음성",
+    "description": "‘남성 말소리’라는 뜻입니다. ‘남자가 말하는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 239,
+    "label": "Mantra",
+    "translation": "만트라",
+    "category": "기타 소리",
+    "description": "‘만트라’라는 뜻입니다."
+  },
+  {
+    "id": 240,
+    "label": "Mechanical bell",
+    "translation": "기계식 종",
+    "category": "음악/악기",
+    "description": "‘기계식 종’라는 뜻입니다."
+  },
+  {
+    "id": 241,
+    "label": "Mechanical fan",
+    "translation": "기계식 선풍기",
+    "category": "기계/도구",
+    "description": "‘기계식 선풍기’라는 뜻입니다."
+  },
+  {
+    "id": 242,
+    "label": "Mechanisms",
+    "translation": "기계 장치",
+    "category": "기계/도구",
+    "description": "‘기계 장치’라는 뜻입니다."
+  },
+  {
+    "id": 243,
+    "label": "Medium engine (mid frequency)",
+    "translation": "중주파 중형 엔진음",
+    "category": "교통/이동수단",
+    "description": "‘중간 엔진음’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 244,
+    "label": "Meow",
+    "translation": "야옹 울음",
+    "category": "동물",
+    "description": "고양이가 야옹 하고 우는 소리입니다."
+  },
+  {
+    "id": 245,
+    "label": "Microphone",
+    "translation": "마이크",
+    "category": "신호/전자음",
+    "description": "‘마이크’라는 뜻입니다."
+  },
+  {
+    "id": 246,
+    "label": "Microwave oven",
+    "translation": "전자레인지",
+    "category": "동물",
+    "description": "‘전자레인지’라는 뜻입니다."
+  },
+  {
+    "id": 247,
+    "label": "Moo",
+    "translation": "음메 울음",
+    "category": "동물",
+    "description": "소가 음메 하고 우는 소리입니다."
+  },
+  {
+    "id": 248,
+    "label": "Mosquito",
+    "translation": "모기",
+    "category": "동물",
+    "description": "‘모기’라는 뜻입니다."
+  },
+  {
+    "id": 249,
+    "label": "Motor vehicle (road)",
+    "translation": "도로 자동차류",
+    "category": "교통/이동수단",
+    "description": "‘자동차류’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 250,
+    "label": "Motorboat, speedboat",
+    "translation": "모터보트, 쾌속정",
+    "category": "교통/이동수단",
+    "description": "‘모터보트’라는 뜻입니다. ‘쾌속정’라는 뜻입니다."
+  },
+  {
+    "id": 251,
+    "label": "Motorcycle",
+    "translation": "오토바이",
+    "category": "교통/이동수단",
+    "description": "‘오토바이’라는 뜻입니다."
+  },
+  {
+    "id": 252,
+    "label": "Mouse",
+    "translation": "쥐",
+    "category": "동물",
+    "description": "‘쥐’라는 뜻입니다."
+  },
+  {
+    "id": 253,
+    "label": "Music",
+    "translation": "음악",
+    "category": "음악/악기",
+    "description": "‘음악’라는 뜻입니다."
+  },
+  {
+    "id": 254,
+    "label": "Narration, monologue",
+    "translation": "내레이션, 독백",
+    "category": "사람/음성",
+    "description": "설명이나 이야기를 읽어 주는 말소리입니다. ‘독백’라는 뜻입니다."
+  },
+  {
+    "id": 255,
+    "label": "Neigh, whinny",
+    "translation": "말 울음, 히힝거림",
+    "category": "동물",
+    "description": "‘말 울음’라는 뜻입니다. ‘히힝거림’라는 뜻입니다."
+  },
+  {
+    "id": 256,
+    "label": "Noise",
+    "translation": "소음",
+    "category": "환경/배경",
+    "description": "‘소음’라는 뜻입니다."
+  },
+  {
+    "id": 257,
+    "label": "Non-motorized land vehicle",
+    "translation": "무동력 육상 교통수단",
+    "category": "교통/이동수단",
+    "description": "‘무동력 육상 교통수단’라는 뜻입니다."
+  },
+  {
+    "id": 258,
+    "label": "Ocean",
+    "translation": "바다",
+    "category": "자연/날씨/물",
+    "description": "‘바다’라는 뜻입니다."
+  },
+  {
+    "id": 259,
+    "label": "Oink",
+    "translation": "꿀꿀 울음",
+    "category": "동물",
+    "description": "돼지가 꿀꿀 하고 우는 소리입니다."
+  },
+  {
+    "id": 260,
+    "label": "Other sourceless",
+    "translation": "기타 음원 불명 소리",
+    "category": "환경/배경",
+    "description": "‘기타 음원 불명 소리’라는 뜻입니다."
+  },
+  {
+    "id": 261,
+    "label": "Outside, urban or manmade",
+    "translation": "실외, 도시 또는 인공 환경",
+    "category": "환경/배경",
+    "description": "‘실외’라는 뜻입니다. ‘도시 또는 인공 환경’라는 뜻입니다."
+  },
+  {
+    "id": 262,
+    "label": "Owl",
+    "translation": "올빼미",
+    "category": "동물",
+    "description": "‘올빼미’라는 뜻입니다."
+  },
+  {
+    "id": 263,
+    "label": "Packing tape, duct tape",
+    "translation": "포장 테이프, 덕트 테이프",
+    "category": "충격/재질음",
+    "description": "‘포장 테이프’라는 뜻입니다. ‘덕트 테이프’라는 뜻입니다."
+  },
+  {
+    "id": 264,
+    "label": "Pant",
+    "translation": "헐떡임",
+    "category": "기타 소리",
+    "description": "‘헐떡임’라는 뜻입니다."
+  },
+  {
+    "id": 265,
+    "label": "Pant (dog)",
+    "translation": "개 헐떡임",
+    "category": "동물",
+    "description": "‘헐떡임’라는 뜻입니다. 괄호 안의 세부 표기는 개이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 266,
+    "label": "Paper rustling",
+    "translation": "종이 바스락임",
+    "category": "생활/가정",
+    "description": "‘종이 바스락임’라는 뜻입니다."
+  },
+  {
+    "id": 267,
+    "label": "Patter",
+    "translation": "후두둑 소리",
+    "category": "기타 소리",
+    "description": "‘후두둑 소리’라는 뜻입니다."
+  },
+  {
+    "id": 268,
+    "label": "Pig",
+    "translation": "돼지",
+    "category": "동물",
+    "description": "‘돼지’라는 뜻입니다."
+  },
+  {
+    "id": 269,
+    "label": "Pigeon, dove",
+    "translation": "비둘기",
+    "category": "동물",
+    "description": "‘비둘기’라는 뜻입니다."
+  },
+  {
+    "id": 270,
+    "label": "Ping",
+    "translation": "핑 소리",
+    "category": "기타 소리",
+    "description": "‘핑 소리’라는 뜻입니다."
+  },
+  {
+    "id": 271,
+    "label": "Plop",
+    "translation": "퐁당 소리",
+    "category": "기타 소리",
+    "description": "‘퐁당 소리’라는 뜻입니다."
+  },
+  {
+    "id": 272,
+    "label": "Police car (siren)",
+    "translation": "경찰차 사이렌",
+    "category": "교통/이동수단",
+    "description": "‘경찰차’라는 뜻입니다. 괄호 안의 세부 표기는 사이렌이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 273,
+    "label": "Pour",
+    "translation": "따르는 소리",
+    "category": "자연/날씨/물",
+    "description": "‘따르는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 274,
+    "label": "Power saw, circular saw, table saw",
+    "translation": "전동 톱, 원형 톱, 테이블 톱",
+    "category": "기계/도구",
+    "description": "‘전동 톱’라는 뜻입니다. ‘원형 톱’라는 뜻입니다. ‘테이블 톱’라는 뜻입니다."
+  },
+  {
+    "id": 275,
+    "label": "Power tool",
+    "translation": "전동 공구",
+    "category": "기계/도구",
+    "description": "‘전동 공구’라는 뜻입니다."
+  },
+  {
+    "id": 276,
+    "label": "Power windows, electric windows",
+    "translation": "전동 창문",
+    "category": "기계/도구",
+    "description": "‘전동 창문’라는 뜻입니다."
+  },
+  {
+    "id": 277,
+    "label": "Printer",
+    "translation": "프린터",
+    "category": "신호/전자음",
+    "description": "‘프린터’라는 뜻입니다."
+  },
+  {
+    "id": 278,
+    "label": "Propeller, airscrew",
+    "translation": "프로펠러",
+    "category": "교통/이동수단",
+    "description": "‘프로펠러’라는 뜻입니다."
+  },
+  {
+    "id": 279,
+    "label": "Puff",
+    "translation": "푹 내뿜는 소리",
+    "category": "기타 소리",
+    "description": "‘푹 내뿜는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 280,
+    "label": "Pulleys",
+    "translation": "도르래",
+    "category": "기계/도구",
+    "description": "‘도르래’라는 뜻입니다."
+  },
+  {
+    "id": 281,
+    "label": "Pulse",
+    "translation": "펄스음",
+    "category": "신호/전자음",
+    "description": "‘펄스음’라는 뜻입니다."
+  },
+  {
+    "id": 282,
+    "label": "Pump (liquid)",
+    "translation": "액체 펌프",
+    "category": "기계/도구",
+    "description": "‘펌프’라는 뜻입니다. 괄호 안의 세부 표기는 액체이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 283,
+    "label": "Purr",
+    "translation": "그르렁거림",
+    "category": "동물",
+    "description": "고양이가 편안할 때 낮게 그르렁거리는 소리입니다."
+  },
+  {
+    "id": 284,
+    "label": "Quack",
+    "translation": "꽥꽥 울음",
+    "category": "동물",
+    "description": "오리가 꽥꽥 하고 우는 소리입니다."
+  },
+  {
+    "id": 285,
+    "label": "Race car, auto racing",
+    "translation": "경주용 자동차, 자동차 경주",
+    "category": "교통/이동수단",
+    "description": "‘경주용 자동차’라는 뜻입니다. ‘자동차 경주’라는 뜻입니다."
+  },
+  {
+    "id": 286,
+    "label": "Radio",
+    "translation": "라디오",
+    "category": "신호/전자음",
+    "description": "‘라디오’라는 뜻입니다."
+  },
+  {
+    "id": 287,
+    "label": "Rail transport",
+    "translation": "철도 교통",
+    "category": "교통/이동수단",
+    "description": "‘철도 교통’라는 뜻입니다."
+  },
+  {
+    "id": 288,
+    "label": "Railroad car, train wagon",
+    "translation": "철도 차량, 열차 객차",
+    "category": "교통/이동수단",
+    "description": "‘철도 차량’라는 뜻입니다. ‘열차 객차’라는 뜻입니다."
+  },
+  {
+    "id": 289,
+    "label": "Rain",
+    "translation": "비",
+    "category": "자연/날씨/물",
+    "description": "‘비’라는 뜻입니다."
+  },
+  {
+    "id": 290,
+    "label": "Rain on surface",
+    "translation": "표면에 떨어지는 빗소리",
+    "category": "자연/날씨/물",
+    "description": "‘표면에 떨어지는 빗소리’라는 뜻입니다."
+  },
+  {
+    "id": 291,
+    "label": "Raindrop",
+    "translation": "빗방울",
+    "category": "자연/날씨/물",
+    "description": "‘빗방울’라는 뜻입니다."
+  },
+  {
+    "id": 292,
+    "label": "Rapping",
+    "translation": "랩",
+    "category": "기타 소리",
+    "description": "‘랩’라는 뜻입니다."
+  },
+  {
+    "id": 293,
+    "label": "Ratchet, pawl",
+    "translation": "래칫, 멈춤쇠",
+    "category": "기타 소리",
+    "description": "‘래칫’라는 뜻입니다. ‘멈춤쇠’라는 뜻입니다."
+  },
+  {
+    "id": 294,
+    "label": "Rattle",
+    "translation": "덜컥거림",
+    "category": "충격/재질음",
+    "description": "‘덜컥거림’라는 뜻입니다."
+  },
+  {
+    "id": 295,
+    "label": "Refrigerator",
+    "translation": "냉장고",
+    "category": "생활/가정",
+    "description": "‘냉장고’라는 뜻입니다."
+  },
+  {
+    "id": 296,
+    "label": "Respiratory sounds",
+    "translation": "호흡기 소리",
+    "category": "기타 소리",
+    "description": "‘호흡기 소리’라는 뜻입니다."
+  },
+  {
+    "id": 297,
+    "label": "Reverberation",
+    "translation": "잔향",
+    "category": "환경/배경",
+    "description": "‘잔향’라는 뜻입니다."
+  },
+  {
+    "id": 298,
+    "label": "Reversing beeps",
+    "translation": "후진 경고음",
+    "category": "동물",
+    "description": "‘후진 경고음’라는 뜻입니다."
+  },
+  {
+    "id": 299,
+    "label": "Ringing tone, ringback tone",
+    "translation": "벨소리, 통화 연결음",
+    "category": "기타 소리",
+    "description": "‘벨소리’라는 뜻입니다. ‘통화 연결음’라는 뜻입니다."
+  },
+  {
+    "id": 300,
+    "label": "Ringtone",
+    "translation": "휴대전화 벨소리",
+    "category": "신호/전자음",
+    "description": "‘휴대전화 벨소리’라는 뜻입니다."
+  },
+  {
+    "id": 301,
+    "label": "Roar",
+    "translation": "포효",
+    "category": "동물",
+    "description": "사자, 호랑이, 엔진 등이 낮고 크게 포효하듯 내는 소리입니다."
+  },
+  {
+    "id": 302,
+    "label": "Roaring cats (lions, tigers)",
+    "translation": "대형 고양잇과 포효(사자, 호랑이)",
+    "category": "동물",
+    "description": "‘대형 고양잇과 포효’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 303,
+    "label": "Rodents, rats, mice",
+    "translation": "설치류, 쥐",
+    "category": "동물",
+    "description": "‘설치류’라는 뜻입니다. ‘쥐’라는 뜻입니다. ‘생쥐’라는 뜻입니다."
+  },
+  {
+    "id": 304,
+    "label": "Roll",
+    "translation": "구르는 소리",
+    "category": "기타 소리",
+    "description": "‘구르는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 305,
+    "label": "Rowboat, canoe, kayak",
+    "translation": "노 젓는 배, 카누, 카약",
+    "category": "동물",
+    "description": "‘노 젓는 배’라는 뜻입니다. ‘카누’라는 뜻입니다. ‘카약’라는 뜻입니다."
+  },
+  {
+    "id": 306,
+    "label": "Rub",
+    "translation": "문지르는 소리",
+    "category": "충격/재질음",
+    "description": "‘문지르는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 307,
+    "label": "Rumble",
+    "translation": "우르릉거림",
+    "category": "충격/재질음",
+    "description": "‘우르릉거림’라는 뜻입니다."
+  },
+  {
+    "id": 308,
+    "label": "Run",
+    "translation": "달리는 소리",
+    "category": "기타 소리",
+    "description": "‘달리는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 309,
+    "label": "Rustle",
+    "translation": "바스락거림",
+    "category": "충격/재질음",
+    "description": "종이, 천, 잎이 바스락거리는 소리입니다."
+  },
+  {
+    "id": 310,
+    "label": "Sailboat, sailing ship",
+    "translation": "범선, 돛단배",
+    "category": "교통/이동수단",
+    "description": "‘범선’라는 뜻입니다. ‘돛단배’라는 뜻입니다."
+  },
+  {
+    "id": 311,
+    "label": "Sanding",
+    "translation": "사포질",
+    "category": "기계/도구",
+    "description": "‘사포질’라는 뜻입니다."
+  },
+  {
+    "id": 312,
+    "label": "Sawing",
+    "translation": "톱질",
+    "category": "기계/도구",
+    "description": "‘톱질’라는 뜻입니다."
+  },
+  {
+    "id": 313,
+    "label": "Scissors",
+    "translation": "가위",
+    "category": "생활/가정",
+    "description": "‘가위’라는 뜻입니다."
+  },
+  {
+    "id": 314,
+    "label": "Scrape",
+    "translation": "긁는 소리",
+    "category": "충격/재질음",
+    "description": "‘긁는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 315,
+    "label": "Scratch",
+    "translation": "긁힘",
+    "category": "충격/재질음",
+    "description": "‘긁힘’라는 뜻입니다."
+  },
+  {
+    "id": 316,
+    "label": "Screaming",
+    "translation": "비명",
+    "category": "사람/음성",
+    "description": "비명처럼 매우 높고 강하게 지르는 소리입니다."
+  },
+  {
+    "id": 317,
+    "label": "Screech",
+    "translation": "날카로운 끼익 소리",
+    "category": "기타 소리",
+    "description": "‘날카로운 끼익 소리’라는 뜻입니다."
+  },
+  {
+    "id": 318,
+    "label": "Sewing machine",
+    "translation": "재봉틀",
+    "category": "생활/가정",
+    "description": "‘재봉틀’라는 뜻입니다."
+  },
+  {
+    "id": 319,
+    "label": "Sheep",
+    "translation": "양",
+    "category": "동물",
+    "description": "‘양’라는 뜻입니다."
+  },
+  {
+    "id": 320,
+    "label": "Ship",
+    "translation": "선박",
+    "category": "교통/이동수단",
+    "description": "‘선박’라는 뜻입니다."
+  },
+  {
+    "id": 321,
+    "label": "Shout",
+    "translation": "외침",
+    "category": "사람/음성",
+    "description": "큰 목소리로 외치는 소리입니다."
+  },
+  {
+    "id": 322,
+    "label": "Shower",
+    "translation": "샤워",
+    "category": "생활/가정",
+    "description": "‘샤워’라는 뜻입니다."
+  },
+  {
+    "id": 323,
+    "label": "Shuffle",
+    "translation": "질질 끄는 소리",
+    "category": "기타 소리",
+    "description": "‘질질 끄는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 324,
+    "label": "Shuffling cards",
+    "translation": "카드 섞는 소리",
+    "category": "교통/이동수단",
+    "description": "‘카드 섞는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 325,
+    "label": "Sigh",
+    "translation": "한숨",
+    "category": "사람/음성",
+    "description": "한숨처럼 길게 내쉬는 숨소리입니다."
+  },
+  {
+    "id": 326,
+    "label": "Sine wave",
+    "translation": "사인파",
+    "category": "신호/전자음",
+    "description": "‘사인파’라는 뜻입니다."
+  },
+  {
+    "id": 327,
+    "label": "Singing",
+    "translation": "노래",
+    "category": "사람/음성",
+    "description": "멜로디와 음높이를 가지고 목소리로 노래하는 소리입니다."
+  },
+  {
+    "id": 328,
+    "label": "Single-lens reflex camera",
+    "translation": "일안 반사식 카메라",
+    "category": "신호/전자음",
+    "description": "‘일안 반사식 카메라’라는 뜻입니다."
+  },
+  {
+    "id": 329,
+    "label": "Sink (filling or washing)",
+    "translation": "싱크대 물 받거나 씻는 소리",
+    "category": "생활/가정",
+    "description": "‘싱크대’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 330,
+    "label": "Siren",
+    "translation": "사이렌",
+    "category": "신호/전자음",
+    "description": "긴급 차량이나 경보 장치가 길게 오르내리며 내는 사이렌 소리입니다."
+  },
+  {
+    "id": 331,
+    "label": "Sizzle",
+    "translation": "지글거림",
+    "category": "자연/날씨/물",
+    "description": "뜨거운 표면에서 음식이나 물기가 지글거리는 소리입니다."
+  },
+  {
+    "id": 332,
+    "label": "Skateboard",
+    "translation": "스케이트보드",
+    "category": "교통/이동수단",
+    "description": "‘스케이트보드’라는 뜻입니다."
+  },
+  {
+    "id": 333,
+    "label": "Slam",
+    "translation": "쾅 닫히는 소리",
+    "category": "충격/재질음",
+    "description": "‘쾅 닫히는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 334,
+    "label": "Slap, smack",
+    "translation": "찰싹, 딱 때리는 소리",
+    "category": "충격/재질음",
+    "description": "‘찰싹’라는 뜻입니다. ‘딱 때리는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 335,
+    "label": "Sliding door",
+    "translation": "미닫이문",
+    "category": "생활/가정",
+    "description": "‘미닫이문’라는 뜻입니다."
+  },
+  {
+    "id": 336,
+    "label": "Slosh",
+    "translation": "철썩거림",
+    "category": "자연/날씨/물",
+    "description": "액체가 용기 안에서 출렁이는 소리입니다."
+  },
+  {
+    "id": 337,
+    "label": "Slurp, drinking straw",
+    "translation": "후루룩, 빨대 마시는 소리",
+    "category": "기타 소리",
+    "description": "‘후루룩 마시는 소리’라는 뜻입니다. ‘빨대’라는 뜻입니다."
+  },
+  {
+    "id": 338,
+    "label": "Smash, crash",
+    "translation": "박살, 충돌음",
+    "category": "충격/재질음",
+    "description": "‘박살’라는 뜻입니다. ‘충돌음’라는 뜻입니다."
+  },
+  {
+    "id": 339,
+    "label": "Smoke detector, smoke alarm",
+    "translation": "연기 감지기, 화재 경보기",
+    "category": "신호/전자음",
+    "description": "‘연기 감지기’라는 뜻입니다. ‘화재 경보기’라는 뜻입니다."
+  },
+  {
+    "id": 340,
+    "label": "Snake",
+    "translation": "뱀",
+    "category": "동물",
+    "description": "‘뱀’라는 뜻입니다."
+  },
+  {
+    "id": 341,
+    "label": "Snap",
+    "translation": "딱 소리",
+    "category": "충격/재질음",
+    "description": "손가락 튕김이나 얇은 물체가 딱 끊기는 소리입니다."
+  },
+  {
+    "id": 342,
+    "label": "Sneeze",
+    "translation": "재채기",
+    "category": "사람/음성",
+    "description": "재채기할 때 코와 입으로 터져 나오는 소리입니다."
+  },
+  {
+    "id": 343,
+    "label": "Snicker",
+    "translation": "킥킥 웃음",
+    "category": "기타 소리",
+    "description": "‘킥킥 웃음’라는 뜻입니다."
+  },
+  {
+    "id": 344,
+    "label": "Sniff",
+    "translation": "킁킁 냄새 맡는 소리",
+    "category": "기타 소리",
+    "description": "‘킁킁 냄새 맡는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 345,
+    "label": "Snoring",
+    "translation": "코골이",
+    "category": "사람/음성",
+    "description": "잠자는 동안 목이나 코에서 반복적으로 나는 코골이 소리입니다."
+  },
+  {
+    "id": 346,
+    "label": "Snort",
+    "translation": "콧김 소리",
+    "category": "사람/음성",
+    "description": "코로 거칠게 콧김을 내뿜는 소리입니다."
+  },
+  {
+    "id": 347,
+    "label": "Snort (horse)",
+    "translation": "말 콧김 소리",
+    "category": "사람/음성",
+    "description": "코로 거칠게 콧김을 내뿜는 소리입니다. 괄호 안의 세부 표기는 말이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 348,
+    "label": "Sonar",
+    "translation": "소나",
+    "category": "신호/전자음",
+    "description": "‘소나’라는 뜻입니다."
+  },
+  {
+    "id": 349,
+    "label": "Sonic boom",
+    "translation": "소닉붐",
+    "category": "충격/재질음",
+    "description": "‘소닉붐’라는 뜻입니다."
+  },
+  {
+    "id": 350,
+    "label": "Sound effect",
+    "translation": "효과음",
+    "category": "기타 소리",
+    "description": "‘효과음’라는 뜻입니다."
+  },
+  {
+    "id": 351,
+    "label": "Sound equipment",
+    "translation": "음향 장비",
+    "category": "신호/전자음",
+    "description": "‘음향 장비’라는 뜻입니다."
+  },
+  {
+    "id": 352,
+    "label": "Sound reproduction",
+    "translation": "소리 재생",
+    "category": "신호/전자음",
+    "description": "‘소리 재생’라는 뜻입니다."
+  },
+  {
+    "id": 353,
+    "label": "Speech",
+    "translation": "말소리",
+    "category": "사람/음성",
+    "description": "사람이 단어와 문장을 말하는 음성입니다."
+  },
+  {
+    "id": 354,
+    "label": "Speech synthesizer",
+    "translation": "음성 합성기",
+    "category": "사람/음성",
+    "description": "‘음성 합성기’라는 뜻입니다."
+  },
+  {
+    "id": 355,
+    "label": "Splash, splatter",
+    "translation": "첨벙, 튀는 소리",
+    "category": "자연/날씨/물",
+    "description": "‘첨벙’라는 뜻입니다. ‘튀는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 356,
+    "label": "Splinter",
+    "translation": "쪼개지는 파편 소리",
+    "category": "기타 소리",
+    "description": "‘쪼개지는 파편 소리’라는 뜻입니다."
+  },
+  {
+    "id": 357,
+    "label": "Spray",
+    "translation": "분사음",
+    "category": "자연/날씨/물",
+    "description": "‘분사음’라는 뜻입니다."
+  },
+  {
+    "id": 358,
+    "label": "Squawk",
+    "translation": "꽥 울음",
+    "category": "동물",
+    "description": "새가 거칠고 크게 꽥 하고 우는 소리입니다."
+  },
+  {
+    "id": 359,
+    "label": "Squeak",
+    "translation": "삐걱 소리",
+    "category": "기타 소리",
+    "description": "‘삐걱 소리’라는 뜻입니다."
+  },
+  {
+    "id": 360,
+    "label": "Squeal",
+    "translation": "꺅 끼익 소리",
+    "category": "기타 소리",
+    "description": "‘꺅 끼익 소리’라는 뜻입니다."
+  },
+  {
+    "id": 361,
+    "label": "Squish",
+    "translation": "물컹 소리",
+    "category": "기타 소리",
+    "description": "‘물컹 소리’라는 뜻입니다."
+  },
+  {
+    "id": 362,
+    "label": "Stairs",
+    "translation": "계단 소리",
+    "category": "기타 소리",
+    "description": "‘계단 소리’라는 뜻입니다."
+  },
+  {
+    "id": 363,
+    "label": "Static",
+    "translation": "정전기 잡음",
+    "category": "신호/전자음",
+    "description": "‘정전기 잡음’라는 뜻입니다."
+  },
+  {
+    "id": 364,
+    "label": "Steam",
+    "translation": "증기",
+    "category": "자연/날씨/물",
+    "description": "‘증기’라는 뜻입니다."
+  },
+  {
+    "id": 365,
+    "label": "Steam whistle",
+    "translation": "증기 호루라기",
+    "category": "자연/날씨/물",
+    "description": "‘증기 호루라기’라는 뜻입니다."
+  },
+  {
+    "id": 366,
+    "label": "Stir",
+    "translation": "젓는 소리",
+    "category": "기타 소리",
+    "description": "‘젓는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 367,
+    "label": "Stomach rumble",
+    "translation": "배 꼬르륵 소리",
+    "category": "충격/재질음",
+    "description": "배에서 꼬르륵 하고 울리는 소화기관 소리입니다."
+  },
+  {
+    "id": 368,
+    "label": "Stomp, stamp",
+    "translation": "쿵쿵 밟기, 발 구르기",
+    "category": "충격/재질음",
+    "description": "‘쿵쿵 밟는 소리’라는 뜻입니다. ‘발 구르기’라는 뜻입니다."
+  },
+  {
+    "id": 369,
+    "label": "Stream, river",
+    "translation": "개울, 강",
+    "category": "자연/날씨/물",
+    "description": "‘개울’라는 뜻입니다. ‘강’라는 뜻입니다."
+  },
+  {
+    "id": 370,
+    "label": "Subway, metro, underground",
+    "translation": "지하철, 도시철도",
+    "category": "교통/이동수단",
+    "description": "‘지하철’라는 뜻입니다. ‘도시철도’라는 뜻입니다."
+  },
+  {
+    "id": 371,
+    "label": "Surface contact",
+    "translation": "표면 접촉음",
+    "category": "자연/날씨/물",
+    "description": "‘표면 접촉음’라는 뜻입니다."
+  },
+  {
+    "id": 372,
+    "label": "Sweeping",
+    "translation": "비질",
+    "category": "기타 소리",
+    "description": "‘비질’라는 뜻입니다."
+  },
+  {
+    "id": 373,
+    "label": "Synthetic singing",
+    "translation": "합성 노래",
+    "category": "사람/음성",
+    "description": "‘합성 노래’라는 뜻입니다."
+  },
+  {
+    "id": 374,
+    "label": "Tap",
+    "translation": "톡톡 두드림",
+    "category": "충격/재질음",
+    "description": "‘톡톡 두드림’라는 뜻입니다."
+  },
+  {
+    "id": 375,
+    "label": "Tap dance",
+    "translation": "탭댄스",
+    "category": "충격/재질음",
+    "description": "‘탭댄스’라는 뜻입니다."
+  },
+  {
+    "id": 376,
+    "label": "Tape hiss",
+    "translation": "테이프 히스",
+    "category": "충격/재질음",
+    "description": "‘테이프 히스’라는 뜻입니다."
+  },
+  {
+    "id": 377,
+    "label": "Tearing",
+    "translation": "찢는 소리",
+    "category": "기타 소리",
+    "description": "‘찢는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 378,
+    "label": "Telephone",
+    "translation": "전화",
+    "category": "신호/전자음",
+    "description": "‘전화’라는 뜻입니다."
+  },
+  {
+    "id": 379,
+    "label": "Telephone bell ringing",
+    "translation": "전화벨 울림",
+    "category": "음악/악기",
+    "description": "‘전화벨 울림’라는 뜻입니다."
+  },
+  {
+    "id": 380,
+    "label": "Telephone dialing, DTMF",
+    "translation": "전화 다이얼음, 이중톤 다중주파수",
+    "category": "신호/전자음",
+    "description": "‘전화 다이얼음’라는 뜻입니다. ‘이중톤 다중주파수’라는 뜻입니다."
+  },
+  {
+    "id": 381,
+    "label": "Television",
+    "translation": "텔레비전",
+    "category": "신호/전자음",
+    "description": "‘텔레비전’라는 뜻입니다."
+  },
+  {
+    "id": 382,
+    "label": "Throat clearing",
+    "translation": "목 가다듬는 소리",
+    "category": "사람/음성",
+    "description": "목을 가다듬으려고 헛기침처럼 내는 소리입니다."
+  },
+  {
+    "id": 383,
+    "label": "Thump, thud",
+    "translation": "쿵, 둔탁한 소리",
+    "category": "충격/재질음",
+    "description": "‘쿵’라는 뜻입니다. ‘둔탁한 소리’라는 뜻입니다."
+  },
+  {
+    "id": 384,
+    "label": "Thunder",
+    "translation": "천둥",
+    "category": "자연/날씨/물",
+    "description": "‘천둥’라는 뜻입니다."
+  },
+  {
+    "id": 385,
+    "label": "Thunderstorm",
+    "translation": "뇌우",
+    "category": "자연/날씨/물",
+    "description": "‘뇌우’라는 뜻입니다."
+  },
+  {
+    "id": 386,
+    "label": "Thunk",
+    "translation": "툭 둔탁한 소리",
+    "category": "기타 소리",
+    "description": "짧고 둔탁하게 툭 또는 쿵 하고 나는 소리입니다."
+  },
+  {
+    "id": 387,
+    "label": "Tick",
+    "translation": "틱 소리",
+    "category": "기타 소리",
+    "description": "시계나 장치가 짧게 틱 하고 내는 소리입니다."
+  },
+  {
+    "id": 388,
+    "label": "Tick-tock",
+    "translation": "똑딱 소리",
+    "category": "기타 소리",
+    "description": "시계가 똑딱 하고 반복해서 내는 소리입니다."
+  },
+  {
+    "id": 389,
+    "label": "Tire squeal, skidding",
+    "translation": "타이어 끼익 소리, 미끄러짐",
+    "category": "기타 소리",
+    "description": "‘타이어 끼익 소리’라는 뜻입니다. ‘미끄러짐’라는 뜻입니다."
+  },
+  {
+    "id": 390,
+    "label": "Toilet flush",
+    "translation": "변기 물 내리는 소리",
+    "category": "생활/가정",
+    "description": "‘변기 물 내리는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 391,
+    "label": "Tools",
+    "translation": "도구",
+    "category": "기계/도구",
+    "description": "‘도구’라는 뜻입니다."
+  },
+  {
+    "id": 392,
+    "label": "Toothbrush",
+    "translation": "칫솔",
+    "category": "생활/가정",
+    "description": "‘칫솔’라는 뜻입니다."
+  },
+  {
+    "id": 393,
+    "label": "Traffic noise, roadway noise",
+    "translation": "교통 소음, 도로 소음",
+    "category": "교통/이동수단",
+    "description": "‘교통 소음’라는 뜻입니다. ‘도로 소음’라는 뜻입니다."
+  },
+  {
+    "id": 394,
+    "label": "Train",
+    "translation": "기차",
+    "category": "교통/이동수단",
+    "description": "‘기차’라는 뜻입니다."
+  },
+  {
+    "id": 395,
+    "label": "Train horn",
+    "translation": "기차 경적",
+    "category": "교통/이동수단",
+    "description": "‘기차 경적’라는 뜻입니다."
+  },
+  {
+    "id": 396,
+    "label": "Train wheels squealing",
+    "translation": "기차 바퀴 끼익 소리",
+    "category": "교통/이동수단",
+    "description": "‘기차 바퀴 끼익 소리’라는 뜻입니다."
+  },
+  {
+    "id": 397,
+    "label": "Train whistle",
+    "translation": "기차 호루라기",
+    "category": "교통/이동수단",
+    "description": "‘기차 호루라기’라는 뜻입니다."
+  },
+  {
+    "id": 398,
+    "label": "Trickle, dribble",
+    "translation": "졸졸, 똑똑 흐르는 소리",
+    "category": "자연/날씨/물",
+    "description": "‘졸졸 흐르는 소리’라는 뜻입니다. ‘똑똑 흐르는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 399,
+    "label": "Truck",
+    "translation": "트럭",
+    "category": "교통/이동수단",
+    "description": "‘트럭’라는 뜻입니다."
+  },
+  {
+    "id": 400,
+    "label": "Tuning fork",
+    "translation": "소리굽쇠",
+    "category": "음악/악기",
+    "description": "‘소리굽쇠’라는 뜻입니다."
+  },
+  {
+    "id": 401,
+    "label": "Turkey",
+    "translation": "칠면조",
+    "category": "동물",
+    "description": "‘칠면조’라는 뜻입니다."
+  },
+  {
+    "id": 402,
+    "label": "Typewriter",
+    "translation": "타자기",
+    "category": "생활/가정",
+    "description": "‘타자기’라는 뜻입니다."
+  },
+  {
+    "id": 403,
+    "label": "Typing",
+    "translation": "타자 입력 소리",
+    "category": "기타 소리",
+    "description": "‘타자 입력 소리’라는 뜻입니다."
+  },
+  {
+    "id": 404,
+    "label": "Unknown sound",
+    "translation": "알 수 없는 소리",
+    "category": "환경/배경",
+    "description": "‘알 수 없는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 405,
+    "label": "Vacuum cleaner",
+    "translation": "진공청소기",
+    "category": "생활/가정",
+    "description": "‘진공청소기’라는 뜻입니다."
+  },
+  {
+    "id": 406,
+    "label": "Vehicle",
+    "translation": "차량",
+    "category": "교통/이동수단",
+    "description": "‘차량’라는 뜻입니다."
+  },
+  {
+    "id": 407,
+    "label": "Vehicle horn, car horn, honking, toot",
+    "translation": "차량 경적, 자동차 경적, 빵 소리, 짧은 경적",
+    "category": "교통/이동수단",
+    "description": "‘차량 경적’라는 뜻입니다. ‘자동차 경적’라는 뜻입니다. ‘빵 하는 경적 소리’라는 뜻입니다. ‘짧은 경적’라는 뜻입니다."
+  },
+  {
+    "id": 408,
+    "label": "Velcro, hook and loop fastener",
+    "translation": "찍찍이, 후크 앤 루프 잠금장치",
+    "category": "생활/가정",
+    "description": "‘찍찍이’라는 뜻입니다. ‘후크 앤 루프 잠금장치’라는 뜻입니다."
+  },
+  {
+    "id": 409,
+    "label": "Video game sound",
+    "translation": "비디오 게임 소리",
+    "category": "신호/전자음",
+    "description": "‘비디오 게임 소리’라는 뜻입니다."
+  },
+  {
+    "id": 410,
+    "label": "Wail, moan",
+    "translation": "통곡, 신음",
+    "category": "사람/음성",
+    "description": "‘통곡’라는 뜻입니다. ‘신음’라는 뜻입니다."
+  },
+  {
+    "id": 411,
+    "label": "Walk, footsteps",
+    "translation": "걷는 소리, 발걸음",
+    "category": "기타 소리",
+    "description": "‘걷는 소리’라는 뜻입니다. ‘발걸음’라는 뜻입니다."
+  },
+  {
+    "id": 412,
+    "label": "Washing machine",
+    "translation": "세탁기",
+    "category": "생활/가정",
+    "description": "‘세탁기’라는 뜻입니다."
+  },
+  {
+    "id": 413,
+    "label": "Water",
+    "translation": "물",
+    "category": "자연/날씨/물",
+    "description": "‘물’라는 뜻입니다."
+  },
+  {
+    "id": 414,
+    "label": "Water tap, faucet",
+    "translation": "수도꼭지",
+    "category": "자연/날씨/물",
+    "description": "‘수도꼭지’라는 뜻입니다. ‘수도꼭지’라는 뜻입니다."
+  },
+  {
+    "id": 415,
+    "label": "Waterfall",
+    "translation": "폭포",
+    "category": "자연/날씨/물",
+    "description": "‘폭포’라는 뜻입니다."
+  },
+  {
+    "id": 416,
+    "label": "Waves, surf",
+    "translation": "파도, 해변 파도",
+    "category": "자연/날씨/물",
+    "description": "‘파도’라는 뜻입니다. ‘해변 파도’라는 뜻입니다."
+  },
+  {
+    "id": 417,
+    "label": "Whack, thwack",
+    "translation": "퍽, 철썩 치는 소리",
+    "category": "충격/재질음",
+    "description": "‘퍽’라는 뜻입니다. ‘철썩 치는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 418,
+    "label": "Whale vocalization",
+    "translation": "고래 울음소리",
+    "category": "동물",
+    "description": "‘고래 울음소리’라는 뜻입니다."
+  },
+  {
+    "id": 419,
+    "label": "Wheeze",
+    "translation": "쌕쌕거림",
+    "category": "기타 소리",
+    "description": "숨길이 막혀 쌕쌕거리며 나는 호흡 소리입니다."
+  },
+  {
+    "id": 420,
+    "label": "Whimper",
+    "translation": "낑낑거림",
+    "category": "동물",
+    "description": "개나 사람이 약하게 낑낑거리거나 흐느끼는 소리입니다."
+  },
+  {
+    "id": 421,
+    "label": "Whimper (dog)",
+    "translation": "개 낑낑거림",
+    "category": "동물",
+    "description": "개나 사람이 약하게 낑낑거리거나 흐느끼는 소리입니다. 괄호 안의 세부 표기는 개이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 422,
+    "label": "Whip",
+    "translation": "채찍",
+    "category": "기타 소리",
+    "description": "‘채찍’라는 뜻입니다."
+  },
+  {
+    "id": 423,
+    "label": "Whir",
+    "translation": "윙 도는 소리",
+    "category": "기타 소리",
+    "description": "팬이나 모터가 빠르게 돌며 윙 하고 나는 소리입니다."
+  },
+  {
+    "id": 424,
+    "label": "Whispering",
+    "translation": "속삭임",
+    "category": "사람/음성",
+    "description": "성대를 크게 울리지 않고 작게 속삭이는 말소리입니다."
+  },
+  {
+    "id": 425,
+    "label": "Whistle",
+    "translation": "호루라기",
+    "category": "기타 소리",
+    "description": "‘호루라기’라는 뜻입니다."
+  },
+  {
+    "id": 426,
+    "label": "Whistling",
+    "translation": "휘파람",
+    "category": "기타 소리",
+    "description": "‘휘파람’라는 뜻입니다."
+  },
+  {
+    "id": 427,
+    "label": "White noise, pink noise",
+    "translation": "화이트 노이즈, 핑크 노이즈",
+    "category": "환경/배경",
+    "description": "‘화이트 노이즈’라는 뜻입니다. ‘핑크 노이즈’라는 뜻입니다."
+  },
+  {
+    "id": 428,
+    "label": "Whoop",
+    "translation": "환호성",
+    "category": "기타 소리",
+    "description": "‘환호성’라는 뜻입니다."
+  },
+  {
+    "id": 429,
+    "label": "Whoosh, swoosh, swish",
+    "translation": "휙, 쉬익, 슉 소리",
+    "category": "기타 소리",
+    "description": "‘휙’라는 뜻입니다. ‘쉬익’라는 뜻입니다. ‘슉 소리’라는 뜻입니다."
+  },
+  {
+    "id": 430,
+    "label": "Wild animals",
+    "translation": "야생동물",
+    "category": "동물",
+    "description": "‘야생동물’라는 뜻입니다."
+  },
+  {
+    "id": 431,
+    "label": "Wildfire",
+    "translation": "산불",
+    "category": "동물",
+    "description": "‘산불’라는 뜻입니다."
+  },
+  {
+    "id": 432,
+    "label": "Wind",
+    "translation": "바람",
+    "category": "자연/날씨/물",
+    "description": "‘바람’라는 뜻입니다."
+  },
+  {
+    "id": 433,
+    "label": "Wind chime",
+    "translation": "풍경",
+    "category": "자연/날씨/물",
+    "description": "‘풍경’라는 뜻입니다."
+  },
+  {
+    "id": 434,
+    "label": "Wind noise (microphone)",
+    "translation": "마이크 바람 잡음",
+    "category": "신호/전자음",
+    "description": "‘바람 잡음’라는 뜻입니다. 괄호 안의 세부 표기는 마이크이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 435,
+    "label": "Windscreen wiper, windshield wiper",
+    "translation": "앞유리 와이퍼",
+    "category": "자연/날씨/물",
+    "description": "‘앞유리 와이퍼’라는 뜻입니다."
+  },
+  {
+    "id": 436,
+    "label": "Wobble",
+    "translation": "흔들림",
+    "category": "기타 소리",
+    "description": "‘흔들림’라는 뜻입니다."
+  },
+  {
+    "id": 437,
+    "label": "Wolf-whistling",
+    "translation": "늑대 휘파람",
+    "category": "동물",
+    "description": "‘늑대 휘파람’라는 뜻입니다."
+  },
+  {
+    "id": 438,
+    "label": "Wood",
+    "translation": "나무",
+    "category": "충격/재질음",
+    "description": "‘나무’라는 뜻입니다."
+  },
+  {
+    "id": 439,
+    "label": "Writing",
+    "translation": "글 쓰는 소리",
+    "category": "기타 소리",
+    "description": "‘글 쓰는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 440,
+    "label": "Yak",
+    "translation": "야크",
+    "category": "동물",
+    "description": "‘야크’라는 뜻입니다."
+  },
+  {
+    "id": 441,
+    "label": "Yawn",
+    "translation": "하품",
+    "category": "기타 소리",
+    "description": "‘하품’라는 뜻입니다."
+  },
+  {
+    "id": 442,
+    "label": "Yell",
+    "translation": "고함",
+    "category": "사람/음성",
+    "description": "감정이 실린 크고 날카로운 외침입니다."
+  },
+  {
+    "id": 443,
+    "label": "Yip",
+    "translation": "깽깽 울음",
+    "category": "동물",
+    "description": "강아지나 작은 개가 짧고 높게 깽 하고 짖는 소리입니다."
+  },
+  {
+    "id": 444,
+    "label": "Yodeling",
+    "translation": "요들",
+    "category": "기타 소리",
+    "description": "‘요들’라는 뜻입니다."
+  },
+  {
+    "id": 445,
+    "label": "Zing",
+    "translation": "쌩 울림",
+    "category": "기타 소리",
+    "description": "‘쌩 울림’라는 뜻입니다."
+  },
+  {
+    "id": 446,
+    "label": "Zipper (clothing)",
+    "translation": "옷 지퍼",
+    "category": "생활/가정",
+    "description": "‘지퍼’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 447,
+    "label": "Heart murmur",
+    "translation": "심잡음",
+    "category": "기타 소리",
+    "description": "‘심잡음’라는 뜻입니다."
+  },
+  {
+    "id": 448,
+    "label": "Outside, rural or natural",
+    "translation": "실외, 농촌 또는 자연 환경",
+    "category": "환경/배경",
+    "description": "‘실외’라는 뜻입니다. ‘농촌 또는 자연 환경’라는 뜻입니다."
+  },
+  {
+    "id": 449,
+    "label": "Silence",
+    "translation": "무음",
+    "category": "환경/배경",
+    "description": "‘무음’라는 뜻입니다."
+  },
+  {
+    "id": 450,
+    "label": "Source-ambiguous sounds",
+    "translation": "음원 모호 소리",
+    "category": "기타 소리",
+    "description": "‘음원 모호 소리’라는 뜻입니다."
+  },
+  {
+    "id": 451,
+    "label": "Specific impact sounds",
+    "translation": "특정 충격음",
+    "category": "기타 소리",
+    "description": "‘특정 충격음’라는 뜻입니다."
+  },
+  {
+    "id": 452,
+    "label": "Studio recording",
+    "translation": "스튜디오 녹음",
+    "category": "기타 소리",
+    "description": "‘스튜디오 녹음’라는 뜻입니다."
+  },
+  {
+    "id": 453,
+    "label": "Throbbing",
+    "translation": "두근거림",
+    "category": "기타 소리",
+    "description": "‘두근거림’라는 뜻입니다."
+  },
+  {
+    "id": 454,
+    "label": "Unmodified field recording",
+    "translation": "무가공 현장 녹음",
+    "category": "환경/배경",
+    "description": "‘무가공 현장 녹음’라는 뜻입니다."
+  },
+  {
+    "id": 455,
+    "label": "Vibration",
+    "translation": "진동",
+    "category": "기타 소리",
+    "description": "‘진동’라는 뜻입니다."
+  },
+  {
+    "id": 456,
+    "label": "A capella",
+    "translation": "아카펠라",
+    "category": "기타 소리",
+    "description": "‘아카펠라’라는 뜻입니다."
+  },
+  {
+    "id": 457,
+    "label": "Accordion",
+    "translation": "아코디언",
+    "category": "음악/악기",
+    "description": "‘아코디언’라는 뜻입니다."
+  },
+  {
+    "id": 458,
+    "label": "Acoustic guitar",
+    "translation": "어쿠스틱 기타",
+    "category": "음악/악기",
+    "description": "‘어쿠스틱 기타’라는 뜻입니다."
+  },
+  {
+    "id": 459,
+    "label": "Afrobeat",
+    "translation": "아프로비트",
+    "category": "기타 소리",
+    "description": "‘아프로비트’라는 뜻입니다."
+  },
+  {
+    "id": 460,
+    "label": "Ambient music",
+    "translation": "앰비언트 음악",
+    "category": "음악/악기",
+    "description": "‘앰비언트 음악’라는 뜻입니다."
+  },
+  {
+    "id": 461,
+    "label": "Angry music",
+    "translation": "격앙된 음악",
+    "category": "음악/악기",
+    "description": "‘격앙된 음악’라는 뜻입니다."
+  },
+  {
+    "id": 462,
+    "label": "Background music",
+    "translation": "배경 음악",
+    "category": "음악/악기",
+    "description": "‘배경 음악’라는 뜻입니다."
+  },
+  {
+    "id": 463,
+    "label": "Bagpipes",
+    "translation": "백파이프",
+    "category": "기타 소리",
+    "description": "‘백파이프’라는 뜻입니다."
+  },
+  {
+    "id": 464,
+    "label": "Banjo",
+    "translation": "밴조",
+    "category": "음악/악기",
+    "description": "‘밴조’라는 뜻입니다."
+  },
+  {
+    "id": 465,
+    "label": "Bass drum",
+    "translation": "베이스 드럼",
+    "category": "음악/악기",
+    "description": "‘베이스 드럼’라는 뜻입니다."
+  },
+  {
+    "id": 466,
+    "label": "Bass guitar",
+    "translation": "베이스 기타",
+    "category": "음악/악기",
+    "description": "‘베이스 기타’라는 뜻입니다."
+  },
+  {
+    "id": 467,
+    "label": "Beatboxing",
+    "translation": "비트박스",
+    "category": "기타 소리",
+    "description": "‘비트박스’라는 뜻입니다."
+  },
+  {
+    "id": 468,
+    "label": "Bicycle",
+    "translation": "자전거",
+    "category": "교통/이동수단",
+    "description": "‘자전거’라는 뜻입니다."
+  },
+  {
+    "id": 469,
+    "label": "Blender",
+    "translation": "블렌더",
+    "category": "기타 소리",
+    "description": "‘블렌더’라는 뜻입니다."
+  },
+  {
+    "id": 470,
+    "label": "Bluegrass",
+    "translation": "블루그래스",
+    "category": "기타 소리",
+    "description": "‘블루그래스’라는 뜻입니다."
+  },
+  {
+    "id": 471,
+    "label": "Blues",
+    "translation": "블루스",
+    "category": "기타 소리",
+    "description": "‘블루스’라는 뜻입니다."
+  },
+  {
+    "id": 472,
+    "label": "Bowed string instrument",
+    "translation": "찰현악기",
+    "category": "음악/악기",
+    "description": "‘찰현악기’라는 뜻입니다."
+  },
+  {
+    "id": 473,
+    "label": "Brass instrument",
+    "translation": "금관악기",
+    "category": "음악/악기",
+    "description": "‘금관악기’라는 뜻입니다."
+  },
+  {
+    "id": 474,
+    "label": "Canidae, dogs, wolves",
+    "translation": "개과 동물, 개, 늑대",
+    "category": "동물",
+    "description": "‘개과 동물’라는 뜻입니다. ‘개’라는 뜻입니다. ‘늑대’라는 뜻입니다."
+  },
+  {
+    "id": 475,
+    "label": "Carnatic music",
+    "translation": "카르나틱 음악",
+    "category": "음악/악기",
+    "description": "‘카르나틱 음악’라는 뜻입니다."
+  },
+  {
+    "id": 476,
+    "label": "Cello",
+    "translation": "첼로",
+    "category": "음악/악기",
+    "description": "‘첼로’라는 뜻입니다."
+  },
+  {
+    "id": 477,
+    "label": "Chatter",
+    "translation": "재잘거림",
+    "category": "기타 소리",
+    "description": "‘재잘거림’라는 뜻입니다."
+  },
+  {
+    "id": 478,
+    "label": "Chink, clink",
+    "translation": "짤랑, 딸깍 소리",
+    "category": "기타 소리",
+    "description": "‘짤랑’라는 뜻입니다. ‘딸깍 소리’라는 뜻입니다."
+  },
+  {
+    "id": 479,
+    "label": "Christian music",
+    "translation": "기독교 음악",
+    "category": "음악/악기",
+    "description": "‘기독교 음악’라는 뜻입니다."
+  },
+  {
+    "id": 480,
+    "label": "Christmas music",
+    "translation": "크리스마스 음악",
+    "category": "음악/악기",
+    "description": "‘크리스마스 음악’라는 뜻입니다."
+  },
+  {
+    "id": 481,
+    "label": "Clarinet",
+    "translation": "클라리넷",
+    "category": "음악/악기",
+    "description": "‘클라리넷’라는 뜻입니다."
+  },
+  {
+    "id": 482,
+    "label": "Classical music",
+    "translation": "클래식 음악",
+    "category": "음악/악기",
+    "description": "‘클래식 음악’라는 뜻입니다."
+  },
+  {
+    "id": 483,
+    "label": "Country",
+    "translation": "컨트리 음악",
+    "category": "기타 소리",
+    "description": "‘컨트리 음악’라는 뜻입니다."
+  },
+  {
+    "id": 484,
+    "label": "Cymbal",
+    "translation": "심벌즈",
+    "category": "음악/악기",
+    "description": "‘심벌즈’라는 뜻입니다."
+  },
+  {
+    "id": 485,
+    "label": "Dance music",
+    "translation": "댄스 음악",
+    "category": "음악/악기",
+    "description": "‘댄스 음악’라는 뜻입니다."
+  },
+  {
+    "id": 486,
+    "label": "Didgeridoo",
+    "translation": "디저리두",
+    "category": "기타 소리",
+    "description": "‘디저리두’라는 뜻입니다."
+  },
+  {
+    "id": 487,
+    "label": "Disco",
+    "translation": "디스코",
+    "category": "기타 소리",
+    "description": "‘디스코’라는 뜻입니다."
+  },
+  {
+    "id": 488,
+    "label": "Double bass",
+    "translation": "더블베이스",
+    "category": "기타 소리",
+    "description": "‘더블베이스’라는 뜻입니다."
+  },
+  {
+    "id": 489,
+    "label": "Drum",
+    "translation": "드럼",
+    "category": "음악/악기",
+    "description": "‘드럼’라는 뜻입니다."
+  },
+  {
+    "id": 490,
+    "label": "Drum and bass",
+    "translation": "드럼 앤 베이스",
+    "category": "음악/악기",
+    "description": "‘드럼 앤 베이스’라는 뜻입니다."
+  },
+  {
+    "id": 491,
+    "label": "Drum kit",
+    "translation": "드럼 세트",
+    "category": "음악/악기",
+    "description": "‘드럼 세트’라는 뜻입니다."
+  },
+  {
+    "id": 492,
+    "label": "Drum machine",
+    "translation": "드럼 머신",
+    "category": "음악/악기",
+    "description": "‘드럼 머신’라는 뜻입니다."
+  },
+  {
+    "id": 493,
+    "label": "Drum roll",
+    "translation": "드럼 롤",
+    "category": "음악/악기",
+    "description": "‘드럼 롤’라는 뜻입니다."
+  },
+  {
+    "id": 494,
+    "label": "Dubstep",
+    "translation": "덥스텝",
+    "category": "기타 소리",
+    "description": "‘덥스텝’라는 뜻입니다."
+  },
+  {
+    "id": 495,
+    "label": "Duck",
+    "translation": "오리",
+    "category": "동물",
+    "description": "‘오리’라는 뜻입니다."
+  },
+  {
+    "id": 496,
+    "label": "Electric guitar",
+    "translation": "일렉트릭 기타",
+    "category": "음악/악기",
+    "description": "‘일렉트릭 기타’라는 뜻입니다."
+  },
+  {
+    "id": 497,
+    "label": "Electric piano",
+    "translation": "전자 피아노",
+    "category": "음악/악기",
+    "description": "‘전자 피아노’라는 뜻입니다."
+  },
+  {
+    "id": 498,
+    "label": "Electronic dance music",
+    "translation": "전자 댄스 음악",
+    "category": "음악/악기",
+    "description": "‘전자 댄스 음악’라는 뜻입니다."
+  },
+  {
+    "id": 499,
+    "label": "Electronic music",
+    "translation": "전자 음악",
+    "category": "음악/악기",
+    "description": "‘전자 음악’라는 뜻입니다."
+  },
+  {
+    "id": 500,
+    "label": "Electronic organ",
+    "translation": "전자 오르간",
+    "category": "음악/악기",
+    "description": "‘전자 오르간’라는 뜻입니다."
+  },
+  {
+    "id": 501,
+    "label": "Electronica",
+    "translation": "일렉트로니카",
+    "category": "기타 소리",
+    "description": "‘일렉트로니카’라는 뜻입니다."
+  },
+  {
+    "id": 502,
+    "label": "Exciting music",
+    "translation": "신나는 음악",
+    "category": "음악/악기",
+    "description": "‘신나는 음악’라는 뜻입니다."
+  },
+  {
+    "id": 503,
+    "label": "Field recording",
+    "translation": "현장 녹음",
+    "category": "환경/배경",
+    "description": "‘현장 녹음’라는 뜻입니다."
+  },
+  {
+    "id": 504,
+    "label": "Flamenco",
+    "translation": "플라멩코",
+    "category": "기타 소리",
+    "description": "‘플라멩코’라는 뜻입니다."
+  },
+  {
+    "id": 505,
+    "label": "Flute",
+    "translation": "플루트",
+    "category": "음악/악기",
+    "description": "‘플루트’라는 뜻입니다."
+  },
+  {
+    "id": 506,
+    "label": "Folk music",
+    "translation": "민속 음악",
+    "category": "음악/악기",
+    "description": "‘민속 음악’라는 뜻입니다."
+  },
+  {
+    "id": 507,
+    "label": "French horn",
+    "translation": "프렌치 호른",
+    "category": "교통/이동수단",
+    "description": "‘프렌치 호른’라는 뜻입니다."
+  },
+  {
+    "id": 508,
+    "label": "Funk",
+    "translation": "펑크",
+    "category": "기타 소리",
+    "description": "‘펑크’라는 뜻입니다."
+  },
+  {
+    "id": 509,
+    "label": "Funny music",
+    "translation": "익살스러운 음악",
+    "category": "음악/악기",
+    "description": "‘익살스러운 음악’라는 뜻입니다."
+  },
+  {
+    "id": 510,
+    "label": "Glockenspiel",
+    "translation": "글로켄슈필",
+    "category": "음악/악기",
+    "description": "‘글로켄슈필’라는 뜻입니다."
+  },
+  {
+    "id": 511,
+    "label": "Gong",
+    "translation": "징",
+    "category": "기타 소리",
+    "description": "‘징’라는 뜻입니다."
+  },
+  {
+    "id": 512,
+    "label": "Goose",
+    "translation": "거위",
+    "category": "동물",
+    "description": "‘거위’라는 뜻입니다."
+  },
+  {
+    "id": 513,
+    "label": "Gospel music",
+    "translation": "가스펠 음악",
+    "category": "음악/악기",
+    "description": "‘가스펠 음악’라는 뜻입니다."
+  },
+  {
+    "id": 514,
+    "label": "Grunge",
+    "translation": "그런지",
+    "category": "기타 소리",
+    "description": "‘그런지’라는 뜻입니다."
+  },
+  {
+    "id": 515,
+    "label": "Guitar",
+    "translation": "기타",
+    "category": "음악/악기",
+    "description": "‘기타’라는 뜻입니다."
+  },
+  {
+    "id": 516,
+    "label": "Gurgling",
+    "translation": "꾸르륵거림",
+    "category": "기타 소리",
+    "description": "액체나 배 속에서 꾸르륵거리는 소리입니다."
+  },
+  {
+    "id": 517,
+    "label": "Hammond organ",
+    "translation": "해먼드 오르간",
+    "category": "음악/악기",
+    "description": "‘해먼드 오르간’라는 뜻입니다."
+  },
+  {
+    "id": 518,
+    "label": "Happy music",
+    "translation": "밝은 음악",
+    "category": "음악/악기",
+    "description": "‘밝은 음악’라는 뜻입니다."
+  },
+  {
+    "id": 519,
+    "label": "Harmonic",
+    "translation": "하모닉",
+    "category": "기타 소리",
+    "description": "‘하모닉’라는 뜻입니다."
+  },
+  {
+    "id": 520,
+    "label": "Harmonica",
+    "translation": "하모니카",
+    "category": "음악/악기",
+    "description": "‘하모니카’라는 뜻입니다."
+  },
+  {
+    "id": 521,
+    "label": "Harp",
+    "translation": "하프",
+    "category": "음악/악기",
+    "description": "‘하프’라는 뜻입니다."
+  },
+  {
+    "id": 522,
+    "label": "Harpsichord",
+    "translation": "하프시코드",
+    "category": "음악/악기",
+    "description": "‘하프시코드’라는 뜻입니다."
+  },
+  {
+    "id": 523,
+    "label": "Heavy metal",
+    "translation": "헤비메탈",
+    "category": "기타 소리",
+    "description": "‘헤비메탈’라는 뜻입니다."
+  },
+  {
+    "id": 524,
+    "label": "Hi-hat",
+    "translation": "하이햇",
+    "category": "기타 소리",
+    "description": "‘하이햇’라는 뜻입니다."
+  },
+  {
+    "id": 525,
+    "label": "Hip hop music",
+    "translation": "힙합 음악",
+    "category": "음악/악기",
+    "description": "‘힙합 음악’라는 뜻입니다."
+  },
+  {
+    "id": 526,
+    "label": "House music",
+    "translation": "하우스 음악",
+    "category": "음악/악기",
+    "description": "‘하우스 음악’라는 뜻입니다."
+  },
+  {
+    "id": 527,
+    "label": "Independent music",
+    "translation": "인디 음악",
+    "category": "음악/악기",
+    "description": "‘인디 음악’라는 뜻입니다."
+  },
+  {
+    "id": 528,
+    "label": "Jazz",
+    "translation": "재즈",
+    "category": "기타 소리",
+    "description": "‘재즈’라는 뜻입니다."
+  },
+  {
+    "id": 529,
+    "label": "Jingle (music)",
+    "translation": "징글 음악",
+    "category": "음악/악기",
+    "description": "‘징글’라는 뜻입니다. 괄호 안의 세부 표기는 음악이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 530,
+    "label": "Keyboard (musical)",
+    "translation": "건반 악기",
+    "category": "음악/악기",
+    "description": "‘건반’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 531,
+    "label": "Lullaby",
+    "translation": "자장가",
+    "category": "기타 소리",
+    "description": "‘자장가’라는 뜻입니다."
+  },
+  {
+    "id": 532,
+    "label": "Mallet percussion",
+    "translation": "말렛 타악기",
+    "category": "기타 소리",
+    "description": "‘말렛 타악기’라는 뜻입니다."
+  },
+  {
+    "id": 533,
+    "label": "Mandolin",
+    "translation": "만돌린",
+    "category": "음악/악기",
+    "description": "‘만돌린’라는 뜻입니다."
+  },
+  {
+    "id": 534,
+    "label": "Maraca",
+    "translation": "마라카스",
+    "category": "기타 소리",
+    "description": "‘마라카스’라는 뜻입니다."
+  },
+  {
+    "id": 535,
+    "label": "Marimba, xylophone",
+    "translation": "마림바, 실로폰",
+    "category": "음악/악기",
+    "description": "‘마림바’라는 뜻입니다. ‘실로폰’라는 뜻입니다."
+  },
+  {
+    "id": 536,
+    "label": "Middle Eastern music",
+    "translation": "중동 음악",
+    "category": "음악/악기",
+    "description": "‘중동 음악’라는 뜻입니다."
+  },
+  {
+    "id": 537,
+    "label": "Music for children",
+    "translation": "어린이 음악",
+    "category": "음악/악기",
+    "description": "‘어린이 음악’라는 뜻입니다."
+  },
+  {
+    "id": 538,
+    "label": "Music of Africa",
+    "translation": "아프리카 음악",
+    "category": "음악/악기",
+    "description": "‘아프리카 음악’라는 뜻입니다."
+  },
+  {
+    "id": 539,
+    "label": "Music of Asia",
+    "translation": "아시아 음악",
+    "category": "음악/악기",
+    "description": "‘아시아 음악’라는 뜻입니다."
+  },
+  {
+    "id": 540,
+    "label": "Music of Bollywood",
+    "translation": "볼리우드 음악",
+    "category": "음악/악기",
+    "description": "‘볼리우드 음악’라는 뜻입니다."
+  },
+  {
+    "id": 541,
+    "label": "Music of Latin America",
+    "translation": "라틴 아메리카 음악",
+    "category": "음악/악기",
+    "description": "‘라틴 아메리카 음악’라는 뜻입니다."
+  },
+  {
+    "id": 542,
+    "label": "Musical instrument",
+    "translation": "악기",
+    "category": "음악/악기",
+    "description": "‘악기’라는 뜻입니다."
+  },
+  {
+    "id": 543,
+    "label": "New-age music",
+    "translation": "뉴에이지 음악",
+    "category": "음악/악기",
+    "description": "‘뉴에이지 음악’라는 뜻입니다."
+  },
+  {
+    "id": 544,
+    "label": "Opera",
+    "translation": "오페라",
+    "category": "기타 소리",
+    "description": "‘오페라’라는 뜻입니다."
+  },
+  {
+    "id": 545,
+    "label": "Orchestra",
+    "translation": "오케스트라",
+    "category": "음악/악기",
+    "description": "‘오케스트라’라는 뜻입니다."
+  },
+  {
+    "id": 546,
+    "label": "Organ",
+    "translation": "오르간",
+    "category": "음악/악기",
+    "description": "‘오르간’라는 뜻입니다."
+  },
+  {
+    "id": 547,
+    "label": "Percussion",
+    "translation": "타악기",
+    "category": "기타 소리",
+    "description": "‘타악기’라는 뜻입니다."
+  },
+  {
+    "id": 548,
+    "label": "Piano",
+    "translation": "피아노",
+    "category": "음악/악기",
+    "description": "‘피아노’라는 뜻입니다."
+  },
+  {
+    "id": 549,
+    "label": "Pink noise",
+    "translation": "핑크 노이즈",
+    "category": "환경/배경",
+    "description": "‘핑크 노이즈’라는 뜻입니다."
+  },
+  {
+    "id": 550,
+    "label": "Pizzicato",
+    "translation": "피치카토",
+    "category": "동물",
+    "description": "‘피치카토’라는 뜻입니다."
+  },
+  {
+    "id": 551,
+    "label": "Plucked string instrument",
+    "translation": "발현악기",
+    "category": "음악/악기",
+    "description": "‘발현악기’라는 뜻입니다."
+  },
+  {
+    "id": 552,
+    "label": "Pop music",
+    "translation": "팝 음악",
+    "category": "음악/악기",
+    "description": "‘팝 음악’라는 뜻입니다."
+  },
+  {
+    "id": 553,
+    "label": "Progressive rock",
+    "translation": "프로그레시브 록",
+    "category": "기타 소리",
+    "description": "‘프로그레시브 록’라는 뜻입니다."
+  },
+  {
+    "id": 554,
+    "label": "Psychedelic rock",
+    "translation": "사이키델릭 록",
+    "category": "기타 소리",
+    "description": "‘사이키델릭 록’라는 뜻입니다."
+  },
+  {
+    "id": 555,
+    "label": "Punk rock",
+    "translation": "펑크 록",
+    "category": "기타 소리",
+    "description": "‘펑크 록’라는 뜻입니다."
+  },
+  {
+    "id": 556,
+    "label": "Rattle (instrument)",
+    "translation": "래틀 악기",
+    "category": "음악/악기",
+    "description": "‘덜컥거림’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 557,
+    "label": "Reggae",
+    "translation": "레게",
+    "category": "기타 소리",
+    "description": "‘레게’라는 뜻입니다."
+  },
+  {
+    "id": 558,
+    "label": "Rhythm and blues",
+    "translation": "리듬 앤 블루스",
+    "category": "기타 소리",
+    "description": "‘리듬 앤 블루스’라는 뜻입니다."
+  },
+  {
+    "id": 559,
+    "label": "Rimshot",
+    "translation": "림샷",
+    "category": "기타 소리",
+    "description": "‘림샷’라는 뜻입니다."
+  },
+  {
+    "id": 560,
+    "label": "Rock and roll",
+    "translation": "로큰롤",
+    "category": "기타 소리",
+    "description": "‘로큰롤’라는 뜻입니다."
+  },
+  {
+    "id": 561,
+    "label": "Rock music",
+    "translation": "록 음악",
+    "category": "음악/악기",
+    "description": "‘록 음악’라는 뜻입니다."
+  },
+  {
+    "id": 562,
+    "label": "Rustling leaves",
+    "translation": "나뭇잎 바스락임",
+    "category": "기타 소리",
+    "description": "‘나뭇잎 바스락임’라는 뜻입니다."
+  },
+  {
+    "id": 563,
+    "label": "Sad music",
+    "translation": "슬픈 음악",
+    "category": "음악/악기",
+    "description": "‘슬픈 음악’라는 뜻입니다."
+  },
+  {
+    "id": 564,
+    "label": "Salsa music",
+    "translation": "살사 음악",
+    "category": "음악/악기",
+    "description": "‘살사 음악’라는 뜻입니다."
+  },
+  {
+    "id": 565,
+    "label": "Sampler",
+    "translation": "샘플러",
+    "category": "기타 소리",
+    "description": "‘샘플러’라는 뜻입니다."
+  },
+  {
+    "id": 566,
+    "label": "Saxophone",
+    "translation": "색소폰",
+    "category": "음악/악기",
+    "description": "‘색소폰’라는 뜻입니다."
+  },
+  {
+    "id": 567,
+    "label": "Scary music",
+    "translation": "무서운 음악",
+    "category": "음악/악기",
+    "description": "‘무서운 음악’라는 뜻입니다."
+  },
+  {
+    "id": 568,
+    "label": "Scratching (performance technique)",
+    "translation": "스크래칭(연주 기법)",
+    "category": "충격/재질음",
+    "description": "‘스크래칭’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 569,
+    "label": "Shatter",
+    "translation": "산산이 깨지는 소리",
+    "category": "충격/재질음",
+    "description": "‘산산이 깨지는 소리’라는 뜻입니다."
+  },
+  {
+    "id": 570,
+    "label": "Shofar",
+    "translation": "쇼파르",
+    "category": "음악/악기",
+    "description": "‘쇼파르’라는 뜻입니다."
+  },
+  {
+    "id": 571,
+    "label": "Sidetone",
+    "translation": "측음",
+    "category": "기타 소리",
+    "description": "‘측음’라는 뜻입니다."
+  },
+  {
+    "id": 572,
+    "label": "Singing bowl",
+    "translation": "싱잉볼",
+    "category": "사람/음성",
+    "description": "‘싱잉볼’라는 뜻입니다."
+  },
+  {
+    "id": 573,
+    "label": "Sitar",
+    "translation": "시타르",
+    "category": "음악/악기",
+    "description": "‘시타르’라는 뜻입니다."
+  },
+  {
+    "id": 574,
+    "label": "Ska",
+    "translation": "스카",
+    "category": "기타 소리",
+    "description": "‘스카’라는 뜻입니다."
+  },
+  {
+    "id": 575,
+    "label": "Skidding",
+    "translation": "미끄러짐",
+    "category": "기타 소리",
+    "description": "‘미끄러짐’라는 뜻입니다."
+  },
+  {
+    "id": 576,
+    "label": "Snare drum",
+    "translation": "스네어 드럼",
+    "category": "음악/악기",
+    "description": "‘스네어 드럼’라는 뜻입니다."
+  },
+  {
+    "id": 577,
+    "label": "Song",
+    "translation": "노래",
+    "category": "기타 소리",
+    "description": "‘노래’라는 뜻입니다."
+  },
+  {
+    "id": 578,
+    "label": "Soul music",
+    "translation": "소울 음악",
+    "category": "음악/악기",
+    "description": "‘소울 음악’라는 뜻입니다."
+  },
+  {
+    "id": 579,
+    "label": "Soundtrack music",
+    "translation": "사운드트랙 음악",
+    "category": "음악/악기",
+    "description": "‘사운드트랙 음악’라는 뜻입니다."
+  },
+  {
+    "id": 580,
+    "label": "Steel guitar, slide guitar",
+    "translation": "스틸 기타, 슬라이드 기타",
+    "category": "음악/악기",
+    "description": "‘스틸 기타’라는 뜻입니다. ‘슬라이드 기타’라는 뜻입니다."
+  },
+  {
+    "id": 581,
+    "label": "Steelpan",
+    "translation": "스틸팬",
+    "category": "음악/악기",
+    "description": "‘스틸팬’라는 뜻입니다."
+  },
+  {
+    "id": 582,
+    "label": "Stream",
+    "translation": "개울",
+    "category": "자연/날씨/물",
+    "description": "‘개울’라는 뜻입니다."
+  },
+  {
+    "id": 583,
+    "label": "String section",
+    "translation": "현악 섹션",
+    "category": "기타 소리",
+    "description": "‘현악 섹션’라는 뜻입니다."
+  },
+  {
+    "id": 584,
+    "label": "Strum",
+    "translation": "스트럼",
+    "category": "기타 소리",
+    "description": "‘스트럼’라는 뜻입니다."
+  },
+  {
+    "id": 585,
+    "label": "Swing music",
+    "translation": "스윙 음악",
+    "category": "음악/악기",
+    "description": "‘스윙 음악’라는 뜻입니다."
+  },
+  {
+    "id": 586,
+    "label": "Synthesizer",
+    "translation": "신시사이저",
+    "category": "음악/악기",
+    "description": "‘신시사이저’라는 뜻입니다."
+  },
+  {
+    "id": 587,
+    "label": "Tabla",
+    "translation": "타블라",
+    "category": "음악/악기",
+    "description": "‘타블라’라는 뜻입니다."
+  },
+  {
+    "id": 588,
+    "label": "Tambourine",
+    "translation": "탬버린",
+    "category": "음악/악기",
+    "description": "‘탬버린’라는 뜻입니다."
+  },
+  {
+    "id": 589,
+    "label": "Tapping (guitar technique)",
+    "translation": "태핑(기타 기법)",
+    "category": "음악/악기",
+    "description": "‘태핑’라는 뜻입니다. 괄호 안의 세부 표기는 세부 상황이라는 의미를 덧붙입니다."
+  },
+  {
+    "id": 590,
+    "label": "Techno",
+    "translation": "테크노",
+    "category": "기타 소리",
+    "description": "‘테크노’라는 뜻입니다."
+  },
+  {
+    "id": 591,
+    "label": "Tender music",
+    "translation": "부드러운 음악",
+    "category": "음악/악기",
+    "description": "‘부드러운 음악’라는 뜻입니다."
+  },
+  {
+    "id": 592,
+    "label": "Theme music",
+    "translation": "테마 음악",
+    "category": "음악/악기",
+    "description": "‘테마 음악’라는 뜻입니다."
+  },
+  {
+    "id": 593,
+    "label": "Theremin",
+    "translation": "테레민",
+    "category": "음악/악기",
+    "description": "‘테레민’라는 뜻입니다."
+  },
+  {
+    "id": 594,
+    "label": "Timpani",
+    "translation": "팀파니",
+    "category": "음악/악기",
+    "description": "‘팀파니’라는 뜻입니다."
+  },
+  {
+    "id": 595,
+    "label": "Tire squeal",
+    "translation": "타이어 끼익 소리",
+    "category": "기타 소리",
+    "description": "‘타이어 끼익 소리’라는 뜻입니다."
+  },
+  {
+    "id": 596,
+    "label": "Toot",
+    "translation": "빵 하는 경적",
+    "category": "기타 소리",
+    "description": "‘빵 하는 경적’라는 뜻입니다."
+  },
+  {
+    "id": 597,
+    "label": "Traditional music",
+    "translation": "전통 음악",
+    "category": "음악/악기",
+    "description": "‘전통 음악’라는 뜻입니다."
+  },
+  {
+    "id": 598,
+    "label": "Trance music",
+    "translation": "트랜스 음악",
+    "category": "음악/악기",
+    "description": "‘트랜스 음악’라는 뜻입니다."
+  },
+  {
+    "id": 599,
+    "label": "Trombone",
+    "translation": "트롬본",
+    "category": "음악/악기",
+    "description": "‘트롬본’라는 뜻입니다."
+  },
+  {
+    "id": 600,
+    "label": "Trumpet",
+    "translation": "트럼펫",
+    "category": "음악/악기",
+    "description": "‘트럼펫’라는 뜻입니다."
+  },
+  {
+    "id": 601,
+    "label": "Tubular bells",
+    "translation": "튜뷸러 벨",
+    "category": "음악/악기",
+    "description": "‘튜뷸러 벨’라는 뜻입니다."
+  },
+  {
+    "id": 602,
+    "label": "Ukulele",
+    "translation": "우쿨렐레",
+    "category": "음악/악기",
+    "description": "‘우쿨렐레’라는 뜻입니다."
+  },
+  {
+    "id": 603,
+    "label": "Vehicle horn, car horn, honking",
+    "translation": "차량 경적, 자동차 경적, 빵 소리",
+    "category": "교통/이동수단",
+    "description": "‘차량 경적’라는 뜻입니다. ‘자동차 경적’라는 뜻입니다. ‘빵 하는 경적 소리’라는 뜻입니다."
+  },
+  {
+    "id": 604,
+    "label": "Vibraphone",
+    "translation": "비브라폰",
+    "category": "음악/악기",
+    "description": "‘비브라폰’라는 뜻입니다."
+  },
+  {
+    "id": 605,
+    "label": "Video game music",
+    "translation": "비디오 게임 음악",
+    "category": "음악/악기",
+    "description": "‘비디오 게임 음악’라는 뜻입니다."
+  },
+  {
+    "id": 606,
+    "label": "Violin, fiddle",
+    "translation": "바이올린, 피들",
+    "category": "음악/악기",
+    "description": "‘바이올린’라는 뜻입니다. ‘피들’라는 뜻입니다."
+  },
+  {
+    "id": 607,
+    "label": "Vocal music",
+    "translation": "성악 음악",
+    "category": "음악/악기",
+    "description": "‘성악 음악’라는 뜻입니다."
+  },
+  {
+    "id": 608,
+    "label": "Wedding music",
+    "translation": "결혼식 음악",
+    "category": "음악/악기",
+    "description": "‘결혼식 음악’라는 뜻입니다."
+  },
+  {
+    "id": 609,
+    "label": "White noise",
+    "translation": "화이트 노이즈",
+    "category": "환경/배경",
+    "description": "‘화이트 노이즈’라는 뜻입니다."
+  },
+  {
+    "id": 610,
+    "label": "Wind instrument, woodwind instrument",
+    "translation": "관악기, 목관악기",
+    "category": "음악/악기",
+    "description": "‘관악기’라는 뜻입니다. ‘목관악기’라는 뜻입니다."
+  },
+  {
+    "id": 611,
+    "label": "Wood block",
+    "translation": "우드블록",
+    "category": "기계/도구",
+    "description": "‘우드블록’라는 뜻입니다."
+  },
+  {
+    "id": 612,
+    "label": "Zither",
+    "translation": "치터",
+    "category": "음악/악기",
+    "description": "‘치터’라는 뜻입니다."
+  }
+]

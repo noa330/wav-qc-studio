@@ -1,0 +1,25 @@
+import type { AppStateSaveRequest, AudioCropRequest, AudioEditRequest, DialogFileSelectionOptions, FileTreeScanOptions, StartupSplashProgress, TensorBoardSessionRequest, WorkspaceBatchSpeakerDiarizationRequest, WorkspaceCancelRequest, WorkspaceExportProgressEvent, WorkspaceExportRequest, WorkspaceLoadRequest, WorkspaceRunProgressEvent, WorkspaceRunRequest } from "@shared/ipc";
+
+export const studioBackend = {
+  getAppInfo: () => window.studioBackend.getAppInfo(),
+  loadAppState: () => window.studioBackend.loadAppState(),
+  saveAppState: (request: AppStateSaveRequest) => window.studioBackend.saveAppState(request),
+  saveAppStateSync: (request: AppStateSaveRequest) => window.studioBackend.saveAppStateSync(request),
+  updateStartupSplash: (progress: StartupSplashProgress) => window.studioBackend.updateStartupSplash(progress),
+  completeStartupSplash: () => window.studioBackend.completeStartupSplash(),
+  selectFolder: () => window.studioBackend.selectFolder(),
+  selectFile: (options?: DialogFileSelectionOptions) => window.studioBackend.selectFile(options),
+  scanPath: (path: string, options?: FileTreeScanOptions) => window.studioBackend.scanPath(path, options),
+  readWaveform: (path: string, bucketCount?: number) => window.studioBackend.readWaveform(path, bucketCount),
+  cropWave: (request: AudioCropRequest) => window.studioBackend.cropWave(request),
+  editWave: (request: AudioEditRequest) => window.studioBackend.editWave(request),
+  loadWorkspace: (request: WorkspaceLoadRequest) => window.studioBackend.loadWorkspace(request),
+  runWorkspace: (request: WorkspaceRunRequest) => window.studioBackend.runWorkspace(request),
+  listTrainingModels: (request: Parameters<typeof window.studioBackend.listTrainingModels>[0]) => window.studioBackend.listTrainingModels(request),
+  startTensorBoard: (request: TensorBoardSessionRequest) => window.studioBackend.startTensorBoard(request),
+  runBatchSpeakerDiarization: (request: WorkspaceBatchSpeakerDiarizationRequest) => window.studioBackend.runBatchSpeakerDiarization(request),
+  onWorkspaceRunProgress: (callback: (event: WorkspaceRunProgressEvent) => void) => window.studioBackend.onWorkspaceRunProgress(callback),
+  exportWorkspace: (request: WorkspaceExportRequest) => window.studioBackend.exportWorkspace(request),
+  onWorkspaceExportProgress: (callback: (event: WorkspaceExportProgressEvent) => void) => window.studioBackend.onWorkspaceExportProgress(callback),
+  cancelWorkspace: (request: WorkspaceCancelRequest) => window.studioBackend.cancelWorkspace(request),
+};
