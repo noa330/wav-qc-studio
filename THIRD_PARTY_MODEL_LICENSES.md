@@ -1,0 +1,62 @@
+# Third-Party Model And Checkpoint Licenses
+
+Verified on 2026-05-25 KST from the tracked source tree and official upstream
+model cards, repositories, or documentation. This file is an inventory for
+license compliance and attribution. It is not legal advice.
+
+Scope: models, checkpoints, and model runtime assets referenced by the app pages
+and tracked backend scripts. Package dependencies and user-supplied audio,
+datasets, fine-tuned checkpoints, or manually selected external model paths are
+outside this inventory and must be checked separately before redistribution.
+
+## High-Risk License Notes
+
+- `torchaudio.pipelines.MMS_FA` is published under `CC-BY-NC-4.0`, so Batch
+  WordAlign is non-commercial unless a separate license is obtained.
+- DiariZen model weights are `CC-BY-NC-4.0`, so Batch diarization with the
+  bundled DiariZen options is non-commercial unless a separate license is
+  obtained.
+- NVIDIA NeMo legacy speaker analyzer models are NGC-hosted models. NVIDIA says
+  model licenses are shown per NGC model card; check and accept the NGC terms
+  before redistribution or production use.
+- Voice cloning, voice conversion, restoration, and TTS outputs may require
+  consent and additional rights to the source voices, transcripts, and datasets.
+
+## Page-By-Page Inventory
+
+| App page / path | Model or asset | Local references | Official source | License / policy |
+| --- | --- | --- | --- | --- |
+| Slice | FireRedVAD | `backend/slicer/speech_detector.py`, `frontend/src/renderer/src/features/workspaces/ui/pages/slice/SliceSettingsPanel.tsx` | https://huggingface.co/FireRedTeam/FireRedVAD | `Apache-2.0` per Hugging Face model card. |
+| Tagging | PretrainedSED strong checkpoints: BEATs Strong, ATST-F Strong, fPaSST Strong | `backend/slicer/tagger.py`, `frontend/src/renderer/src/features/workspaces/model/workspace-option-catalogs.ts` | https://github.com/fschmid56/PretrainedSED | PretrainedSED source/checkpoint project: `MIT`. Component upstreams below still apply. |
+| Tagging | BEATs | `backend/slicer/tagger.py` | https://github.com/microsoft/unilm/tree/master/beats | Microsoft UniLM/BEATs repository: `MIT`. |
+| Tagging | ATST-F / ATST-SED | `backend/slicer/tagger.py` | https://github.com/Audio-WestlakeU/ATST-SED | `MIT`. |
+| Tagging | fPaSST / PaSST | `backend/slicer/tagger.py` | https://github.com/kkoutini/PaSST | `Apache-2.0`. |
+| Speaker | Sidon `sarulab-speech/sidon-v0.1` | `backend/noise/models/sidon_runner.py`, `frontend/src/renderer/src/features/workspaces/ui/pages/speaker/SpeakerPanels.tsx` | https://huggingface.co/sarulab-speech/sidon-v0.1 | `MIT` per Hugging Face model card. Model card lists base model and training datasets. |
+| Speaker | W2v-BERT 2.0 base for Sidon preprocessing | `backend/noise/models/sidon_runner.py` | https://huggingface.co/facebook/w2v-bert-2.0 | `MIT`. |
+| Speaker | Resemble Enhance | `backend/noise/model_setup.py`, `backend/noise/models/resemble_runner.py` | https://huggingface.co/ResembleAI/resemble-enhance | `MIT`. |
+| Speaker | VoiceFixer package/runtime | `backend/noise/model_setup.py`, `backend/noise/models/voicefixer_runner.py` | https://github.com/haoheliu/voicefixer and https://pypi.org/project/voicefixer/ | Source/package metadata: `MIT`. |
+| Speaker | VoiceFixer checkpoints `vf.ckpt`, `model.ckpt-1490000_trimed.pt` | `backend/noise/model_setup.py` | https://zenodo.org/records/5600188 | Zenodo record: `Creative Commons Attribution 4.0 International` (`CC-BY-4.0`). |
+| Overview | DNSMOS ONNX models | `backend/analyzers/noise.py` | https://github.com/microsoft/DNS-Challenge and https://github.com/Lightning-AI/torchmetrics/blob/master/src/torchmetrics/functional/audio/dnsmos.py | Microsoft DNS-Challenge repo states content/docs under `CC-BY-4.0` and code under `MIT`; TorchMetrics wrapper is `Apache-2.0`. Retain both notices for DNSMOS use. |
+| Batch | Faster-Whisper ASR options `tiny`, `base`, `small`, `medium`, `large-v1`, `large-v2`, `large-v3` and `.en` backend aliases | `backend/batch_qc/asr.py`, `backend/analyzers/pronunciation.py`, `frontend/src/renderer/src/features/workspaces/model/workspace-option-catalogs.ts` | https://huggingface.co/Systran/faster-whisper-large-v3 and sibling `Systran/faster-whisper-*` repos | Systran converted checkpoints are tagged `MIT`. They are conversions of OpenAI Whisper checkpoints. |
+| Batch / legacy analyzer | OpenAI Whisper checkpoints such as `openai/whisper-small`, `openai/whisper-large-v3` | `backend/analyzers/pronunciation.py`, Systran conversion base | https://huggingface.co/openai/whisper-small and https://huggingface.co/openai/whisper-large-v3 | Hugging Face model cards: `Apache-2.0`. OpenAI Whisper source repository is `MIT`. |
+| Batch | WordAlign `torchaudio.pipelines.MMS_FA` | `backend/batch_qc/word_alignment.py` | https://docs.pytorch.org/audio/main/generated/torchaudio.pipelines.MMS_FA.html | `CC-BY-NC-4.0` per official torchaudio documentation. Non-commercial. |
+| Batch | DiariZen `BUT-FIT/diarizen-wavlm-large-s80-md-v2` | `backend/batch_qc/diarization.py`, `config/models.json` | https://huggingface.co/BUT-FIT/diarizen-wavlm-large-s80-md-v2 | Source code: `MIT`; model weights: `CC-BY-NC-4.0` non-commercial. |
+| Batch | DiariZen legacy `BUT-FIT/diarizen-wavlm-large-s80-md` | `frontend/src/renderer/src/features/workspaces/model/workspace-option-catalogs.ts` | https://huggingface.co/BUT-FIT/diarizen-wavlm-large-s80-md | Source code: `MIT`; model weights: `CC-BY-NC-4.0` non-commercial. |
+| Batch | Pyannote WeSpeaker embedding `pyannote/wespeaker-voxceleb-resnet34-LM` | `backend/batch_qc/diarization.py`, `frontend/src/renderer/src/features/workspaces/model/workspace-option-catalogs.ts` | https://huggingface.co/pyannote/wespeaker-voxceleb-resnet34-LM | `CC-BY-4.0`. Model card states the VoxCeleb-trained model follows the dataset license. |
+| Training / Inference | GPT-SoVITS source | `backend/voice_training_config.py`, `backend/voice_infer_main.py`, `training/install_gpt_sovits_runtime.ps1` | https://github.com/RVC-Boss/GPT-SoVITS | `MIT`. |
+| Training / Inference | GPT-SoVITS pretrained weights from `lj1995/GPT-SoVITS` | `backend/voice_training_config.py` | https://huggingface.co/lj1995/GPT-SoVITS | `MIT` per Hugging Face model card. |
+| Training / Inference | GPT-SoVITS runtime assets from `XXXXRT/GPT-SoVITS-Pretrained`, including `G2PWModel.zip`, optional `uvr5_weights.zip`, `nltk_data.zip`, and `open_jtalk_dic_utf_8-1.11.tar.gz` mirror downloads | `training/install_gpt_sovits_runtime.ps1` | https://huggingface.co/XXXXRT/GPT-SoVITS-Pretrained | Hugging Face repo is tagged `MIT`; README is empty, so retain source URL and any upstream notices contained inside downloaded archives. |
+| Training / Inference | g2pW / G2PWModel | `training/install_gpt_sovits_runtime.ps1` | https://pypi.org/project/g2pw/ | `Apache-2.0` per PyPI metadata. |
+| Training / Inference | Open JTalk dictionary `open_jtalk_dic_utf_8-1.11` | `training/install_gpt_sovits_runtime.ps1` | https://open-jtalk.sourceforge.net/ | Modified BSD license per Open JTalk site. |
+| Training / Inference | OmniVoice source and model `k2-fsa/OmniVoice` | `backend/voice_training_config.py`, `frontend/src/shared/training-defaults.ts`, `frontend/src/renderer/src/features/workspaces/ui/pages/training/TrainingPanels.tsx`, `frontend/src/renderer/src/features/workspaces/ui/pages/inference/InferencePanels.tsx` | https://github.com/k2-fsa/OmniVoice and https://huggingface.co/k2-fsa/OmniVoice | `Apache-2.0`. Model card also prohibits unauthorized voice cloning, impersonation, fraud, scams, and illegal or unethical use. |
+| Training / Inference | Qwen3 `Qwen/Qwen3-0.6B` used as OmniVoice LLM default | `frontend/src/shared/training-defaults.ts` | https://huggingface.co/Qwen/Qwen3-0.6B | `Apache-2.0`. |
+| Legacy backend speaker analyzer | NVIDIA NeMo `vad_multilingual_marblenet`, `diar_msdd_telephonic`, `titanet_large` | `backend/analyzers/speaker_runtime.py`, `config/models.json` | https://docs.nvidia.com/nemo-framework/user-guide/24.12/nemotoolkit/asr/speaker_diarization/results.html and NGC model cards | NeMo toolkit is `Apache-2.0`, but NVIDIA states each NGC model card may carry its own license section. `titanet_large` NGC text states the model license is covered by the NeMo Toolkit license; verify the VAD/MSDD model cards in NGC before redistribution. |
+
+## Items Requiring A Future Update When Enabled
+
+- `backend/analyzers/pronunciation.py` accepts an external pronunciation
+  `scorer_repo_id` through configuration. No scorer repository is set in the
+  tracked `config/models.json`; if one is configured, add its source and license
+  here before publishing a build that uses it.
+- User-trained GPT-SoVITS, OmniVoice, RVC, or other checkpoints inherit the
+  licenses and consent constraints of their training data and base checkpoints.

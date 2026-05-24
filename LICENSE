@@ -1,0 +1,11 @@
+WAV QC Studio License Notice
+
+Copyright (c) 2026 noa330.
+
+No open-source license grant is made for this repository's original source code
+unless the copyright holder adds a separate standard license or written grant.
+
+Third-party libraries, model weights, checkpoints, datasets, and runtime assets
+are not covered by this notice. They remain governed by their own licenses and
+terms. See THIRD_PARTY_MODEL_LICENSES.md for the model and checkpoint inventory
+used by the application.
