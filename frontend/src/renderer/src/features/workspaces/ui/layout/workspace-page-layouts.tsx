@@ -1,74 +1,9 @@
 import { useRef } from "react";
-import { isCollapsedMode, type PanelCollapseMode, type WorkspaceLayoutProps, type WorkspacePanelItem, type WorkspacePanelRenderer } from "./workspace-layout-types";
+import { type WorkspaceLayoutProps, type WorkspacePanelRenderer } from "./workspace-layout-types";
 import { PanelStack, ResizableColumns, ResizableRows, useWorkspaceLayoutResizeState } from "./workspace-splitters";
 import { useElementBoxSize } from "./workspace-card-overflow";
 import { getInlinePanelStackSwitchSize } from "./workspace-panel-sizing";
 import type { WorkspaceDefinition } from "../../model/workspace-config";
-import type { WorkspaceId } from "@shared/ipc";
-import type { WorkspaceRuntime } from "../../state/use-workspace-runtime";
-
-export function getWorkspacePanelItems(workspace: WorkspaceDefinition): WorkspacePanelItem[] {
-  const rightItems = workspace.right.map((panel, index) => ({
-    panel,
-    layoutId: getRightPanelLayoutId(index),
-    detail: workspace.id === "speaker" ? index === 1 : workspace.id === "overview" || workspace.id === "batch" || workspace.id === "training" ? index === 1 : true,
-  }));
-
-  return [
-    { panel: workspace.left, layoutId: "workspace-card-left" },
-    ...workspace.center.map((panel, index) => ({ panel, layoutId: getCenterPanelLayoutId(workspace, index) })),
-    ...rightItems,
-  ];
-}
-
-function getCenterPanelLayoutId(workspace: WorkspaceDefinition, index: number): string | undefined {
-  const letters = ["a", "b", "c"] as const;
-
-  if (workspace.id === "batch") {
-    if (index === 1) {
-      return "workspace-card-center-a";
-    }
-    if (index === 2) {
-      return "workspace-card-center-b";
-    }
-    if (index === 0) {
-      return "workspace-card-center-c";
-    }
-    return undefined;
-  }
-
-  if (workspace.id === "overview") {
-    if (index === 0) {
-      return "workspace-card-center-a";
-    }
-    if (index === 1) {
-      return "workspace-card-center-b";
-    }
-    return undefined;
-  }
-
-  if (workspace.id === "tagging") {
-    if (index === 1) {
-      return "workspace-card-center-a";
-    }
-    if (index === 0) {
-      return "workspace-card-center-b";
-    }
-    if (index === 2) {
-      return "workspace-card-center-c";
-    }
-    return undefined;
-  }
-
-  const letter = letters[index];
-  return letter ? `workspace-card-center-${letter}` : undefined;
-}
-
-function getRightPanelLayoutId(index: number): string | undefined {
-  const letters = ["a", "b"] as const;
-  const letter = letters[index];
-  return letter ? `workspace-card-right-${letter}` : undefined;
-}
 
 export function WorkspaceCenterPanels(props: WorkspaceLayoutProps) {
   if (props.workspace.center.length === 1) {
@@ -112,8 +47,7 @@ export function WorkspaceRightPanels(props: WorkspaceLayoutProps) {
         layoutId: "workspace-card-right-a",
         className: "h-full",
         detail: true,
-        collapseMode: props.panelCollapseModes[props.workspace.right[0].id] ?? "none",
-        onCollapseModeChange: (mode) => props.onPanelCollapseModeChange(props.workspace.right[0].id, mode),
+        collapseMode: "none",
       });
   }
 }
@@ -138,13 +72,11 @@ function BatchCenterPanels(props: WorkspaceLayoutProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const { resizing } = useWorkspaceLayoutResizeState();
   const rootSize = useElementBoxSize(rootRef, resizing);
-  const timelineCollapsed = isCollapsedMode(props.panelCollapseModes[props.workspace.center[1].id]);
-  const audioCollapsed = isCollapsedMode(props.panelCollapseModes[props.workspace.center[2].id]);
   const stackInsteadOfInline = rootSize.width > 0 && rootSize.width <= batchTimelineAudioInlineSwitchWidth;
 
   return (
     <div ref={rootRef} className="h-full min-h-0 min-w-0">
-      {timelineCollapsed || audioCollapsed || stackInsteadOfInline ? (
+      {stackInsteadOfInline ? (
         <PanelStack
           {...stackBaseProps(props)}
           items={[
@@ -181,13 +113,11 @@ function TaggingCenterPanels(props: WorkspaceLayoutProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const { resizing } = useWorkspaceLayoutResizeState();
   const rootSize = useElementBoxSize(rootRef, resizing);
-  const audioCollapsed = isCollapsedMode(props.panelCollapseModes[props.workspace.center[0].id]);
-  const schemaCollapsed = isCollapsedMode(props.panelCollapseModes[props.workspace.center[1].id]);
   const stackInsteadOfInline = rootSize.width > 0 && rootSize.width <= taggingInlineCenterStackSwitchWidth;
 
   return (
     <div ref={rootRef} className="h-full min-h-0 min-w-0">
-      {audioCollapsed || schemaCollapsed || stackInsteadOfInline ? (
+      {stackInsteadOfInline ? (
         <PanelStack
           {...stackBaseProps(props)}
           items={[
@@ -240,8 +170,6 @@ function SpeakerCenterPanels(props: WorkspaceLayoutProps) {
 }
 
 function TrainingCenterPanels(props: WorkspaceLayoutProps) {
-  const planCollapsed = isCollapsedMode(props.panelCollapseModes[props.workspace.center[0].id]);
-  const resultsCollapsed = isCollapsedMode(props.panelCollapseModes[props.workspace.center[1].id]);
   return (
     <PanelStack
       {...stackBaseProps(props)}
@@ -249,7 +177,7 @@ function TrainingCenterPanels(props: WorkspaceLayoutProps) {
         {
           panel: props.workspace.center[0],
           layoutId: "workspace-card-center-a",
-          stackSizing: planCollapsed || resultsCollapsed ? { ...trainingPlanStackSizing, maxSize: 280 } : trainingPlanStackSizing,
+          stackSizing: trainingPlanStackSizing,
         },
         { panel: props.workspace.center[1], layoutId: "workspace-card-center-b", defaultRatio: 1 },
       ]}
@@ -261,13 +189,11 @@ function InferenceCenterPanels(props: WorkspaceLayoutProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const { resizing } = useWorkspaceLayoutResizeState();
   const rootSize = useElementBoxSize(rootRef, resizing);
-  const referenceCollapsed = isCollapsedMode(props.panelCollapseModes[props.workspace.center[0].id]);
-  const outputCollapsed = isCollapsedMode(props.panelCollapseModes[props.workspace.center[1].id]);
   const stackInsteadOfInline = rootSize.width > 0 && rootSize.width <= taggingInlineCenterStackSwitchWidth;
 
   return (
     <div ref={rootRef} className="h-full min-h-0 min-w-0">
-      {referenceCollapsed || outputCollapsed || stackInsteadOfInline ? (
+      {stackInsteadOfInline ? (
         <PanelStack
           {...stackBaseProps(props)}
           items={[
@@ -296,21 +222,6 @@ function InferenceCenterPanels(props: WorkspaceLayoutProps) {
 }
 
 function DefaultCenterPanels(props: WorkspaceLayoutProps) {
-  const topCardCollapsed = isCollapsedMode(props.panelCollapseModes[props.workspace.center[0].id]);
-  const queueCollapsed = isCollapsedMode(props.panelCollapseModes[props.workspace.center[1].id]);
-  if (topCardCollapsed || queueCollapsed) {
-    return (
-      <PanelStack
-        {...stackBaseProps(props)}
-        items={[
-          { panel: props.workspace.center[0], layoutId: "workspace-card-center-a" },
-          { panel: props.workspace.center[1], layoutId: "workspace-card-center-b" },
-          { panel: props.workspace.center[2], layoutId: "workspace-card-center-c" },
-        ]}
-      />
-    );
-  }
-
   return (
     <ResizableRows
       storageKey={`${props.workspace.id}:center-main`}
@@ -355,104 +266,10 @@ function TwoCardRightPanels(props: WorkspaceLayoutProps) {
   );
 }
 
-export function HorizontalPanelRail({
-  workspaceId,
-  runtime,
-  items,
-  onPanelCollapseModeChange,
-  paddingRight,
-  renderPanel,
-}: {
-  workspaceId: WorkspaceId;
-  runtime: WorkspaceRuntime;
-  items: WorkspacePanelItem[];
-  onPanelCollapseModeChange: (panelId: string, mode: PanelCollapseMode) => void;
-  paddingRight: number;
-  renderPanel: WorkspacePanelRenderer;
-}) {
-  return (
-    <div className="flex min-w-0 shrink-0 flex-col gap-3 overflow-hidden" style={{ paddingRight }}>
-      {items.map((item) => (
-        <div key={item.panel.id} className="min-w-0">
-          {renderPanel({
-            workspaceId,
-            panel: item.panel,
-            runtime,
-            className: item.className,
-            detail: item.detail,
-            layoutId: item.layoutId,
-            collapseMode: "horizontal",
-            onCollapseModeChange: (mode) => onPanelCollapseModeChange(item.panel.id, mode),
-          })}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export function RightCollapseRail({
-  workspaceId,
-  runtime,
-  verticalItems,
-  compactItems,
-  onPanelCollapseModeChange,
-  renderPanel,
-}: {
-  workspaceId: WorkspaceId;
-  runtime: WorkspaceRuntime;
-  verticalItems: WorkspacePanelItem[];
-  compactItems: WorkspacePanelItem[];
-  onPanelCollapseModeChange: (panelId: string, mode: PanelCollapseMode) => void;
-  renderPanel: WorkspacePanelRenderer;
-}) {
-  return (
-    <div className="flex h-full min-h-0 shrink-0 items-stretch justify-end gap-3 overflow-hidden">
-      {verticalItems.length > 0 ? (
-        <div className="flex h-full min-h-0 shrink-0 items-stretch gap-3 overflow-hidden">
-          {verticalItems.map((item) => (
-            <div key={item.panel.id} className="h-full min-h-0 w-[56px] shrink-0">
-              {renderPanel({
-                workspaceId,
-                panel: item.panel,
-                runtime,
-                className: item.className,
-                detail: item.detail,
-                layoutId: item.layoutId,
-                collapseMode: "vertical",
-                onCollapseModeChange: (mode) => onPanelCollapseModeChange(item.panel.id, mode),
-              })}
-            </div>
-          ))}
-        </div>
-      ) : null}
-      {compactItems.length > 0 ? (
-        <div className="flex h-full w-[56px] shrink-0 flex-col gap-3 overflow-hidden">
-          {compactItems.map((item) => (
-            <div key={item.panel.id} className="h-[56px] w-[56px] shrink-0">
-              {renderPanel({
-                workspaceId,
-                panel: item.panel,
-                runtime,
-                className: item.className,
-                detail: item.detail,
-                layoutId: item.layoutId,
-                collapseMode: "compact",
-                onCollapseModeChange: (mode) => onPanelCollapseModeChange(item.panel.id, mode),
-              })}
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function stackBaseProps(props: WorkspaceLayoutProps) {
   return {
     workspaceId: props.workspace.id,
     runtime: props.runtime,
-    panelCollapseModes: props.panelCollapseModes,
-    onPanelCollapseModeChange: props.onPanelCollapseModeChange,
     renderPanel: props.renderPanel,
   };
 }
@@ -464,8 +281,7 @@ function renderCenterPanel(props: WorkspaceLayoutProps, panel: WorkspaceDefiniti
     panel,
     layoutId,
     className: "min-h-0 min-w-0",
-    collapseMode: props.panelCollapseModes[panel.id] ?? "none",
-    onCollapseModeChange: (mode) => props.onPanelCollapseModeChange(panel.id, mode),
+    collapseMode: "none",
   });
 }
 

@@ -106,7 +106,6 @@ export type PersistedBatchReplaceState = {
 };
 
 export type PersistedWorkspaceUiState = {
-  panelCollapseModes: Record<string, "none" | "horizontal" | "vertical" | "compact">;
   outerLayoutSizes: {
     left: number;
     right: number;
@@ -823,7 +822,6 @@ function createDefaultWorkspaceUiStore(): Record<WorkspaceId, PersistedWorkspace
 
 function createDefaultWorkspaceUiState(): PersistedWorkspaceUiState {
   return {
-    panelCollapseModes: {},
     outerLayoutSizes: {
       left: 292,
       right: 322,

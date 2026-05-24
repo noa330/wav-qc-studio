@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { ChartNoAxesColumnIncreasing, ChevronDown, Download, EllipsisVertical, Expand, Filter, FoldHorizontal, FoldVertical, ListChecks, Pencil, Plus, Search, Shrink, Terminal, X } from "lucide-react";
+import { ChartNoAxesColumnIncreasing, ChevronDown, Download, EllipsisVertical, Filter, ListChecks, Pencil, Plus, Search, Terminal, X } from "lucide-react";
 import type { DataTableRow, VoiceModelRuntimeStatus, WorkspaceId, WorkspaceRuntimeEnvironmentStatus, WorkspaceSettings } from "@shared/ipc";
 import { useAppPersistence, type PersistedBatchReplaceState } from "@/app/app-persistence";
 import { cn } from "@/lib/utils";
@@ -15,10 +15,10 @@ import { MotionUnderlineTab } from "@/shared/components/motion-tabs";
 import { WpfCard } from "@/shared/components/wpf-card";
 import { dialogPanelMotion, menuMotion, pressTap, progressSpring, softPressTap, subtleSpring, tightPressTap, workspaceCardSpring, workspaceContentMotion } from "@/shared/motion";
 import { getPanelBodyLayoutMode, getPanelBodyMinSize, resolveMeasuredPanelCollapseMode, useElementBoxSize, useElementResizeCollapseMode } from "./layout/workspace-card-overflow";
-import { HorizontalPanelRail, RightCollapseRail, WorkspaceCenterPanels, WorkspaceRightPanels, getWorkspacePanelItems } from "./layout/workspace-page-layouts";
+import { WorkspaceCenterPanels, WorkspaceRightPanels } from "./layout/workspace-page-layouts";
 import { PanelResizeHandle, WorkspaceLayoutResizeProvider, constrainPairPixels, useWorkspaceLayoutResizeState } from "./layout/workspace-splitters";
 import { cardCollapsedSize, clampResizablePanelSize, workspaceSplitterSize } from "./layout/workspace-panel-sizing";
-import { isCollapsedMode, type PanelAutoCollapseSuppression, type PanelCollapseMode, type WorkspacePanelRenderer, type WorkspaceResizeAxis } from "./layout/workspace-layout-types";
+import { type PanelAutoCollapseSuppression, type PanelCollapseMode, type WorkspacePanelRenderer, type WorkspaceResizeAxis } from "./layout/workspace-layout-types";
 import { workspaces as workspaceDefinitions, type WorkspaceDefinition, type WorkspacePanel } from "../model/workspace-config";
 import type { WorkspaceRuntimeState, WorkspaceTerminalState } from "../state/workspace-runtime-store";
 import type { WorkspaceRuntime } from "../state/use-workspace-runtime";
@@ -749,7 +749,6 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
       return workspaceState.isRunning || workspaceState.isExporting || workspaceState.isBatchSpeakerRunning || runtime.isVoiceModelRuntimeInstalling(definition.id);
     });
   }, [runtime]);
-  const [panelCollapseModes, setPanelCollapseModes] = useState<Record<string, PanelCollapseMode>>(() => initialWorkspaceUiRef.current.panelCollapseModes);
   const [outerLayoutSizes, setOuterLayoutSizes] = useState<WorkspaceOuterLayoutSizes>(() => initialWorkspaceUiRef.current.outerLayoutSizes ?? defaultOuterLayoutSizes);
   const [layoutResizeState, setLayoutResizeState] = useState<{ resizing: boolean; axis?: WorkspaceResizeAxis }>({ resizing: false });
   const [terminalDialogOpen, setTerminalDialogOpen] = useState(false);
@@ -764,35 +763,21 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
     const nextAxis = resizing ? axis : undefined;
     setLayoutResizeState((current) => (current.resizing === resizing && current.axis === nextAxis ? current : { resizing, axis: nextAxis }));
   }, []);
-  const setPanelCollapseMode = (panelId: string, mode: PanelCollapseMode) => {
-    setPanelCollapseModes((current) => ({ ...current, [panelId]: mode }));
-  };
-
   const layoutResizeContext = useMemo(
     () => ({ resizing: layoutResizeState.resizing, axis: layoutResizeState.axis, setResizing: setLayoutResizing }),
     [layoutResizeState.axis, layoutResizeState.resizing, setLayoutResizing],
   );
   const renderPanelCard: WorkspacePanelRenderer = (props) => <PanelCard {...props} />;
-  const workspacePanelItems = useMemo(() => getWorkspacePanelItems(workspace), [workspace]);
-  const horizontalRailItems = useMemo(() => workspacePanelItems.filter((item) => panelCollapseModes[item.panel.id] === "horizontal"), [panelCollapseModes, workspacePanelItems]);
-  const verticalRailItems = useMemo(() => workspacePanelItems.filter((item) => panelCollapseModes[item.panel.id] === "vertical"), [panelCollapseModes, workspacePanelItems]);
-  const compactRailItems = useMemo(() => workspacePanelItems.filter((item) => panelCollapseModes[item.panel.id] === "compact"), [panelCollapseModes, workspacePanelItems]);
-  const leftIsRailCollapsed = isCollapsedMode(panelCollapseModes[workspace.left.id]);
-  const rightHasNormalPanel = workspace.right.some((panel) => !isCollapsedMode(panelCollapseModes[panel.id]));
-  const verticalRailWidth = verticalRailItems.length > 0 ? verticalRailItems.length * 56 + Math.max(0, verticalRailItems.length - 1) * 12 : 0;
-  const compactRailWidth = compactRailItems.length > 0 ? 56 : 0;
-  const rightRailWidth = verticalRailWidth + compactRailWidth + (verticalRailWidth > 0 && compactRailWidth > 0 ? 12 : 0);
-  const railReservedWidth = rightRailWidth > 0 ? rightRailWidth + workspaceSplitterSize : 0;
+  const rightPanelsVisible = workspace.right.length > 0;
   const workspaceGridColumns = [
-    leftIsRailCollapsed ? "0px" : "var(--workspace-left-width)",
-    leftIsRailCollapsed ? "0px" : `${workspaceSplitterSize}px`,
+    "var(--workspace-left-width)",
+    `${workspaceSplitterSize}px`,
     "minmax(0,1fr)",
-    rightHasNormalPanel ? `${workspaceSplitterSize}px` : "0px",
-    rightHasNormalPanel ? "var(--workspace-right-width)" : "0px",
+    rightPanelsVisible ? `${workspaceSplitterSize}px` : "0px",
+    rightPanelsVisible ? "var(--workspace-right-width)" : "0px",
   ].join(" ");
   const workspaceGridStyle = {
     gridTemplateColumns: workspaceGridColumns,
-    paddingRight: railReservedWidth,
     "--workspace-left-width": `${outerLayoutSizes.left}px`,
     "--workspace-right-width": `${outerLayoutSizes.right}px`,
   } as CSSProperties;
@@ -837,10 +822,9 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
 
   useEffect(() => {
     persistence.recordWorkspaceUiSnapshot(workspace.id, {
-      panelCollapseModes,
       outerLayoutSizes,
     });
-  }, [outerLayoutSizes, panelCollapseModes, persistence, workspace.id]);
+  }, [outerLayoutSizes, persistence, workspace.id]);
 
   useEffect(() => {
     const handledRequestId = handledTerminalOpenRequestRef.current[workspace.id] ?? 0;
@@ -858,8 +842,8 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
     }
 
     const update = () => {
-      const availableWidth = Math.max(cardCollapsedSize, root.getBoundingClientRect().width - railReservedWidth);
-      setOuterLayoutSizes((current) => fitOuterLayoutSizes(current, availableWidth, { left: !leftIsRailCollapsed, right: rightHasNormalPanel }));
+      const availableWidth = Math.max(cardCollapsedSize, root.getBoundingClientRect().width);
+      setOuterLayoutSizes((current) => fitOuterLayoutSizes(current, availableWidth, { left: true, right: rightPanelsVisible }));
     };
 
     update();
@@ -870,7 +854,7 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
       observer.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [leftIsRailCollapsed, railReservedWidth, rightHasNormalPanel]);
+  }, [rightPanelsVisible]);
 
   const resizeOuterPanel = (side: "left" | "right", startClientX: number) => {
     const grid = workspaceGridRef.current;
@@ -878,11 +862,11 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
       return;
     }
 
-    const rootWidth = Math.max(cardCollapsedSize, (layoutRootRef.current?.getBoundingClientRect().width ?? window.innerWidth) - railReservedWidth);
+    const rootWidth = Math.max(cardCollapsedSize, layoutRootRef.current?.getBoundingClientRect().width ?? window.innerWidth);
     const startSizes = outerLayoutSizes;
-    const visibleHandleWidth = (!leftIsRailCollapsed ? workspaceSplitterSize : 0) + (rightHasNormalPanel ? workspaceSplitterSize : 0);
-    const activeLeftWidth = leftIsRailCollapsed ? 0 : startSizes.left;
-    const activeRightWidth = rightHasNormalPanel ? startSizes.right : 0;
+    const visibleHandleWidth = workspaceSplitterSize + (rightPanelsVisible ? workspaceSplitterSize : 0);
+    const activeLeftWidth = startSizes.left;
+    const activeRightWidth = rightPanelsVisible ? startSizes.right : 0;
     const activeCenterWidth = Math.max(outerPanelMin.center, rootWidth - activeLeftWidth - activeRightWidth - visibleHandleWidth);
     const maxLeft = Math.max(outerPanelMin.left, rootWidth - activeRightWidth - outerPanelMin.center - visibleHandleWidth);
     const maxRight = Math.max(outerPanelMin.right, rootWidth - activeLeftWidth - outerPanelMin.center - visibleHandleWidth);
@@ -1017,22 +1001,14 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
       </AnimatePresence>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3">
-        {horizontalRailItems.length > 0 ? (
-          <HorizontalPanelRail workspaceId={workspace.id} runtime={runtime} items={horizontalRailItems} onPanelCollapseModeChange={setPanelCollapseMode} paddingRight={railReservedWidth} renderPanel={renderPanelCard} />
-        ) : null}
         <div ref={layoutRootRef} className="relative min-h-0 flex-1" data-app-tour-target="workspace-layout">
         <div ref={workspaceGridRef} className="grid h-full min-h-0" style={workspaceGridStyle}>
-          {leftIsRailCollapsed ? <div /> : <PanelCard key={workspace.left.id} layoutId="workspace-card-left" workspaceId={workspace.id} panel={workspace.left} runtime={runtime} collapseMode={panelCollapseModes[workspace.left.id] ?? "none"} onCollapseModeChange={(mode) => setPanelCollapseMode(workspace.left.id, mode)} />}
-          {leftIsRailCollapsed ? <div aria-hidden="true" /> : <PanelResizeHandle orientation="vertical" onMouseDown={(event) => resizeOuterPanel("left", event.clientX)} />}
-          <WorkspaceCenterPanels workspace={workspace} runtime={runtime} panelCollapseModes={panelCollapseModes} onPanelCollapseModeChange={setPanelCollapseMode} renderPanel={renderPanelCard} />
-          {rightHasNormalPanel ? <PanelResizeHandle orientation="vertical" onMouseDown={(event) => resizeOuterPanel("right", event.clientX)} /> : <div aria-hidden="true" />}
-          {rightHasNormalPanel ? <WorkspaceRightPanels workspace={workspace} runtime={runtime} panelCollapseModes={panelCollapseModes} onPanelCollapseModeChange={setPanelCollapseMode} renderPanel={renderPanelCard} /> : <div />}
+          <PanelCard key={workspace.left.id} layoutId="workspace-card-left" workspaceId={workspace.id} panel={workspace.left} runtime={runtime} collapseMode="none" />
+          <PanelResizeHandle orientation="vertical" onMouseDown={(event) => resizeOuterPanel("left", event.clientX)} />
+          <WorkspaceCenterPanels workspace={workspace} runtime={runtime} renderPanel={renderPanelCard} />
+          {rightPanelsVisible ? <PanelResizeHandle orientation="vertical" onMouseDown={(event) => resizeOuterPanel("right", event.clientX)} /> : <div aria-hidden="true" />}
+          {rightPanelsVisible ? <WorkspaceRightPanels workspace={workspace} runtime={runtime} renderPanel={renderPanelCard} /> : <div />}
         </div>
-        {verticalRailItems.length > 0 || compactRailItems.length > 0 ? (
-          <div className="absolute inset-y-0 right-0 z-20">
-            <RightCollapseRail workspaceId={workspace.id} runtime={runtime} verticalItems={verticalRailItems} compactItems={compactRailItems} onPanelCollapseModeChange={setPanelCollapseMode} renderPanel={renderPanelCard} />
-          </div>
-        ) : null}
         </div>
       </div>
       <AnimatePresence>
@@ -1122,11 +1098,6 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
   );
 }
 
-type PanelCollapseMenuState = {
-  left: number;
-  top: number;
-};
-
 function collapseModeUsesAxis(mode: PanelCollapseMode, axis: WorkspaceResizeAxis): boolean {
   return axis === "width" ? mode === "vertical" || mode === "compact" : mode === "horizontal" || mode === "compact";
 }
@@ -1182,7 +1153,6 @@ function PanelCard({
   collapseMode,
   contentSizing = false,
   autoCollapseSuppression,
-  onCollapseModeChange,
 }: {
   layoutId?: string;
   workspaceId: WorkspaceId;
@@ -1193,7 +1163,6 @@ function PanelCard({
   collapseMode: PanelCollapseMode;
   contentSizing?: boolean;
   autoCollapseSuppression?: PanelAutoCollapseSuppression;
-  onCollapseModeChange: (mode: PanelCollapseMode) => void;
 }) {
   const Icon = panel.icon;
   const cardRef = useRef<HTMLElement | null>(null);
@@ -1206,8 +1175,6 @@ function PanelCard({
   const isBatchAudioPanel = workspaceId === "batch" && panel.id === "batch-audio";
   const persistence = useAppPersistence();
   const initialWorkspaceUiRef = useRef(persistence.getWorkspaceUiSnapshot(workspaceId));
-  const [collapseMenu, setCollapseMenu] = useState<PanelCollapseMenuState | undefined>();
-  const collapseMenuRef = useRef<HTMLDivElement | null>(null);
   const [sliceEditorState, setSliceEditorState] = useState<SliceEditorViewState>(() => initialWorkspaceUiRef.current.sliceEditor);
   const sliceEditorActions = useMemo<SliceEditorViewActions>(
     () => ({
@@ -1237,7 +1204,7 @@ function PanelCard({
   }, [isSliceEditor, persistence, sliceEditorState, workspaceId]);
   const isTablePanel = panel.kind === "table" || panel.kind === "progress";
   const measuredCollapseMode = resizeCollapseMode ?? resolveMeasuredPanelCollapseMode(collapseMode, cardSize, activeAutoCollapseSuppression);
-  const physicallyCollapsed = collapseMode !== "none" && measuredCollapseMode !== "none";
+  const physicallyCollapsed = measuredCollapseMode !== "none";
   const expanded = measuredCollapseMode === "none";
   const layoutAnimationEnabled = !layoutResizing && expanded;
   const verticalCollapsed = measuredCollapseMode === "vertical";
@@ -1266,47 +1233,7 @@ function PanelCard({
     previousMeasuredCollapseModeRef.current = measuredCollapseMode;
   }, [measuredCollapseMode]);
 
-  useEffect(() => {
-    if (!collapseMenu) {
-      return;
-    }
-
-    const handlePointerDown = (event: MouseEvent) => {
-      const target = event.target as Node | null;
-      if (target && collapseMenuRef.current?.contains(target)) {
-        return;
-      }
-      setCollapseMenu(undefined);
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setCollapseMenu(undefined);
-      }
-    };
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [collapseMenu]);
-
-  const openCollapseMenu = (event: ReactMouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    const rect = event.currentTarget.getBoundingClientRect();
-    const menuWidth = 180;
-    const menuHeight = collapseMode === "none" ? 116 : 162;
-    const left = Math.min(Math.max(8, rect.right - menuWidth), Math.max(8, window.innerWidth - menuWidth - 8));
-    const belowTop = rect.bottom + 6;
-    const aboveTop = rect.top - menuHeight - 6;
-    const top = belowTop + menuHeight <= window.innerHeight - 8 ? belowTop : Math.max(8, aboveTop);
-    setCollapseMenu({ left, top });
-  };
-
   return (
-    <>
     <WpfCard
       ref={cardRef}
       layout={layoutAnimationEnabled ? "position" : false}
@@ -1334,15 +1261,12 @@ function PanelCard({
             {expanded && isTablePanel ? <TableHeaderSearch workspaceId={workspaceId} runtime={runtime} /> : null}
             {expanded && isSliceEditor ? <SliceEditorHeaderControls view={sliceEditorContext.state} actions={sliceEditorContext.actions} disabled={!sliceEditorEnabled} /> : null}
             {expanded && isBatchAudioPanel ? <BatchAudioHeaderControls runtime={runtime} disabled={!workspaceState.selectedAudioPath} /> : null}
-            <button
-              type="button"
-              onClick={openCollapseMenu}
+            <span
               className="flex size-6 shrink-0 items-center justify-center"
-              aria-label="카드 접기 메뉴"
               data-app-tour-panel-tools="true"
             >
               <EllipsisVertical className="size-4 text-[var(--control-arrow)]" strokeWidth={1.9} />
-            </button>
+            </span>
           </div>
         </div>
         <div aria-hidden={!expanded} className={cn("grid min-h-0 min-w-0", !expanded && "pointer-events-none", bodyGridRowsClass)}>
@@ -1363,61 +1287,6 @@ function PanelCard({
         </div>
       </div>
     </WpfCard>
-    {collapseMenu ? <PanelCollapseMenu refEl={collapseMenuRef} menu={collapseMenu} mode={collapseMode} onSelectMode={onCollapseModeChange} onClose={() => setCollapseMenu(undefined)} /> : null}
-    </>
-  );
-}
-
-function PanelCollapseMenu({
-  refEl,
-  menu,
-  mode,
-  onSelectMode,
-  onClose,
-}: {
-  refEl: RefObject<HTMLDivElement | null>;
-  menu: PanelCollapseMenuState;
-  mode: PanelCollapseMode;
-  onSelectMode: (mode: PanelCollapseMode) => void;
-  onClose: () => void;
-}) {
-  const selectMode = (nextMode: PanelCollapseMode) => {
-    onSelectMode(nextMode);
-    onClose();
-  };
-
-  return createPortal(
-    <motion.div
-      ref={refEl}
-      {...menuMotion}
-      className="fixed z-[1100] min-w-[180px] rounded-[4px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] py-1 text-sm shadow-[0_14px_32px_rgba(0,0,0,.34)]"
-      style={{ left: menu.left, top: menu.top }}
-    >
-      {mode !== "none" ? (
-        <>
-          <PanelCollapseMenuItem icon={<Expand className="size-4" />} label="펼치기" onClick={() => selectMode("none")} />
-          <div className="my-1 h-px bg-[var(--panel-stroke)]" />
-        </>
-      ) : null}
-      <PanelCollapseMenuItem icon={<FoldVertical className="size-4" />} label="가로 접기" onClick={() => selectMode("horizontal")} />
-      <PanelCollapseMenuItem icon={<FoldHorizontal className="size-4" />} label="세로 접기" onClick={() => selectMode("vertical")} />
-      <PanelCollapseMenuItem icon={<Shrink className="size-4" />} label="작게 접기" onClick={() => selectMode("compact")} />
-    </motion.div>,
-    document.body,
-  );
-}
-
-function PanelCollapseMenuItem({ icon, label, onClick }: { icon: ReactNode; label: string; onClick: () => void }) {
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      whileTap={softPressTap}
-      className="grid h-9 w-full grid-cols-[22px_minmax(0,1fr)] items-center gap-2 px-3 text-left text-[var(--primary-text)] hover:bg-[var(--soft-selection-hover)]"
-    >
-      {icon}
-      <span>{label}</span>
-    </motion.button>
   );
 }
 

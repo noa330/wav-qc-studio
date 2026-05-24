@@ -34,7 +34,6 @@ export type WorkspacePanelRenderProps = {
   collapseMode: PanelCollapseMode;
   contentSizing?: boolean;
   autoCollapseSuppression?: PanelAutoCollapseSuppression;
-  onCollapseModeChange: (mode: PanelCollapseMode) => void;
 };
 
 export type WorkspacePanelRenderer = (props: WorkspacePanelRenderProps) => ReactNode;
@@ -42,11 +41,5 @@ export type WorkspacePanelRenderer = (props: WorkspacePanelRenderProps) => React
 export type WorkspaceLayoutProps = {
   workspace: WorkspaceDefinition;
   runtime: WorkspaceRuntime;
-  panelCollapseModes: Record<string, PanelCollapseMode>;
-  onPanelCollapseModeChange: (panelId: string, mode: PanelCollapseMode) => void;
   renderPanel: WorkspacePanelRenderer;
 };
-
-export function isCollapsedMode(mode: PanelCollapseMode | undefined): boolean {
-  return mode === "vertical" || mode === "horizontal" || mode === "compact";
-}

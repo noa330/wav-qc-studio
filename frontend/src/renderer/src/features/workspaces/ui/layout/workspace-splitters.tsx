@@ -6,7 +6,7 @@ import type { WorkspaceId } from "@shared/ipc";
 import type { WorkspaceRuntime } from "../../state/use-workspace-runtime";
 import { cardCollapsedSize, workspaceSplitterSize } from "./workspace-panel-sizing";
 import { useElementBoxSize } from "./workspace-card-overflow";
-import type { PanelAutoCollapseSuppression, PanelCollapseMode, WorkspacePanelItem, WorkspacePanelRenderer, WorkspaceResizeAxis } from "./workspace-layout-types";
+import type { PanelAutoCollapseSuppression, WorkspacePanelItem, WorkspacePanelRenderer, WorkspaceResizeAxis } from "./workspace-layout-types";
 import {
   buildStackGridTemplateRows,
   clampNumber,
@@ -168,30 +168,16 @@ function ResizablePair({
 export function PanelStack({
   workspaceId,
   runtime,
-  panelCollapseModes,
-  onPanelCollapseModeChange,
   items,
   renderPanel,
 }: {
   workspaceId: WorkspaceId;
   runtime: WorkspaceRuntime;
-  panelCollapseModes: Record<string, PanelCollapseMode>;
-  onPanelCollapseModeChange: (panelId: string, mode: PanelCollapseMode) => void;
   items: WorkspacePanelItem[];
   renderPanel: WorkspacePanelRenderer;
 }) {
   const inheritedResizeState = useWorkspaceLayoutResizeState();
-  const orderedItems = useMemo(
-    () =>
-      items
-        .map((item, index) => ({ ...item, index, collapsed: (panelCollapseModes[item.panel.id] ?? "none") !== "none" }))
-        .filter((item) => {
-          const mode = panelCollapseModes[item.panel.id] ?? "none";
-          return mode !== "vertical" && mode !== "horizontal" && mode !== "compact";
-        })
-        .sort((a, b) => Number(b.collapsed) - Number(a.collapsed) || a.index - b.index),
-    [items, panelCollapseModes],
-  );
+  const orderedItems = items;
   const stackKey = orderedItems.map((item) => item.panel.id).join("|");
   const stackRef = useRef<HTMLDivElement | null>(null);
   const stackSize = useElementBoxSize(stackRef, inheritedResizeState.resizing);
@@ -321,10 +307,9 @@ export function PanelStack({
                 className: item.className,
                 detail: item.detail,
                 layoutId: item.layoutId,
-                collapseMode: panelCollapseModes[item.panel.id] ?? "none",
+                collapseMode: "none",
                 contentSizing: (policies[index] ?? defaultResolvedStackSizing).mode === "content",
                 autoCollapseSuppression: panelAutoCollapseSuppression,
-                onCollapseModeChange: (mode) => onPanelCollapseModeChange(item.panel.id, mode),
               })}
               {index < orderedItems.length - 1 ? <PanelResizeHandle orientation="horizontal" onMouseDown={(event) => resizeStackSplit(index, event.clientY)} /> : null}
             </Fragment>
