@@ -41,12 +41,13 @@ export function resolveAudioSelection(workspaceId: WorkspaceId, row?: DataTableR
         workspaceId === "speaker" ? "" : row.sourcePath,
         fallbackAudioPath,
       );
+  const inputAudioPath = resolveInputAudioPath(row, originalPath);
   const resultPath = firstNonVirtualPath(raw.finalOutputPath, raw.sidonOutputPath, raw.resembleOutputPath, raw.voiceFixerOutputPath, raw.outputPath, raw.outputAudioPath, row.sourcePath);
 
   if (workspaceId === "speaker") {
     return {
-      selectedFilePath: firstNonEmpty(originalPath, resultPath) || undefined,
-      selectedAudioPath: firstNonEmpty(originalPath, fallbackAudioPath) || undefined,
+      selectedFilePath: firstNonEmpty(inputAudioPath, originalPath, resultPath) || undefined,
+      selectedAudioPath: firstNonEmpty(inputAudioPath, fallbackAudioPath) || undefined,
       selectedResultAudioPath: resultPath || undefined,
     };
   }
@@ -74,24 +75,43 @@ export function resolveAudioSelection(workspaceId: WorkspaceId, row?: DataTableR
   if (workspaceId === "slice") {
     return {
       selectedFilePath: rowSelectionPath(workspaceId, row),
-      selectedAudioPath: firstNonEmpty(originalPath, fallbackAudioPath, resultPath) || undefined,
+      selectedAudioPath: firstNonEmpty(inputAudioPath, fallbackAudioPath, resultPath) || undefined,
       selectedResultAudioPath: resultPath || undefined,
     };
   }
 
   if (workspaceId === "tagging") {
     return {
-      selectedFilePath: firstNonEmpty(originalPath, resultPath) || undefined,
-      selectedAudioPath: firstNonEmpty(originalPath, fallbackAudioPath, resultPath) || undefined,
+      selectedFilePath: firstNonEmpty(inputAudioPath, resultPath) || undefined,
+      selectedAudioPath: firstNonEmpty(inputAudioPath, fallbackAudioPath, resultPath) || undefined,
       selectedResultAudioPath: resultPath || undefined,
     };
   }
 
   return {
-    selectedFilePath: firstNonEmpty(originalPath, resultPath, fallbackAudioPath) || undefined,
-    selectedAudioPath: firstNonEmpty(originalPath, fallbackAudioPath, resultPath) || undefined,
+    selectedFilePath: firstNonEmpty(inputAudioPath, resultPath, fallbackAudioPath) || undefined,
+    selectedAudioPath: firstNonEmpty(inputAudioPath, fallbackAudioPath, resultPath) || undefined,
     selectedResultAudioPath: resultPath || undefined,
   };
+}
+
+export function resolveInputAudioPath(row?: DataTableRow, sourcePath = ""): string {
+  const raw = row?.raw ?? {};
+  const cachedPath = firstNonVirtualPath(raw.cachedPath, raw.cached_path);
+  const originalPath = firstNonVirtualPath(
+    sourcePath,
+    raw.originalPath,
+    raw.original_path,
+    raw.absolute_path,
+    raw.inputPath,
+    raw.input_path,
+    row?.sourcePath,
+  );
+  if (cachedPath && !isWavPath(originalPath || cachedPath)) {
+    return cachedPath;
+  }
+
+  return firstNonEmpty(originalPath, cachedPath) || "";
 }
 
 export function findRowForPath(rows: DataTableRow[], path: string): DataTableRow | undefined {
@@ -116,6 +136,8 @@ export function findRowForPath(rows: DataTableRow[], path: string): DataTableRow
       raw.outputPath,
       raw.outputAudioPath,
       raw.output_audio_path,
+      raw.cachedPath,
+      raw.cached_path,
       raw.referenceAudioPath,
       raw.reference_audio_path,
       raw.checkpointPath,
@@ -145,7 +167,7 @@ export function rowSelectionPath(workspaceId: WorkspaceId, row: DataTableRow): s
   if (workspaceId === "training") {
     return firstNonEmpty(raw.checkpointPath, raw.checkpoint_path, row.sourcePath, raw.datasetPath, raw.dataset_path, raw.outputPath) || undefined;
   }
-  return firstNonEmpty(raw.originalPath, raw.original_path, raw.absolute_path, raw.inputPath, raw.input_path, row.sourcePath, raw.outputPath, raw.outputAudioPath, raw.output_audio_path, raw.referenceAudioPath, raw.reference_audio_path, raw.checkpointPath, raw.checkpoint_path, raw.datasetPath, raw.dataset_path) || undefined;
+  return firstNonEmpty(resolveInputAudioPath(row), raw.outputPath, raw.outputAudioPath, raw.output_audio_path, raw.referenceAudioPath, raw.reference_audio_path, raw.checkpointPath, raw.checkpoint_path, raw.datasetPath, raw.dataset_path) || undefined;
 }
 
 export function findFirstAudioPath(tree?: FileTreeResult): string {

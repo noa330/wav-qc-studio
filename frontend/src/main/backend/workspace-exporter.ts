@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { existsSync, readdirSync, type Dirent } from "node:fs";
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join } from "node:path";
@@ -9,8 +8,6 @@ import { scanFileTree } from "./file-tree";
 import { createBackendLayout } from "./project-layout";
 import { runPythonPlan } from "./python-runner";
 import { readWorkspaceDetails, readWorkspaceTable } from "./result-readers";
-
-const AUDIO_INPUT_CACHE_FOLDER = "_audio_input_cache";
 
 const OUTPUT_FOLDERS: Record<WorkspaceId, string> = {
   slice: "_slicer_results",
@@ -39,7 +36,7 @@ export async function exportWorkspace(request: WorkspaceExportRequest, onProgres
     return exportBatchWorkspace(request, onProgress, signal);
   }
 
-  const outputRoot = resolveOutputDirectory(request.paths.inputPath, request.paths.outputPath, OUTPUT_FOLDERS[request.workspaceId]);
+  const outputRoot = resolveOutputDirectory(request.workspaceId, request.paths.inputPath, request.paths.outputPath, request.paths.projectRoot, OUTPUT_FOLDERS[request.workspaceId]);
   const sessionName = timestamp();
   const sessionPath = join(outputRoot, sessionName);
   const audioDir = join(sessionPath, "audio");
@@ -119,7 +116,7 @@ export async function exportWorkspace(request: WorkspaceExportRequest, onProgres
 }
 
 async function exportBatchWorkspace(request: WorkspaceExportRequest, onProgress?: WorkspaceExportProgressHandler, signal?: AbortSignal): Promise<WorkspaceExportResult> {
-  const outputRoot = resolveOutputDirectory(request.paths.inputPath, request.paths.outputPath, OUTPUT_FOLDERS.batch);
+  const outputRoot = resolveOutputDirectory(request.workspaceId, request.paths.inputPath, request.paths.outputPath, request.paths.projectRoot, OUTPUT_FOLDERS.batch);
   const runStamp = timestamp();
   const requestPath = join(outputRoot, `batch_qc_export_request_${runStamp}.json`);
   const manifestPath = join(outputRoot, `batch_qc_export_${runStamp}.json`);
@@ -455,14 +452,15 @@ function normalizeExportAudioPath(path: string): string {
 
 function resolveRowAudioPath(workspaceId: WorkspaceId, row: DataTableRow, inputPath: string): string {
   const raw = row.raw ?? {};
+  const cachedCandidates = [raw.cachedPath, raw.cached_path];
   const candidates =
     workspaceId === "speaker"
-      ? [raw.finalOutputPath, raw.sidonOutputPath, raw.resembleOutputPath, raw.voiceFixerOutputPath, raw.outputPath, raw.outputAudioPath, row.sourcePath, raw.originalPath, raw.original_path, raw.absolute_path]
+      ? [raw.finalOutputPath, raw.sidonOutputPath, raw.resembleOutputPath, raw.voiceFixerOutputPath, raw.outputPath, raw.outputAudioPath, ...cachedCandidates, row.sourcePath, raw.originalPath, raw.original_path, raw.absolute_path]
       : workspaceId === "slice"
-        ? [raw.originalPath, raw.original_path, raw.absolute_path, raw.inputPath, raw.input_path, row.sourcePath, raw.outputPath]
+        ? [...cachedCandidates, raw.originalPath, raw.original_path, raw.absolute_path, raw.inputPath, raw.input_path, row.sourcePath, raw.outputPath]
         : workspaceId === "tagging"
-          ? [raw.outputPath, raw.outputAudioPath, row.sourcePath, raw.originalPath, raw.original_path, raw.absolute_path]
-          : [raw.outputAudioPath, raw.outputPath, raw.absolute_path, raw.originalPath, raw.original_path, row.sourcePath];
+          ? [raw.outputPath, raw.outputAudioPath, ...cachedCandidates, row.sourcePath, raw.originalPath, raw.original_path, raw.absolute_path]
+          : [raw.outputAudioPath, raw.outputPath, ...cachedCandidates, raw.absolute_path, raw.originalPath, raw.original_path, row.sourcePath];
 
   for (const candidate of candidates) {
     const resolved = resolveCandidatePath(candidate, inputPath);
@@ -507,7 +505,7 @@ function resolveCachedWavPath(sourcePath: string, inputPath: string): string {
     return "";
   }
 
-  const roots = [resolveFallbackInputFolder(inputPath), resolveAudioInputCacheDirectory(inputPath)];
+  const roots = [resolveFallbackInputFolder(inputPath)];
   for (const root of roots) {
     if (!root || !existsSync(root)) {
       continue;
@@ -562,18 +560,6 @@ function isWavAudioPath(path: string): boolean {
   const extension = extname(path).toLowerCase();
   return WAV_AUDIO_EXTENSIONS.includes(extension as (typeof WAV_AUDIO_EXTENSIONS)[number]);
 }
-
-function resolveAudioInputCacheDirectory(inputPath: string): string {
-  const inputRoot = resolveFallbackInputFolder(inputPath);
-  const name = sanitizeCacheFolderName(basename(inputRoot) || "input");
-  const key = createHash("sha1").update(inputRoot.replace(/\\/gu, "/").toLowerCase()).digest("hex").slice(0, 12);
-  return join(inputRoot, AUDIO_INPUT_CACHE_FOLDER, "input", `${name}_${key}`);
-}
-
-function sanitizeCacheFolderName(value: string): string {
-  return value.replace(/[<>:"/\\|?*\x00-\x1f]+/gu, "_").replace(/\s+/gu, "_").replace(/^\.+/u, "").slice(0, 48) || "input";
-}
-
 
 function createExportFileName(workspaceId: WorkspaceId, row: DataTableRow, index: number, sourcePath: string, usedNames: Set<string>): string {
   const extension = extname(sourcePath) || ".wav";
@@ -644,10 +630,14 @@ function escapeCsv(value: string): string {
   return `"${value.replace(/"/gu, '""')}"`;
 }
 
-function resolveOutputDirectory(inputPath: string, requestedOutputPath: string | undefined, expectedLeafName: string): string {
+function resolveOutputDirectory(workspaceId: WorkspaceId, inputPath: string, requestedOutputPath: string | undefined, projectRoot: string | undefined, expectedLeafName: string): string {
   const baseInput = resolveFallbackInputFolder(inputPath);
   const candidate = requestedOutputPath?.trim();
   if (!candidate) {
+    if (projectRoot?.trim()) {
+      return join(projectRoot.trim(), "exports", workspaceId, expectedLeafName);
+    }
+
     return join(baseInput, expectedLeafName);
   }
 

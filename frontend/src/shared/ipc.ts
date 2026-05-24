@@ -26,6 +26,8 @@ export const IPC_CHANNELS = {
   loadAppState: "app-state:load",
   saveAppState: "app-state:save",
   saveAppStateSync: "app-state:save-sync",
+  createProject: "project:create",
+  loadProjectState: "project:load-state",
   updateStartupSplash: "startup-splash:update",
   completeStartupSplash: "startup-splash:complete",
   selectFolder: "dialog:select-folder",
@@ -37,6 +39,8 @@ export const IPC_CHANNELS = {
   loadWorkspace: "workspace:load",
   runWorkspace: "workspace:run",
   runWorkspaceProgress: "workspace:run-progress",
+  checkWorkspaceRuntime: "workspace:runtime-check",
+  installWorkspaceRuntime: "workspace:runtime-install",
   listTrainingModels: "training:list-models",
   startTensorBoard: "training:start-tensorboard",
   runBatchSpeakerDiarization: "workspace:batch-speaker-diarize",
@@ -113,6 +117,28 @@ export type DialogFileFilter = {
 export type DialogFileSelectionOptions = {
   title?: string;
   filters?: DialogFileFilter[];
+};
+
+export type CreateProjectRequest = {
+  name: string;
+};
+
+export type CreateProjectResult = {
+  ok: boolean;
+  name?: string;
+  rootPath?: string;
+  error?: string;
+};
+
+export type ProjectStateLoadRequest = {
+  projectId: string;
+  rootPath?: string;
+};
+
+export type ProjectStateLoadResult = {
+  ok: boolean;
+  state?: JsonValue;
+  error?: string;
 };
 
 export type FileTreeNode = {
@@ -215,6 +241,7 @@ export type DetailField = {
 export type WorkspacePaths = {
   inputPath: string;
   outputPath?: string;
+  projectRoot?: string;
 };
 
 export type SlicerSettings = {
@@ -428,6 +455,38 @@ export type WorkspaceRunRequest = {
   audioEdits?: AudioEditExportMap;
 };
 
+export type WorkspaceRuntimeEnvironmentId = "main" | "noise" | "slice";
+
+export type WorkspaceRuntimeEnvironmentRequirement = {
+  id: WorkspaceRuntimeEnvironmentId;
+  label: string;
+  path: string;
+  installed: boolean;
+};
+
+export type WorkspaceRuntimeEnvironmentStatus = {
+  workspaceId: WorkspaceId;
+  ok: boolean;
+  checkedAt: string;
+  requirements: WorkspaceRuntimeEnvironmentRequirement[];
+};
+
+export type WorkspaceRuntimeEnvironmentRequest = {
+  workspaceId: WorkspaceId;
+};
+
+export type WorkspaceRuntimeEnvironmentInstallResult = {
+  ok: boolean;
+  workspaceId: WorkspaceId;
+  status: WorkspaceRuntimeEnvironmentStatus;
+  exitCode?: number;
+  error?: string;
+  stdout?: string;
+  stderr?: string;
+  logPath?: string;
+  command?: string;
+};
+
 export type TrainingCheckpointSummary = {
   id: string;
   label: string;
@@ -559,6 +618,7 @@ export type WorkspaceRunProgressEvent = {
   table: DataTable;
   details: DetailField[];
   progress: WorkspaceProgress;
+  inputTree?: FileTreeResult;
   terminal?: WorkspaceTerminalUpdate;
 };
 
@@ -590,6 +650,8 @@ export type StudioBackendApi = {
   loadAppState: () => Promise<AppStateLoadResult>;
   saveAppState: (request: AppStateSaveRequest) => Promise<AppStateSaveResult>;
   saveAppStateSync: (request: AppStateSaveRequest) => AppStateSaveResult;
+  createProject: (request: CreateProjectRequest) => Promise<CreateProjectResult>;
+  loadProjectState: (request: ProjectStateLoadRequest) => Promise<ProjectStateLoadResult>;
   updateStartupSplash: (progress: StartupSplashProgress) => Promise<StartupSplashResult>;
   completeStartupSplash: () => Promise<StartupSplashResult>;
   selectFolder: () => Promise<DialogSelectionResult>;
@@ -600,6 +662,8 @@ export type StudioBackendApi = {
   editWave: (request: AudioEditRequest) => Promise<AudioEditResult>;
   loadWorkspace: (request: WorkspaceLoadRequest) => Promise<Pick<WorkspaceRunResult, "workspaceId" | "table" | "details" | "inputTree" | "outputTree"> & { inputPath?: string; originalInputPath?: string; outputPath?: string; audioSourceMapPath?: string; logPath?: string }>;
   runWorkspace: (request: WorkspaceRunRequest) => Promise<WorkspaceRunResult>;
+  checkWorkspaceRuntime: (request: WorkspaceRuntimeEnvironmentRequest) => Promise<WorkspaceRuntimeEnvironmentStatus>;
+  installWorkspaceRuntime: (request: WorkspaceRuntimeEnvironmentRequest) => Promise<WorkspaceRuntimeEnvironmentInstallResult>;
   listTrainingModels: (request: TrainingModelListRequest) => Promise<TrainingModelListResult>;
   startTensorBoard: (request: TensorBoardSessionRequest) => Promise<TensorBoardSessionResult>;
   runBatchSpeakerDiarization: (request: WorkspaceBatchSpeakerDiarizationRequest) => Promise<WorkspaceRunResult>;

@@ -11,6 +11,7 @@ type WaveformSurfaceProps = {
   bucketCount?: number;
   className?: string;
   emptyText?: string;
+  framedTrack?: boolean;
   allowsSelectionCreationOnClick?: boolean;
   markerHandleWidth?: number;
   selectedMarkerHandleStyle?: "line" | "markerBadge";
@@ -79,6 +80,7 @@ export function WaveformSurface({
   className,
   markers = [],
   emptyText = "선택한 WAV 파일의 파형을 표시할 수 없습니다.",
+  framedTrack = false,
   allowsSelectionCreationOnClick = true,
   markerHandleWidth = 1.5,
   selectedMarkerHandleStyle = "line",
@@ -427,7 +429,7 @@ export function WaveformSurface({
     >
       {showRuler && waveform.data.durationSeconds > 0 ? <TimeRuler durationSeconds={waveform.data.durationSeconds} viewStart={safeViewStart} viewEnd={safeViewEnd} /> : null}
       {hasWaveform ? (
-        <div className="relative h-full min-h-0 w-full overflow-hidden">
+        <div className={cn("relative h-full min-h-0 w-full overflow-hidden", framedTrack && "rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--field-bg)]")}>
           <svg className="block h-full w-full min-h-0" preserveAspectRatio="none" viewBox={`0 0 100 ${viewBoxHeight}`} role="img" aria-label="WAV waveform" onMouseDown={beginSelectionDrag}>
           <rect x="0" y={trackTop} width="100" height={trackHeight} rx="1.6" fill="var(--field-bg)" />
           <path d={wavePath} fill="var(--waveform-base)" opacity="0.88" />
@@ -539,7 +541,7 @@ export function WaveformSurface({
           <WaveformBadgeLayer anchors={markerBadgeAnchors} />
         </div>
       ) : (
-        <div className="row-start-1 row-end-[-1] flex h-full min-h-[86px] items-center justify-center px-4 text-center text-sm text-[var(--secondary-text)]">
+        <div className={cn("row-start-1 row-end-[-1] flex h-full min-h-[86px] items-center justify-center px-4 text-center text-sm text-[var(--secondary-text)]", framedTrack && "rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--field-bg)]")}>
           {waveform.loading ? "파형을 읽는 중입니다." : waveform.data.error || emptyText}
         </div>
       )}

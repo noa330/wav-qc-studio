@@ -2,17 +2,18 @@ import { app, BrowserWindow, ipcMain, screen, shell } from "electron";
 import { join } from "node:path";
 import { IPC_CHANNELS, type StartupSplashProgress, type StartupSplashResult } from "@shared/ipc";
 import { createStartupSplashSteps, startupSplashFullRevealAnimationMs } from "@shared/startup-splash";
+import { getAppIconPath } from "./app-icon";
 
 const minimumVisibleMs = 2000;
 const closeFadeMs = 180;
 const progressEventName = "wavqc-startup-progress";
 const closeEventName = "wavqc-startup-close";
-const splashWindowWidthRatio = 0.34;
-const splashWindowHeightRatio = 0.52;
-const splashWindowMinWidth = 520;
-const splashWindowMaxWidth = 660;
-const splashWindowMinHeight = 460;
-const splashWindowMaxHeight = 560;
+const splashWindowWidthRatio = 0.49;
+const splashWindowHeightRatio = 0.58;
+const splashWindowMinWidth = 860;
+const splashWindowMaxWidth = 940;
+const splashWindowMinHeight = 570;
+const splashWindowMaxHeight = 630;
 
 const defaultProgress: StartupSplashProgress = {
   progressPercent: 0,
@@ -57,6 +58,7 @@ export function createStartupSplashWindow(): BrowserWindow | null {
     skipTaskbar: true,
     show: false,
     title: "WAV QC Studio",
+    icon: getAppIconPath(),
     backgroundColor: "#00000000",
     webPreferences: {
       contextIsolation: true,

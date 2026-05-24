@@ -58,7 +58,7 @@ def fit_text(text: str, max_width: int) -> str:
 
 
 def _console_stream() -> _StreamLike:
-    return getattr(sys, "__stdout__", None) or sys.stdout
+    return sys.__stdout__
 
 
 def _safe_write(stream: _StreamLike, text: str) -> int:
@@ -97,8 +97,8 @@ class LiveConsoleLine:
 
             text = fit_text(message, _terminal_width())
             width = _display_width(text)
-            padding = " " * max(0, self._last_width - width)
             stream = _console_stream()
+            padding = " " * max(0, self._last_width - width) if _stream_is_tty(stream) else ""
             _safe_write(stream, "\r" + text + padding)
             stream.flush()
 
@@ -137,3 +137,13 @@ def prepare_for_regular_output(text: str | None = None) -> None:
             stream = _console_stream()
             _safe_write(stream, text + "\n")
             stream.flush()
+
+
+def _stream_is_tty(stream: _StreamLike) -> bool:
+    isatty = getattr(stream, "isatty", None)
+    if not callable(isatty):
+        return False
+    try:
+        return bool(isatty())
+    except Exception:
+        return False

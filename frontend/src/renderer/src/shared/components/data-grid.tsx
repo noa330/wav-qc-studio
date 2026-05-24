@@ -10,7 +10,7 @@ import { NumericField } from "@/shared/components/controls";
 import { DropdownMenuSurface } from "@/shared/components/dropdown-menu";
 import { MotionUnderlineTab } from "@/shared/components/motion-tabs";
 import { checkPopMotion, dialogPanelMotion, menuMotion, softPressTap, tableEmptyMotion, tightPressTap, uiSpring } from "@/shared/motion";
-import { Check, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, ClipboardPaste, Copy, MousePointer2, Plus } from "lucide-react";
+import { Check, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, ClipboardPaste, Copy, MousePointer2, Plus, Trash2 } from "lucide-react";
 
 type DataGridSheetTab = {
   id: string;
@@ -83,6 +83,7 @@ export function DataGrid({
   activeSheetId,
   onSelectSheet,
   onCreateSheet,
+  onDeleteSheet,
   selectedRowId,
   selectedRowIds = [],
   selectedRowRevealRequestId,
@@ -112,6 +113,7 @@ export function DataGrid({
   activeSheetId?: string;
   onSelectSheet?: (sheetId: string) => void;
   onCreateSheet?: () => void;
+  onDeleteSheet?: () => void;
   selectedRowId?: string;
   selectedRowIds?: string[];
   selectedRowRevealRequestId?: number;
@@ -169,6 +171,7 @@ export function DataGrid({
   const allChecked = showsRowChecks && headerTargetRows.length > 0 && checkedCount === headerTargetRows.length;
   const displaySheets = sheets.length > 0 ? sheets : defaultSheetTabs;
   const displayActiveSheetId = activeSheetId ?? displaySheets[0]?.id;
+  const canDeleteSheet = Boolean(onDeleteSheet && sheets.length > 1 && displayActiveSheetId);
   const safePageSize = showPagination ? Math.max(1, Math.trunc(pageSize || 1)) : Math.max(1, table.rows.length || 1);
   const pageCount = Math.max(1, Math.ceil(table.rows.length / safePageSize));
   const safePageIndex = showPagination ? Math.min(pageIndex, pageCount - 1) : 0;
@@ -893,6 +896,11 @@ export function DataGrid({
             onCreateSheet();
             setMenu(undefined);
           } : undefined}
+          onDeleteSheet={onDeleteSheet ? () => {
+            onDeleteSheet();
+            setMenu(undefined);
+          } : undefined}
+          canDeleteSheet={canDeleteSheet}
           onCopy={copyMenuRows}
           onPaste={requestPaste}
           onSelectAll={() => {
@@ -1091,7 +1099,9 @@ function GridContextMenu({
   menu,
   canCopy,
   canPaste,
+  canDeleteSheet,
   onNewSheet,
+  onDeleteSheet,
   onCopy,
   onPaste,
   onSelectAll,
@@ -1100,7 +1110,9 @@ function GridContextMenu({
   menu: GridMenuState;
   canCopy: boolean;
   canPaste: boolean;
+  canDeleteSheet: boolean;
   onNewSheet?: () => void;
+  onDeleteSheet?: () => void;
   onCopy: () => void;
   onPaste: () => void;
   onSelectAll: () => void;
@@ -1113,6 +1125,7 @@ function GridContextMenu({
       style={{ left: menu.x, top: menu.y }}
     >
       {onNewSheet ? <MenuItem icon={<Plus className="size-4" />} label="새 시트" onClick={onNewSheet} /> : null}
+      {onDeleteSheet ? <MenuItem icon={<Trash2 className="size-4" />} label="시트 삭제" disabled={!canDeleteSheet} onClick={onDeleteSheet} /> : null}
       <MenuItem icon={<Copy className="size-4" />} label="복사" disabled={!canCopy} onClick={onCopy} />
       <MenuItem icon={<ClipboardPaste className="size-4" />} label="붙여넣기" disabled={!canPaste} onClick={onPaste} />
       <div className="my-1 h-px bg-[var(--panel-stroke)]" />

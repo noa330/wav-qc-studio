@@ -1,5 +1,6 @@
 import { app, BrowserWindow, shell } from "electron";
 import { join } from "node:path";
+import { getAppIconPath } from "./app-icon";
 import { registerIpcHandlers } from "./ipc/handlers";
 import { attachStartupMainWindow, createStartupSplashWindow, markStartupMainWindowReady, registerStartupSplashIpc } from "./startup-splash-window";
 
@@ -12,6 +13,7 @@ function createMainWindow(): void {
     minWidth: 1280,
     minHeight: 800,
     title: "WAV QC Studio",
+    icon: getAppIconPath(),
     backgroundColor: "#11110f",
     show: false,
     webPreferences: {

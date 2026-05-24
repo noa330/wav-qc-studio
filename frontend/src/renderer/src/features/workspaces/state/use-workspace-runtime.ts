@@ -26,6 +26,8 @@ import type {
   WorkspaceRunResult,
   WorkspaceSettings,
   WorkspaceTerminalUpdate,
+  WorkspaceRuntimeEnvironmentInstallResult,
+  WorkspaceRuntimeEnvironmentStatus,
 } from "@shared/ipc";
 import type { ScrollWindowMetrics } from "@shared/scroll-window";
 import { useAppPersistence, type PersistedRuntimeSnapshot } from "@/app/app-persistence";
@@ -102,6 +104,7 @@ export type WorkspaceRuntime = {
   getClipboardRows: (workspaceId: WorkspaceId) => DataTableRow[];
   selectSheet: (workspaceId: WorkspaceId, sheetId: string) => void;
   createSheet: (workspaceId: WorkspaceId) => void;
+  deleteSheet: (workspaceId: WorkspaceId) => void;
   copyRows: (workspaceId: WorkspaceId, rowIds: string[]) => void;
   pasteRows: (workspaceId: WorkspaceId, duplicateMode: "overwrite" | "skip") => void;
   canRun: (workspaceId: WorkspaceId) => boolean;
@@ -135,6 +138,10 @@ export type WorkspaceRuntime = {
   run: (workspaceId: WorkspaceId) => Promise<void>;
   retry: (workspaceId: WorkspaceId) => Promise<void>;
   exportWorkspace: (workspaceId: WorkspaceId) => Promise<void>;
+  getRuntimeEnvironmentStatus: (workspaceId: WorkspaceId) => WorkspaceRuntimeEnvironmentStatus | undefined;
+  isRuntimeEnvironmentInstalling: (workspaceId: WorkspaceId) => boolean;
+  checkRuntimeEnvironment: (workspaceId: WorkspaceId) => Promise<WorkspaceRuntimeEnvironmentStatus | undefined>;
+  installRuntimeEnvironment: (workspaceId: WorkspaceId) => Promise<void>;
   syncTrainingModelCheckpoints: (model: TrainingModelSummary | undefined, settingsOverride?: WorkspaceSettings["training"], options?: { activate?: boolean }) => void;
 };
 
@@ -149,8 +156,6 @@ type WorkspaceRowsClipboard = {
   rows: DataTableRow[];
 };
 
-const INPUT_TREE_REVEAL_BATCH_SIZE = 8;
-const INPUT_TREE_REVEAL_INTERVAL_MS = 24;
 const GPT_SOVITS_CHECKPOINT_POLL_MS = 2500;
 const TERMINAL_TEXT_LIMIT = 60000;
 
@@ -178,7 +183,11 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
   const [overviewFilter, setOverviewFilter] = useState<OverviewFilterState>(() => initialRuntimeSnapshotRef.current.overviewFilter);
   const [rowsClipboard, setRowsClipboard] = useState<WorkspaceRowsClipboard | undefined>(() => initialRuntimeSnapshotRef.current.rowsClipboard);
   const [states, dispatch] = useReducer(workspaceRuntimeReducer, undefined, () => initialRuntimeSnapshotRef.current.states);
+  const [runtimeEnvironmentStatuses, setRuntimeEnvironmentStatuses] = useState<Partial<Record<WorkspaceId, WorkspaceRuntimeEnvironmentStatus>>>({});
+  const [runtimeEnvironmentInstalling, setRuntimeEnvironmentInstalling] = useState<Partial<Record<WorkspaceId, boolean>>>({});
   const statesRef = useRef(states);
+  const runtimeEnvironmentStatusesRef = useRef(runtimeEnvironmentStatuses);
+  const runtimeEnvironmentInstallingRef = useRef(runtimeEnvironmentInstalling);
   const settingsRef = useRef(settings);
   const cancelVersionRef = useRef<Partial<Record<WorkspaceId, number>>>({});
   const activeRunSessionRef = useRef<Partial<Record<WorkspaceId, WorkspaceRunSession>>>({});
@@ -186,10 +195,19 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
   const inputTreeRevealTokenRef = useRef<Partial<Record<WorkspaceId, number>>>({});
   const inputTreeRevealTimerRef = useRef<Partial<Record<WorkspaceId, ReturnType<typeof setTimeout>>>>({});
   const fileBrowserWindowTokenRef = useRef<Record<string, number>>({});
+  const activeProjectRoot = persistence.activeProject.rootPath;
 
   useEffect(() => {
     statesRef.current = states;
   }, [states]);
+
+  useEffect(() => {
+    runtimeEnvironmentStatusesRef.current = runtimeEnvironmentStatuses;
+  }, [runtimeEnvironmentStatuses]);
+
+  useEffect(() => {
+    runtimeEnvironmentInstallingRef.current = runtimeEnvironmentInstalling;
+  }, [runtimeEnvironmentInstalling]);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -209,6 +227,12 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
     () => applyTagScoreRulesToTable(states.tagging.table, tagScoreRules, settings.slicer),
     [settings.slicer, states.tagging.table, tagScoreRules],
   );
+
+  const createWorkspacePaths = useCallback((inputPath: string, outputPath?: string) => ({
+    inputPath,
+    outputPath: outputPath?.trim() || undefined,
+    projectRoot: activeProjectRoot,
+  }), [activeProjectRoot]);
 
   const updateState = useCallback((workspaceId: WorkspaceId, patch: Partial<WorkspaceRuntimeState>) => {
     statesRef.current = {
@@ -267,56 +291,6 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
     }
   }, []);
 
-  const revealInputTreeSequentially = useCallback(
-    (workspaceId: WorkspaceId, sheetId: string, fullTree: FileTreeResult | undefined) => {
-      cancelInputTreeReveal(workspaceId);
-      if (!fullTree) {
-        return;
-      }
-
-      const revealEntries = flattenFileTreeRevealEntries(fullTree);
-      if (revealEntries.length === 0) {
-        updateSheetByIdState(workspaceId, sheetId, { inputTree: fullTree });
-        updateState(workspaceId, { statusText: "Loaded", progressPercent: 0 });
-        return;
-      }
-
-      const token = (inputTreeRevealTokenRef.current[workspaceId] ?? 0) + 1;
-      inputTreeRevealTokenRef.current[workspaceId] = token;
-      let cursor = 0;
-      let visibleTree: FileTreeResult = { ...fullTree, nodes: [] };
-
-      const publishNextBatch = () => {
-        if (inputTreeRevealTokenRef.current[workspaceId] !== token) {
-          return;
-        }
-
-        const limit = Math.min(cursor + INPUT_TREE_REVEAL_BATCH_SIZE, revealEntries.length);
-        while (cursor < limit) {
-          visibleTree = appendFileTreeRevealEntry(visibleTree, revealEntries[cursor]);
-          cursor += 1;
-        }
-
-        updateSheetByIdState(workspaceId, sheetId, { inputTree: visibleTree });
-        updateState(workspaceId, {
-          statusText: "Listing input files",
-          progressPercent: Math.round((cursor / revealEntries.length) * 100),
-        });
-
-        if (cursor < revealEntries.length) {
-          inputTreeRevealTimerRef.current[workspaceId] = setTimeout(publishNextBatch, INPUT_TREE_REVEAL_INTERVAL_MS);
-          return;
-        }
-
-        delete inputTreeRevealTimerRef.current[workspaceId];
-        updateState(workspaceId, { statusText: "Loaded", progressPercent: 0 });
-      };
-
-      inputTreeRevealTimerRef.current[workspaceId] = setTimeout(publishNextBatch, 0);
-    },
-    [cancelInputTreeReveal, updateSheetByIdState, updateState],
-  );
-
   useEffect(() => () => {
     for (const timer of Object.values(inputTreeRevealTimerRef.current)) {
       if (timer) {
@@ -367,6 +341,35 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
     [replaceState],
   );
 
+  const deleteSheet = useCallback(
+    (workspaceId: WorkspaceId) => {
+      const state = statesRef.current[workspaceId];
+      const sheet = activeSheet(state);
+      if (!sheet || state.sheets.length <= 1 || state.isRunning || state.isExporting || state.isBatchSpeakerRunning) {
+        return;
+      }
+
+      const sheetIndex = state.sheets.findIndex((item) => item.id === sheet.id);
+      const sheets = state.sheets.filter((item) => item.id !== sheet.id);
+      const nextSheet = sheets[Math.max(0, Math.min(sheetIndex, sheets.length - 1))];
+      if (!nextSheet) {
+        return;
+      }
+
+      replaceState(workspaceId, stateWithActiveSheet({ ...state, sheets, activeSheetId: nextSheet.id }, nextSheet));
+      if (workspaceId === "training") {
+        const identity = resolveTrainingIdentityFromSheet(nextSheet);
+        if (identity) {
+          setSettings((current) => ({
+            ...current,
+            training: applyTrainingIdentityToSettings(current.training, identity),
+          }));
+        }
+      }
+    },
+    [replaceState, setSettings],
+  );
+
   const copyRows = useCallback((workspaceId: WorkspaceId, rowIds: string[]) => {
     const state = statesRef.current[workspaceId];
     const rowIdSet = new Set(rowIds);
@@ -409,7 +412,48 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       const state = statesRef.current[progress.workspaceId];
       const runSession = activeRunSessionRef.current[progress.workspaceId];
       const acceptsProgress = state.isRunning || (progress.workspaceId === "batch" && state.isBatchSpeakerRunning);
-      if (!acceptsProgress || (progress.table.rows.length === 0 && !runSession?.baseTable?.rows.length)) {
+      const acceptsLoadTerminal = state.statusText === "Loading" || state.statusText === "Converting audio";
+      const acceptsRuntimeInstallTerminal = state.statusText === "런타임 설치 중";
+      if (!acceptsProgress && acceptsRuntimeInstallTerminal && progress.terminal) {
+        updateState(progress.workspaceId, {
+          progressPercent: progress.progress.percent,
+          progress: progress.progress,
+          terminal: createTerminalFromUpdate(progress.terminal, "running"),
+        });
+        return;
+      }
+
+      if (!acceptsProgress && acceptsLoadTerminal && (progress.terminal || progress.inputTree)) {
+        if (progress.inputTree) {
+          updateSheetState(progress.workspaceId, {
+            inputTree: progress.inputTree,
+            browserPreferredSection: "input",
+          });
+        }
+
+        updateState(progress.workspaceId, {
+          statusText: progress.progress.total > 0 || progress.terminal ? "Converting audio" : state.statusText,
+          progressPercent: progress.progress.percent,
+          progress: progress.progress,
+          ...(progress.terminal ? { terminal: createTerminalFromUpdate(progress.terminal, "running") } : {}),
+          ...(progress.terminal ? { terminalOpenRequestId: state.terminal.status === "running" ? state.terminalOpenRequestId : state.terminalOpenRequestId + 1 } : {}),
+        });
+        return;
+      }
+
+      if (!acceptsProgress) {
+        return;
+      }
+
+      if (progress.table.rows.length === 0 && !runSession?.baseTable?.rows.length) {
+        updateState(progress.workspaceId, {
+          progressPercent: progress.progress.percent,
+          progress: progress.progress,
+          statusText: progress.workspaceId === "batch" && state.isBatchSpeakerRunning ? "Speaker diarizing" : "Running",
+          browserPreferredSection: "input",
+          ...(progress.inputTree ? { inputTree: progress.inputTree } : {}),
+          ...(progress.terminal ? { terminal: createTerminalFromUpdate(progress.terminal, "running") } : {}),
+        });
         return;
       }
 
@@ -438,8 +482,10 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       }
       updateState(progress.workspaceId, {
         progressPercent: progress.progress.percent,
+        progress: progress.progress,
         statusText: progress.workspaceId === "batch" && state.isBatchSpeakerRunning ? "Speaker diarizing" : "Running",
         browserPreferredSection: "input",
+        ...(progress.inputTree ? { inputTree: progress.inputTree } : {}),
         ...(progress.terminal ? { terminal: createTerminalFromUpdate(progress.terminal, "running") } : {}),
       });
     },
@@ -479,20 +525,40 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       inputLoadTokenRef.current[workspaceId] = loadToken;
       const state = statesRef.current[workspaceId];
       const currentSheet = activeSheet(state);
-      const reusableSheetId = currentSheet && !resultSheetHasRows(currentSheet) ? currentSheet.id : undefined;
+      let reusableSheetId = currentSheet && !resultSheetHasRows(currentSheet) ? currentSheet.id : undefined;
 
-      updateState(workspaceId, {
-        statusText: "Loading",
-        error: undefined,
-      });
+      if (reusableSheetId) {
+        updateState(workspaceId, {
+          statusText: "Loading",
+          error: undefined,
+        });
+      } else {
+        const loadingTable = workspaceId === "training"
+          ? createTrainingTableForModel(settingsRef.current.training.selectedModel)
+          : createEmptyWorkspaceTable(workspaceId);
+        const loadingSheet = createWorkspaceResultSheet(workspaceId, nextSheetLabel(state.sheets), {
+          inputPath,
+          outputPath,
+          table: loadingTable,
+          details: loadingTable.columns.map((column) => ({ label: column.label, value: "-" })),
+          browserPreferredSection: "input",
+        });
+        reusableSheetId = loadingSheet.id;
+        replaceState(workspaceId, stateWithActiveSheet({
+          ...state,
+          statusText: "Loading",
+          progressPercent: 0,
+          progress: undefined,
+          error: undefined,
+          sheets: [...state.sheets, loadingSheet],
+          activeSheetId: loadingSheet.id,
+        }, loadingSheet));
+      }
 
       try {
         const loaded = await studioBackend.loadWorkspace({
           workspaceId,
-          paths: {
-            inputPath,
-            outputPath: outputPath || undefined,
-          },
+          paths: createWorkspacePaths(inputPath, outputPath),
           settings: settingsRef.current,
         });
 
@@ -519,7 +585,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         const sheetPatch = {
           inputPath: loaded.inputPath ?? inputPath,
           outputPath: loaded.outputPath ?? outputPath,
-          inputTree: emptyFileTree(loaded.inputTree),
+          inputTree: loaded.inputTree,
           outputTree: undefined,
           table,
           details,
@@ -541,26 +607,28 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         if (reusableSheet) {
           updateSheetByIdState(workspaceId, reusableSheet.id, sheetPatch, true);
           updateState(workspaceId, {
-            statusText: "Listing input files",
+            statusText: "Loaded",
             progressPercent: 0,
+            progress: undefined,
             error: undefined,
             ...(terminalFromLoad ? { terminal: terminalFromLoad } : {}),
+            ...(terminalFromLoad && latestState.terminal.status !== "running" ? { terminalOpenRequestId: latestState.terminalOpenRequestId + 1 } : {}),
           });
-          revealInputTreeSequentially(workspaceId, reusableSheet.id, loaded.inputTree);
         } else {
           const nextSheet = createWorkspaceResultSheet(workspaceId, nextSheetLabel(latestState.sheets), sheetPatch);
           replaceState(workspaceId, stateWithActiveSheet({
             ...latestState,
             isRunning: false,
             isExporting: false,
-            statusText: "Listing input files",
+            statusText: "Loaded",
             progressPercent: 0,
+            progress: undefined,
             error: undefined,
             ...(terminalFromLoad ? { terminal: terminalFromLoad } : {}),
+            ...(terminalFromLoad && latestState.terminal.status !== "running" ? { terminalOpenRequestId: latestState.terminalOpenRequestId + 1 } : {}),
             sheets: [...latestState.sheets, nextSheet],
             activeSheetId: nextSheet.id,
           }, nextSheet));
-          revealInputTreeSequentially(workspaceId, nextSheet.id, loaded.inputTree);
         }
 
         if (workspaceId === "batch") {
@@ -582,7 +650,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         });
       }
     },
-    [cancelInputTreeReveal, replaceState, revealInputTreeSequentially, setSettings, updateSheetByIdState, updateState],
+    [cancelInputTreeReveal, createWorkspacePaths, replaceState, setSettings, updateSheetByIdState, updateState],
   );
 
   const selectInputFolder = useCallback(
@@ -633,6 +701,75 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       });
     },
     [updateState],
+  );
+
+  const checkRuntimeEnvironment = useCallback(
+    async (workspaceId: WorkspaceId) => {
+      try {
+        const status = await studioBackend.checkWorkspaceRuntime({ workspaceId });
+        setRuntimeEnvironmentStatuses((current) => ({ ...current, [workspaceId]: status }));
+        if (!status.ok && !runtimeEnvironmentInstallingRef.current[workspaceId]) {
+          const state = statesRef.current[workspaceId];
+          if (!state.isRunning && !state.isExporting && !state.isBatchSpeakerRunning) {
+            updateState(workspaceId, { statusText: "런타임 없음" });
+          }
+        }
+        return status;
+      } catch {
+        return runtimeEnvironmentStatusesRef.current[workspaceId];
+      }
+    },
+    [updateState],
+  );
+
+  const installRuntimeEnvironment = useCallback(
+    async (workspaceId: WorkspaceId) => {
+      if (runtimeEnvironmentInstallingRef.current[workspaceId]) {
+        return;
+      }
+
+      const status = await checkRuntimeEnvironment(workspaceId);
+      if (status?.ok) {
+        return;
+      }
+
+      setRuntimeEnvironmentInstalling((current) => ({ ...current, [workspaceId]: true }));
+      const state = statesRef.current[workspaceId];
+      updateState(workspaceId, {
+        statusText: "런타임 설치 중",
+        progressPercent: 0,
+        progress: undefined,
+        error: undefined,
+        terminal: createTerminalStartState(`${workspaceId} 런타임 설치 시작`),
+        terminalOpenRequestId: state.terminalOpenRequestId + 1,
+      });
+
+      try {
+        const result = await studioBackend.installWorkspaceRuntime({ workspaceId });
+        setRuntimeEnvironmentStatuses((current) => ({ ...current, [workspaceId]: result.status }));
+        updateState(workspaceId, {
+          statusText: result.ok ? "런타임 설치 완료" : "런타임 설치 실패",
+          error: result.ok ? undefined : result.error ?? "런타임 설치에 실패했습니다.",
+          progressPercent: result.ok ? 100 : statesRef.current[workspaceId].progressPercent,
+          terminal: createTerminalFromEnvironmentInstallResult(result),
+        });
+      } catch (error) {
+        updateState(workspaceId, {
+          statusText: "런타임 설치 실패",
+          error: error instanceof Error ? error.message : String(error),
+          terminal: {
+            ...statesRef.current[workspaceId].terminal,
+            text: error instanceof Error ? error.message : String(error),
+            status: "failed",
+            updatedAt: new Date().toISOString(),
+          },
+        });
+      } finally {
+        setRuntimeEnvironmentInstalling((current) => ({ ...current, [workspaceId]: false }));
+        void checkRuntimeEnvironment(workspaceId);
+      }
+    },
+    [checkRuntimeEnvironment, updateState],
   );
 
   const cancelWorkspace = useCallback(
@@ -706,6 +843,9 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       const tree = purpose === "input" ? state.inputTree : state.outputTree;
       const windowState = tree?.window;
       if (!tree || !windowState || tree.rootPath.startsWith("wqcs://")) {
+        return;
+      }
+      if (purpose === "input" && isAudioConversionStatusTree(tree) && (state.statusText === "Loading" || state.statusText === "Converting audio")) {
         return;
       }
 
@@ -1076,6 +1216,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       isBatchSpeakerRunning: true,
       statusText: "Speaker diarizing",
       progressPercent: 0,
+      progress: undefined,
       error: undefined,
       terminal: createTerminalStartState("batch 화자 구분 시작"),
       terminalOpenRequestId: state.terminalOpenRequestId + 1,
@@ -1087,10 +1228,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
     try {
       result = await studioBackend.runBatchSpeakerDiarization({
         workspaceId,
-        paths: {
-          inputPath: state.inputPath,
-          outputPath: state.outputPath || undefined,
-        },
+        paths: createWorkspacePaths(state.inputPath, state.outputPath),
         settings,
         table: state.table,
       });
@@ -1125,6 +1263,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       statusText: finalStatusText,
       error: finalError,
       progressPercent: finalProgressPercent,
+      progress: result.progress,
       terminal: createTerminalFromResult(result, result.cancelled ? "cancelled" : result.ok ? "completed" : "failed"),
     });
     await nextAnimationFrame();
@@ -1149,7 +1288,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         jobs: buildBatchJobs(result.table),
       },
     }));
-  }, [setSettings, updateSheetByIdState, updateState]);
+  }, [createWorkspacePaths, setSettings, updateSheetByIdState, updateState]);
 
   const splitOrUnmergeSliceSegment = useCallback(
     (workspaceId: WorkspaceId, sourceRow: DataTableRow, componentIds: string[]) => {
@@ -1634,6 +1773,10 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       if (!state.inputPath || state.isRunning || state.isExporting || state.isBatchSpeakerRunning) {
         return;
       }
+      const runtimeStatus = await checkRuntimeEnvironment(workspaceId);
+      if (runtimeStatus && !runtimeStatus.ok) {
+        return;
+      }
 
       const emptyTable = workspaceId === "training"
         ? createTrainingTableForModel(settings.training.selectedModel)
@@ -1682,6 +1825,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         isRunning: true,
         statusText: "Running",
         progressPercent: 0,
+        progress: undefined,
         error: undefined,
         terminal: createTerminalStartState(`${workspaceId} 실행 시작`),
         terminalOpenRequestId: state.terminalOpenRequestId + 1,
@@ -1706,10 +1850,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       try {
         result = await studioBackend.runWorkspace({
           workspaceId,
-          paths: {
-            inputPath: state.inputPath,
-            outputPath: state.outputPath || undefined,
-          },
+          paths: createWorkspacePaths(state.inputPath, state.outputPath),
           settings: runSettings,
           audioEdits: runAudioEdits,
         });
@@ -1762,6 +1903,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         statusText: result.cancelled ? "Stopped" : result.ok ? "Completed" : "Failed",
         error: result.cancelled || result.ok ? undefined : formatRunError(result),
         progressPercent: result.cancelled ? latestState.progressPercent : result.progress?.percent ?? (result.ok ? 100 : latestState.progressPercent),
+        progress: result.progress,
         terminal: createTerminalFromResult(result, result.cancelled ? "cancelled" : result.ok ? "completed" : "failed"),
       });
       if (workspaceId === "batch") {
@@ -1774,7 +1916,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         }));
       }
     },
-    [replaceState, setSettings, updateSheetByIdState, updateState],
+    [checkRuntimeEnvironment, createWorkspacePaths, replaceState, setSettings, updateSheetByIdState, updateState],
   );
 
   const retry = useCallback(
@@ -1783,6 +1925,10 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       const sheet = activeSheet(state);
       const settings = settingsRef.current;
       if (!sheet || !state.inputPath || state.isRunning || state.isExporting || state.isBatchSpeakerRunning || !sheetCanRetry(sheet)) {
+        return;
+      }
+      const runtimeStatus = await checkRuntimeEnvironment(workspaceId);
+      if (runtimeStatus && !runtimeStatus.ok) {
         return;
       }
 
@@ -1806,6 +1952,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         isRunning: true,
         statusText: "Retrying",
         progressPercent: 0,
+        progress: undefined,
         error: undefined,
         terminal: createTerminalStartState(`${workspaceId} 재실행 시작`),
         terminalOpenRequestId: state.terminalOpenRequestId + 1,
@@ -1824,10 +1971,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       try {
         result = await studioBackend.runWorkspace({
           workspaceId,
-          paths: {
-            inputPath: state.inputPath,
-            outputPath: state.outputPath || undefined,
-          },
+          paths: createWorkspacePaths(state.inputPath, state.outputPath),
           settings: retrySettings,
           retry: workspaceId === "training" ? {} : retryPlan.pendingSourcePaths.length > 0 ? { sourcePaths: retryPlan.pendingSourcePaths } : undefined,
           audioEdits: retryAudioEdits,
@@ -1884,6 +2028,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         statusText: result.cancelled ? "Stopped" : result.ok ? "Retry completed" : "Retry failed",
         error: result.cancelled || result.ok ? undefined : formatRunError(result),
         progressPercent: result.cancelled ? latestState.progressPercent : result.progress?.percent ?? (result.ok ? 100 : latestState.progressPercent),
+        progress: result.progress,
         terminal: createTerminalFromResult(result, result.cancelled ? "cancelled" : result.ok ? "completed" : "failed"),
       });
       if (workspaceId === "batch") {
@@ -1896,7 +2041,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         }));
       }
     },
-    [setSettings, updateSheetByIdState, updateState],
+    [checkRuntimeEnvironment, createWorkspacePaths, setSettings, updateSheetByIdState, updateState],
   );
 
   const exportWorkspace = useCallback(
@@ -1921,10 +2066,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       try {
         result = await studioBackend.exportWorkspace({
           workspaceId,
-          paths: {
-            inputPath: state.inputPath,
-            outputPath: state.outputPath || undefined,
-          },
+          paths: createWorkspacePaths(state.inputPath, state.outputPath),
           settings: settingsRef.current,
           table,
           rowDecisions: table.rows.map((row) => ({
@@ -1956,7 +2098,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         browserPreferredSection: "output",
       });
     },
-    [tagScoreRules, updateSheetState, updateState],
+    [createWorkspacePaths, tagScoreRules, updateSheetState, updateState],
   );
 
   return useMemo(
@@ -1973,9 +2115,10 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       getClipboardRows: (workspaceId: WorkspaceId) => rowsClipboard?.workspaceId === workspaceId ? rowsClipboard.rows : [],
       selectSheet,
       createSheet,
+      deleteSheet,
       copyRows,
       pasteRows,
-      canRun: (workspaceId: WorkspaceId) => Boolean(states[workspaceId].inputPath) && !states[workspaceId].isRunning && !states[workspaceId].isExporting && !states[workspaceId].isBatchSpeakerRunning,
+      canRun: (workspaceId: WorkspaceId) => Boolean(states[workspaceId].inputPath) && !states[workspaceId].isRunning && !states[workspaceId].isExporting && !states[workspaceId].isBatchSpeakerRunning && !runtimeEnvironmentInstalling[workspaceId],
       canRetry: (workspaceId: WorkspaceId) => {
         const state = states[workspaceId];
         return Boolean(state.inputPath) && !state.isRunning && !state.isExporting && !state.isBatchSpeakerRunning && sheetCanRetry(activeSheet(state));
@@ -2009,9 +2152,13 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       run,
       retry,
       exportWorkspace,
+      getRuntimeEnvironmentStatus: (workspaceId: WorkspaceId) => runtimeEnvironmentStatuses[workspaceId],
+      isRuntimeEnvironmentInstalling: (workspaceId: WorkspaceId) => Boolean(runtimeEnvironmentInstalling[workspaceId]),
+      checkRuntimeEnvironment,
+      installRuntimeEnvironment,
       syncTrainingModelCheckpoints,
     }),
-    [addSliceSegment, cancelBatchSpeakerDiarization, cancelWorkspace, clearError, clearTerminal, copyRows, createSheet, deleteSliceSegment, editBatchCell, exportWorkspace, getMetrics, getTable, loadFileBrowserWindow, mergeEnabledBatchSpeakers, mergeSliceSegments, overviewFilter, pasteRows, retry, rowsClipboard, run, runBatchSpeakerDiarization, selectAdjacentRow, selectFileNode, selectInputFolder, selectOutputFolder, selectRow, selectRows, selectSheet, setAllRowExportChecks, setBatchFilter, setRowsExportChecks, setTableSearch, settings, splitOrUnmergeSliceSegment, states, syncTrainingModelCheckpoints, tagScoreRules, toggleBatchSpeaker, toggleRowExportCheck, updateSliceSegmentBounds],
+    [addSliceSegment, cancelBatchSpeakerDiarization, cancelWorkspace, checkRuntimeEnvironment, clearError, clearTerminal, copyRows, createSheet, deleteSheet, deleteSliceSegment, editBatchCell, exportWorkspace, getMetrics, getTable, installRuntimeEnvironment, loadFileBrowserWindow, mergeEnabledBatchSpeakers, mergeSliceSegments, overviewFilter, pasteRows, retry, rowsClipboard, run, runBatchSpeakerDiarization, runtimeEnvironmentInstalling, runtimeEnvironmentStatuses, selectAdjacentRow, selectFileNode, selectInputFolder, selectOutputFolder, selectRow, selectRows, selectSheet, setAllRowExportChecks, setBatchFilter, setRowsExportChecks, setTableSearch, settings, splitOrUnmergeSliceSegment, states, syncTrainingModelCheckpoints, tagScoreRules, toggleBatchSpeaker, toggleRowExportCheck, updateSliceSegmentBounds],
   );
 }
 
@@ -2453,12 +2600,6 @@ function rowFileName(row: DataTableRow): string {
   return row.raw?.fileName || row.raw?.file_name || row.cells.fileName || row.cells.file_name || row.sourcePath || row.id;
 }
 
-type FileTreeRevealEntry = FileTreeNode[];
-
-function emptyFileTree(tree: FileTreeResult | undefined): FileTreeResult | undefined {
-  return tree ? { ...tree, nodes: [] } : undefined;
-}
-
 function resolveFileBrowserWindow(windowState: NonNullable<FileTreeResult["window"]>, direction: "reveal" | "sync" | "up" | "down", metrics?: ScrollWindowMetrics): { offset: number; limit: number } | undefined {
   const stepSize = Math.max(1, metrics?.stepSize ?? windowState.limit);
   const chunkSize = Math.max(1, metrics?.chunkSize ?? windowState.limit);
@@ -2490,70 +2631,6 @@ function resolveFileBrowserWindow(windowState: NonNullable<FileTreeResult["windo
   };
 }
 
-function flattenFileTreeRevealEntries(tree: FileTreeResult): FileTreeRevealEntry[] {
-  const entries: FileTreeRevealEntry[] = [];
-
-  const visit = (nodes: FileTreeNode[], parents: FileTreeNode[]) => {
-    for (const node of nodes) {
-      if (node.kind === "directory") {
-        if (node.children?.length) {
-          visit(node.children, [...parents, withoutChildren(node)]);
-        }
-        continue;
-      }
-
-      entries.push([...parents, withoutChildren(node)]);
-    }
-  };
-
-  visit(tree.nodes, []);
-  return entries;
-}
-
-function appendFileTreeRevealEntry(tree: FileTreeResult, entry: FileTreeRevealEntry | undefined): FileTreeResult {
-  if (!entry || entry.length === 0) {
-    return tree;
-  }
-
-  return {
-    ...tree,
-    nodes: appendFileTreeRevealNode(tree.nodes, entry, 0),
-  };
-}
-
-function appendFileTreeRevealNode(nodes: FileTreeNode[], entry: FileTreeRevealEntry, depth: number): FileTreeNode[] {
-  const entryNode = entry[depth];
-  if (!entryNode) {
-    return nodes;
-  }
-
-  const existingIndex = nodes.findIndex((node) => node.id === entryNode.id);
-  const isLeaf = depth === entry.length - 1;
-  if (existingIndex < 0) {
-    const nextNode: FileTreeNode = isLeaf
-      ? { ...entryNode }
-      : { ...entryNode, kind: "directory", children: appendFileTreeRevealNode([], entry, depth + 1) };
-    return [...nodes, nextNode];
-  }
-
-  const existing = nodes[existingIndex];
-  if (isLeaf) {
-    return nodes;
-  }
-
-  const nextNodes = nodes.slice();
-  nextNodes[existingIndex] = {
-    ...existing,
-    children: appendFileTreeRevealNode(existing.children ?? [], entry, depth + 1),
-  };
-  return nextNodes;
-}
-
-function withoutChildren(node: FileTreeNode): FileTreeNode {
-  const { children: _children, ...rest } = node;
-  return rest;
-}
-
 function collectInputAudioPaths(inputTree: FileTreeResult | undefined): string[] {
   if (!inputTree) {
     return [];
@@ -2572,6 +2649,18 @@ function collectInputAudioPaths(inputTree: FileTreeResult | undefined): string[]
   };
   visit(inputTree.nodes);
   return paths;
+}
+
+function isAudioConversionStatusTree(tree: FileTreeResult): boolean {
+  const visit = (nodes: FileTreeNode[]): boolean => nodes.some((node) => {
+    if (node.meta && (node.meta.includes("\ubcc0\ud658 \ub300\uae30") || node.meta.includes("\ubcc0\ud658 \uc911") || node.meta.includes("\ubcc0\ud658 \uc644\ub8cc") || node.meta.includes("\ubcc0\ud658 \uc900\ube44\ub428"))) {
+      return true;
+    }
+
+    return node.children ? visit(node.children) : false;
+  });
+
+  return visit(tree.nodes);
 }
 
 function normalizedSourceKey(value: string | undefined): string {
@@ -2711,7 +2800,7 @@ function formatRunError(result: WorkspaceRunResult): string {
 
 function createTerminalStartState(label: string) {
   return {
-    text: `[${new Date().toLocaleTimeString()}] ${label}\n로그를 준비하는 중입니다.`,
+    text: `[${new Date().toLocaleTimeString()}] ${label}\n콘솔 출력을 기다리는 중입니다.`,
     status: "running" as const,
     updatedAt: new Date().toISOString(),
   };
@@ -2748,6 +2837,18 @@ function createTerminalFromResult(result: WorkspaceRunResult, status: WorkspaceT
     logPath: metadata?.logPath,
     backendLogPath: metadata?.backendLogPath,
     command: metadata?.command,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function createTerminalFromEnvironmentInstallResult(result: WorkspaceRuntimeEnvironmentInstallResult) {
+  const fallback = result.ok ? "런타임 설치가 완료되었습니다." : result.error ?? "런타임 설치에 실패했습니다.";
+  return {
+    text: limitTerminalText(result.stdout || result.stderr || fallback),
+    status: result.ok ? "completed" as const : result.exitCode === 130 ? "cancelled" as const : "failed" as const,
+    logPath: result.logPath,
+    backendLogPath: result.logPath,
+    command: result.command,
     updatedAt: new Date().toISOString(),
   };
 }

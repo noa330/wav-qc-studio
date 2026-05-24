@@ -77,6 +77,21 @@ export function TaggingScoreCutDialog({ runtime, onClose }: { runtime: Workspace
     setSheets((current) => [...current, nextSheet]);
     setActiveSheetId(nextSheet.id);
   };
+  const deleteSheet = () => {
+    if (sheets.length <= 1) {
+      return;
+    }
+
+    const sheetIndex = sheets.findIndex((sheet) => sheet.id === activeSheet.id);
+    const nextSheets = sheets.filter((sheet) => sheet.id !== activeSheet.id);
+    const nextSheet = nextSheets[Math.max(0, Math.min(sheetIndex, nextSheets.length - 1))];
+    if (!nextSheet) {
+      return;
+    }
+
+    setSheets(nextSheets);
+    setActiveSheetId(nextSheet.id);
+  };
   const applyAndClose = () => {
     runtime.setTagScoreRules(activeSheet.rules.map((rule) => hydrateTagScoreRule(rule)));
     onClose();
@@ -110,6 +125,7 @@ export function TaggingScoreCutDialog({ runtime, onClose }: { runtime: Workspace
             activeSheetId={activeSheet.id}
             onSelectSheet={setActiveSheetId}
             onCreateSheet={createSheet}
+            onDeleteSheet={deleteSheet}
             onApply={applyAndClose}
             onCancel={onClose}
           />
@@ -131,6 +147,7 @@ export function TaggingScoreCutBody({
   activeSheetId,
   onSelectSheet,
   onCreateSheet,
+  onDeleteSheet,
   onApply,
   onCancel,
 }: {
@@ -144,6 +161,7 @@ export function TaggingScoreCutBody({
   activeSheetId: string;
   onSelectSheet: (sheetId: string) => void;
   onCreateSheet: () => void;
+  onDeleteSheet: () => void;
   onApply: () => void;
   onCancel: () => void;
 }) {
@@ -306,6 +324,7 @@ export function TaggingScoreCutBody({
           activeSheetId={activeSheetId}
           onSelectSheet={onSelectSheet}
           onCreateSheet={onCreateSheet}
+          onDeleteSheet={onDeleteSheet}
           fillRemainingColumnKey="description"
           rowChecks={rowChecks}
           onToggleRowCheck={(row) => setCheckedRows((current) => ({ ...current, [row.id]: current[row.id] !== true }))}

@@ -1,4 +1,4 @@
-import type { DataTable, DetailField, FileTreeResult, VoiceTrainingModel, VoiceTrainingSettings, WorkspaceId, WorkspaceRunResult, WorkspaceTerminalUpdate } from "@shared/ipc";
+import type { DataTable, DetailField, FileTreeResult, VoiceTrainingModel, VoiceTrainingSettings, WorkspaceId, WorkspaceProgress, WorkspaceRunResult, WorkspaceTerminalUpdate } from "@shared/ipc";
 import { createEmptyWorkspaceTable } from "@shared/table-schemas";
 import { defaultBatchFilterState, type BatchFilterState } from "../model/batch-filter";
 
@@ -55,6 +55,7 @@ export type WorkspaceRuntimeState = {
   tableSearchColumns: string[];
   statusText: string;
   progressPercent: number;
+  progress?: WorkspaceProgress;
   error?: string;
   isRunning: boolean;
   isExporting: boolean;
@@ -125,6 +126,7 @@ export function createInitialRuntimeState(workspaceId: WorkspaceId): WorkspaceRu
     tableSearchColumns: sheet.tableSearchColumns,
     statusText: "Idle",
     progressPercent: 0,
+    progress: undefined,
     isRunning: false,
     isExporting: false,
     isBatchSpeakerRunning: false,

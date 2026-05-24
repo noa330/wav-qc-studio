@@ -51,12 +51,15 @@ class DownloadProgress:
 
     def __call__(self, block_num: int, block_size: int, total_size: int) -> None:
         if total_size <= 0:
+            if self._last_percent == -2:
+                return
+            self._last_percent = -2
             self.line.update(f"[download] {self.label} - receiving...")
             return
 
         downloaded = max(0, block_num * block_size)
         percent = min(100, int(downloaded * 100 / total_size))
-        if percent == self._last_percent and percent not in {0, 100}:
+        if percent == self._last_percent:
             return
         self._last_percent = percent
         bar = render_progress_bar(percent, 100, width=18)

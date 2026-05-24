@@ -2,7 +2,9 @@
 .tools/
 .tmp/
 .model_cache/
+.model_cache*/
 .venv/
+.venv*/
 .venv_noise/
 .ven_slice/
 .dotnet/
@@ -29,6 +31,7 @@ training/**/__pycache__/
 # Runtime artifacts and large generated files
 /build/
 input/
+projects/
 *.zip
 *.7z
 !training/training.7z
@@ -53,3 +56,6 @@ WavQcStudioRemake/
 /src/
 run_ui_only.bat
 run_ui_only.ps1
+
+# Local scratch notes/logs
+새 텍스트 문서*.txt

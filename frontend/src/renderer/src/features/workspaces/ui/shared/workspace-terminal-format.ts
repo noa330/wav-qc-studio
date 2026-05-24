@@ -1,21 +1,38 @@
 import type { WorkspaceTerminalState } from "../../state/workspace-runtime-store";
 
 export function splitTerminalLines(text: string): string[] {
-  return text.trimEnd().split(/\r?\n/u).filter((line, index, lines) => line.trim() || index < lines.length - 1);
+  const lines = text.trimEnd().split(/\r\n|\n|\r/u).map((line) => line.trimEnd());
+  const collapsed: string[] = [];
+  let blankCount = 0;
+
+  for (const line of lines) {
+    if (line.trim()) {
+      collapsed.push(line);
+      blankCount = 0;
+      continue;
+    }
+
+    blankCount += 1;
+    if (blankCount <= 1) {
+      collapsed.push("");
+    }
+  }
+
+  return collapsed.filter((line, index, allLines) => line.trim() || index < allLines.length - 1);
 }
 
 export function terminalStatusLabel(status: WorkspaceTerminalState["status"]): string {
   switch (status) {
     case "running":
-      return "Running";
+      return "실행 중";
     case "completed":
-      return "Complete";
+      return "완료";
     case "failed":
-      return "Failed";
+      return "실패";
     case "cancelled":
-      return "Cancelled";
+      return "취소됨";
     default:
-      return "Idle";
+      return "대기";
   }
 }
 

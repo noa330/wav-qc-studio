@@ -67,6 +67,12 @@ export async function runPythonPlan(plan: PythonRunPlan): Promise<PythonRunOutco
       env: createBackendEnvironment(),
     });
     const removeProcessAbortListener = installProcessAbortHandler(plan.signal, child, hostLogPath);
+    let pendingHostLogWrite = Promise.resolve();
+    const queueHostLogAppend = (text: string) => {
+      pendingHostLogWrite = pendingHostLogWrite
+        .then(() => appendHostLog(hostLogPath, text))
+        .catch(() => undefined);
+    };
 
     let stdout = "";
     let stderr = "";
@@ -75,9 +81,11 @@ export async function runPythonPlan(plan: PythonRunPlan): Promise<PythonRunOutco
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (chunk: string) => {
       stdout += chunk;
+      queueHostLogAppend(chunk);
     });
     child.stderr.on("data", (chunk: string) => {
       stderr += chunk;
+      queueHostLogAppend(chunk);
     });
 
     let rawExitCode = 1;
@@ -91,12 +99,16 @@ export async function runPythonPlan(plan: PythonRunPlan): Promise<PythonRunOutco
     }
 
     const exitCode = plan.signal?.aborted ? 130 : rawExitCode;
-    await appendHostLog(hostLogPath, `\r\n--- Python console output ---\r\n${stdout}${stderr}\r\n--- Python process exited with code ${exitCode} ---\r\n`);
+    await pendingHostLogWrite;
+    await appendHostLog(hostLogPath, `\r\n--- Python process exited with code ${exitCode} ---\r\n`);
+    const hostLog = await readTextIfExists(hostLogPath);
+    const backendLog = await readTextIfExists(plan.logPath);
+    const combinedLog = hostLog || backendLog;
 
     return {
       exitCode,
-      stdout,
-      stderr,
+      stdout: combinedLog || stdout,
+      stderr: exitCode === 0 ? stderr : lastLines([stderr, combinedLog || stdout].filter(Boolean).join("\n"), 28),
       metadata: createMetadata(plan, hostLogPath),
     };
   } finally {

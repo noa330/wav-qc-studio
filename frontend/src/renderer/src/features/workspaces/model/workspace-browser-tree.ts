@@ -1,5 +1,5 @@
 import type { DataTable, DataTableRow, FileTreeNode, FileTreeResult, WorkspaceId } from "@shared/ipc";
-import { rowSelectionPath } from "./workspace-runtime-selection";
+import { resolveInputAudioPath, rowSelectionPath } from "./workspace-runtime-selection";
 
 export function resolveBrowserTree(workspaceId: WorkspaceId, purpose: "input" | "output", baseTree: FileTreeResult | undefined, table: DataTable, rootPath: string): FileTreeResult | undefined {
   if (purpose === "output") {
@@ -359,7 +359,7 @@ function buildBatchSpeakerNodes(rows: DataTableRow[]): FileTreeNode[] {
 }
 
 function resolveInputPath(row: DataTableRow): string {
-  return row.raw?.originalPath || row.raw?.original_path || row.raw?.absolute_path || row.raw?.inputPath || row.raw?.input_path || row.sourcePath || "";
+  return resolveInputAudioPath(row);
 }
 
 function resolveOutputPath(workspaceId: WorkspaceId, row: DataTableRow): string {

@@ -102,7 +102,24 @@ export function WorkspaceTerminalDialog({ terminal, title, onClear, onClose }: W
 }
 
 function splitTerminalLines(text: string): string[] {
-  return text.trimEnd().split(/\r?\n/u).filter((line, index, lines) => line.trim() || index < lines.length - 1);
+  const lines = text.trimEnd().split(/\r\n|\n|\r/u).map((line) => line.trimEnd());
+  const collapsed: string[] = [];
+  let blankCount = 0;
+
+  for (const line of lines) {
+    if (line.trim()) {
+      collapsed.push(line);
+      blankCount = 0;
+      continue;
+    }
+
+    blankCount += 1;
+    if (blankCount <= 1) {
+      collapsed.push("");
+    }
+  }
+
+  return collapsed.filter((line, index, allLines) => line.trim() || index < allLines.length - 1);
 }
 
 function statusLabel(status: WorkspaceTerminalState["status"]): string {

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
-import shutil
 import sys
 from dataclasses import dataclass
 from datetime import datetime
@@ -45,13 +45,18 @@ GENERATED_AUDIO_FOLDERS = {
 }
 
 AUDIO_CONVERTING_STAGE = "audio-converting"
-AUDIO_LINK_STAGE = "audio-converting/link-wav"
+AUDIO_SOURCE_WAV_STAGE = "audio-converting/source-wav"
 AUDIO_CONVERT_STAGE = "audio-converting/convert-to-wav"
 AUDIO_CONVERTING_PROGRESS_LABEL = "audio-converting"
+AUDIO_SOURCE_MAP_FILE = "audio_source_map.json"
 
 
 def discover_audio_files(folder: str | Path, recursive: bool = False) -> list[Path]:
     root = Path(folder)
+    mapped_files = _discover_audio_files_from_source_map(root)
+    if mapped_files is not None:
+        return mapped_files
+
     files = _discover_files(root, AUDIO_EXTS, recursive=recursive)
     return sorted(files)
 
@@ -60,6 +65,41 @@ def discover_input_audio_files(folder: str | Path, recursive: bool = False) -> l
     root = Path(folder)
     files = _discover_files(root, AUDIO_INPUT_EXTS, recursive=recursive)
     return sorted(files)
+
+
+def _discover_audio_files_from_source_map(root: Path) -> list[Path] | None:
+    if root.is_file():
+        return None
+
+    map_path = root / AUDIO_SOURCE_MAP_FILE
+    if not map_path.exists():
+        return None
+
+    try:
+        payload = json.loads(map_path.read_text(encoding="utf-8-sig"))
+    except Exception:  # noqa: BLE001
+        return None
+
+    if not isinstance(payload, dict) or not isinstance(payload.get("mappings"), list):
+        return None
+
+    files: list[Path] = []
+    seen: set[str] = set()
+    for item in payload["mappings"]:
+        if not isinstance(item, dict):
+            continue
+        cached_path = str(item.get("cachedPath", "") or "").strip()
+        source_path = str(item.get("sourcePath", "") or item.get("originalPath", "") or "").strip()
+        for candidate in (cached_path, source_path):
+            path = Path(candidate)
+            normalized = str(path).casefold()
+            if normalized in seen:
+                continue
+            if path.exists() and path.is_file() and path.suffix.lower() in WAV_AUDIO_EXTS:
+                files.append(path)
+                seen.add(normalized)
+                break
+    return files
 
 
 def _discover_files(root: Path, extensions: set[str], recursive: bool) -> list[Path]:
@@ -142,11 +182,10 @@ def prepare_selected_audio_input_cache(
 ) -> PreparedAudioInput:
     """Prepare a stable WAV view of an input folder.
 
-    Folder selection is the canonical conversion point. If the selected folder
-    contains only WAV/WAVE files, the original folder is returned. If any other
-    supported audio extension exists, a stable cache folder is used as the
-    runtime input. Existing up-to-date cache WAVs are reused, so repeated model
-    runs do not rebuild identical audio.
+    Folder selection is the canonical conversion point. WAV/WAVE files stay at
+    their original paths and are recorded in the JSON source map. Non-WAV audio
+    is converted into the stable converted-audio folder, and the map keeps the
+    pre-conversion source path for UI/result restoration.
     """
 
     input_root = Path(input_folder).resolve()
@@ -163,17 +202,31 @@ def prepare_selected_audio_input_cache(
 
     if convert_count <= 0:
         _log_audio_converting(log, "WAV/WAVE input only; conversion cache skipped")
-        _write_audio_source_map(source_map_path, input_root, input_root, [])
-        _write_audio_conversion_manifest(manifest_path, input_root, input_root, len(source_paths), len(source_paths), 0, "completed", [], active_stage=AUDIO_CONVERTING_STAGE)
-        return PreparedAudioInput(input_folder=input_root, original_input_folder=input_root, mappings=[])
+        source_mappings = [_source_audio_mapping(path, path, AUDIO_SOURCE_WAV_STAGE, "completed") for path in source_paths]
+        _write_audio_source_map(source_map_path, input_root, input_root, source_mappings)
+        _write_audio_conversion_manifest(
+            manifest_path,
+            input_root,
+            input_root,
+            0,
+            0,
+            0,
+            "completed",
+            [],
+            active_stage=AUDIO_CONVERTING_STAGE,
+            source_total_files=len(source_paths),
+            wav_files=wav_count,
+            conversion_files=0,
+        )
+        return PreparedAudioInput(input_folder=input_root, original_input_folder=input_root, mappings=source_mappings)
 
     if not cache_folder:
         raise ValueError("audio cache folder is required when non-WAV input files are present")
 
     cache_root = Path(cache_folder).resolve()
     cache_root.mkdir(parents=True, exist_ok=True)
-    _log_audio_converting_kv(log, "WAV cache", cache_root)
-    _log_audio_converting(log, "using cached WAVs when current; converting missing or stale files only")
+    _log_audio_converting_kv(log, "Converted WAV folder", cache_root)
+    _log_audio_converting(log, "WAV/WAVE files stay at original paths; converting missing or stale non-WAV files only")
 
     progress_line = None
     format_progress_line = None
@@ -193,71 +246,222 @@ def prepare_selected_audio_input_cache(
         format_finished_line = _format_finished_line
 
     total = len(source_paths)
-    mappings: list[dict[str, str]] = []
+    conversion_total = convert_count
+    conversion_completed = 0
     failed = 0
     converted = 0
-    linked = 0
     reused = 0
-    _write_audio_conversion_manifest(manifest_path, input_root, cache_root, total, 0, failed, "running", mappings, active_stage=AUDIO_CONVERTING_STAGE)
-
     used_targets: set[Path] = set()
-    try:
-        for index, source_path in enumerate(source_paths, start=1):
-            _raise_if_cancelled(cancel_file)
+    jobs: list[dict[str, str]] = []
+    for index, source_path in enumerate(source_paths, start=1):
+        is_wav = source_path.suffix.lower() in WAV_AUDIO_EXTS
+        if is_wav:
+            target_path = source_path
+            action = AUDIO_SOURCE_WAV_STAGE
+            action_label = "source-wav"
+            is_current = True
+            status = "completed"
+        else:
             relative = _safe_relative_audio_path(source_path, input_root, index)
             target_path = _cache_target_for_relative(cache_root, relative, used_targets)
-            target_path.parent.mkdir(parents=True, exist_ok=True)
-            is_wav = source_path.suffix.lower() in WAV_AUDIO_EXTS
             is_current = _cached_wav_is_current(source_path, target_path)
-            if is_current:
-                action = AUDIO_LINK_STAGE if is_wav else AUDIO_CONVERT_STAGE
-                action_label = "cached-wav"
-                reused += 1
-            elif is_wav:
-                action = AUDIO_LINK_STAGE
-                action_label = "link-wav"
+            action = AUDIO_CONVERT_STAGE
+            action_label = "cached-wav" if is_current else "convert-to-wav"
+            status = "queued"
+
+        jobs.append({
+            "sourcePath": str(source_path),
+            "cachedPath": str(target_path),
+            "stage": action,
+            "status": status,
+            "actionLabel": action_label,
+            "isCurrent": "true" if is_current else "false",
+            "isWav": "true" if is_wav else "false",
+            "error": "",
+        })
+
+    _write_audio_conversion_manifest(
+        manifest_path,
+        input_root,
+        cache_root,
+        conversion_total,
+        0,
+        failed,
+        "running",
+        jobs,
+        active_stage=AUDIO_CONVERTING_STAGE,
+        source_total_files=total,
+        wav_files=wav_count,
+        conversion_files=conversion_total,
+    )
+
+    mappings = jobs
+    try:
+        for index, job in enumerate(jobs, start=1):
+            _raise_if_cancelled(cancel_file)
+            source_path = Path(job["sourcePath"])
+            target_path = Path(job["cachedPath"])
+            action = job["stage"]
+            action_label = job["actionLabel"]
+            is_current = job["isCurrent"] == "true"
+            is_wav = job["isWav"] == "true"
+            if is_wav:
+                continue
+
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            job["status"] = "running"
+            conversion_index = conversion_completed + 1
+
+            if format_progress_line is not None:
+                progress_message = format_progress_line(
+                    "running",
+                    conversion_index,
+                    conversion_total,
+                    source_path.name,
+                    stage=AUDIO_CONVERTING_PROGRESS_LABEL,
+                    detail=action_label,
+                    completed=conversion_completed,
+                )
             else:
-                action = AUDIO_CONVERT_STAGE
-                action_label = "convert-to-wav"
+                progress_message = f"[running] {conversion_index}/{conversion_total} {source_path.name} ({action_label})"
 
-            if progress_line is not None and format_progress_line is not None:
-                progress_line.update(format_progress_line("running", index, total, source_path.name, stage=AUDIO_CONVERTING_PROGRESS_LABEL, detail=action_label, completed=index - 1))
-            elif log:
-                log(f"[{progress_title}] {index}/{total} {source_path.name} ({action_label})")
+            if progress_line is not None:
+                progress_line.update(progress_message)
+            if log:
+                log(progress_message)
 
-            if not is_current:
-                if target_path.exists():
-                    target_path.unlink()
-                if is_wav:
-                    _stage_existing_wav(source_path, target_path)
-                    linked += 1
-                else:
+            _write_audio_conversion_manifest(
+                manifest_path,
+                input_root,
+                cache_root,
+                conversion_total,
+                conversion_completed,
+                failed,
+                "running",
+                jobs,
+                active_stage=action,
+                active_source_path=str(source_path),
+                source_total_files=total,
+                wav_files=wav_count,
+                conversion_files=conversion_total,
+            )
+
+            try:
+                if not is_current:
+                    if target_path.exists():
+                        target_path.unlink()
                     _convert_audio_to_wav(source_path, target_path)
                     _copy_source_mtime(source_path, target_path)
                     converted += 1
+                else:
+                    reused += 1
+            except Exception as exc:  # noqa: BLE001
+                failed += 1
+                job["status"] = "failed"
+                job["error"] = str(exc)
+                _write_audio_conversion_manifest(
+                    manifest_path,
+                    input_root,
+                    cache_root,
+                    conversion_total,
+                    conversion_completed,
+                    failed,
+                    "failed",
+                    jobs,
+                    active_stage=action,
+                    active_source_path=str(source_path),
+                    source_total_files=total,
+                    wav_files=wav_count,
+                    conversion_files=conversion_total,
+                )
+                raise
 
-            mappings.append({"sourcePath": str(source_path), "cachedPath": str(target_path), "stage": action, "status": "cached" if is_current else "completed"})
-            _write_audio_conversion_manifest(manifest_path, input_root, cache_root, total, index, failed, "running", mappings, active_stage=action)
+            job["status"] = "cached" if is_current else "completed"
+            conversion_completed += 1
+            _write_audio_conversion_manifest(
+                manifest_path,
+                input_root,
+                cache_root,
+                conversion_total,
+                conversion_completed,
+                failed,
+                "running",
+                jobs,
+                active_stage=action,
+                source_total_files=total,
+                wav_files=wav_count,
+                conversion_files=conversion_total,
+            )
 
         if progress_line is not None and format_finished_line is not None:
-            progress_line.finish(format_finished_line(total, failed=failed))
-        _write_audio_conversion_manifest(manifest_path, input_root, cache_root, total, total, failed, "completed", mappings, active_stage=AUDIO_CONVERTING_STAGE)
+            progress_line.finish(format_finished_line(conversion_total, failed=failed))
+        _write_audio_conversion_manifest(
+            manifest_path,
+            input_root,
+            cache_root,
+            conversion_total,
+            conversion_total,
+            failed,
+            "completed",
+            jobs,
+            active_stage=AUDIO_CONVERTING_STAGE,
+            source_total_files=total,
+            wav_files=wav_count,
+            conversion_files=conversion_total,
+        )
         _write_audio_source_map(source_map_path, input_root, cache_root, mappings)
         _log_audio_converting(log, f"completed - runtime input: {cache_root}")
-        _log_audio_converting(log, f"summary: converted={converted}, linked={linked}, cached={reused}")
+        _log_audio_converting(log, f"summary: converted={converted}, original_wav={wav_count}, cached={reused}")
         return PreparedAudioInput(input_folder=cache_root, original_input_folder=input_root, mappings=mappings)
     except AudioInputPreparationCancelled:
-        failed = max(0, total - len(mappings))
+        failed = max(0, conversion_total - conversion_completed)
         if progress_line is not None and format_finished_line is not None:
-            progress_line.finish(format_finished_line(total, failed=failed))
-        _write_audio_conversion_manifest(manifest_path, input_root, cache_root, total, len(mappings), failed, "failed", mappings, active_stage="audio-converting/cancelled")
+            progress_line.finish(format_finished_line(conversion_total, failed=failed))
+        _write_audio_conversion_manifest(
+            manifest_path,
+            input_root,
+            cache_root,
+            conversion_total,
+            conversion_completed,
+            failed,
+            "failed",
+            mappings,
+            active_stage="audio-converting/cancelled",
+            source_total_files=total,
+            wav_files=wav_count,
+            conversion_files=conversion_total,
+        )
         raise
     except Exception:
-        failed = max(1, total - len(mappings))
+        failed = max(1, conversion_total - conversion_completed)
         if progress_line is not None and format_finished_line is not None:
-            progress_line.finish(format_finished_line(total, failed=failed))
-        _write_audio_conversion_manifest(manifest_path, input_root, cache_root, total, len(mappings), failed, "failed", mappings, active_stage="audio-converting/failed")
+            progress_line.finish(format_finished_line(conversion_total, failed=failed))
+        _write_audio_conversion_manifest(
+            manifest_path,
+            input_root,
+            cache_root,
+            conversion_total,
+            conversion_completed,
+            failed,
+            "failed",
+            mappings,
+            active_stage="audio-converting/failed",
+            source_total_files=total,
+            wav_files=wav_count,
+            conversion_files=conversion_total,
+        )
         raise
+
+
+def _source_audio_mapping(source_path: Path, cached_path: Path, stage: str, status: str) -> dict[str, str]:
+    return {
+        "sourcePath": str(source_path),
+        "originalPath": str(source_path),
+        "cachedPath": str(cached_path),
+        "stage": stage,
+        "status": status,
+        "error": "",
+    }
 
 
 def _write_audio_source_map(source_map_path: str | Path | None, input_root: Path, runtime_input_root: Path, mappings: list[dict[str, str]]) -> None:
@@ -268,13 +472,23 @@ def _write_audio_source_map(source_map_path: str | Path | None, input_root: Path
     payload = {
         "inputPath": str(runtime_input_root),
         "originalInputPath": str(input_root),
-        "mappings": mappings,
+        "mappings": [_source_map_payload_item(item) for item in mappings],
     }
     try:
         from .manifest_io import atomic_write_json
     except Exception:  # noqa: BLE001
         from backend.manifest_io import atomic_write_json  # type: ignore
     atomic_write_json(out_path, payload)
+
+
+def _source_map_payload_item(item: dict[str, str]) -> dict[str, str]:
+    source_path = str(item.get("sourcePath") or item.get("originalPath") or "")
+    return {
+        **item,
+        "sourcePath": source_path,
+        "originalPath": source_path,
+        "cachedPath": str(item.get("cachedPath") or source_path),
+    }
 
 
 def _write_audio_conversion_manifest(
@@ -288,6 +502,10 @@ def _write_audio_conversion_manifest(
     mappings: list[dict[str, str]],
     *,
     active_stage: str,
+    active_source_path: str | None = None,
+    source_total_files: int | None = None,
+    wav_files: int | None = None,
+    conversion_files: int | None = None,
 ) -> None:
     if not manifest_path:
         return
@@ -301,6 +519,9 @@ def _write_audio_conversion_manifest(
         "manifestPath": str(Path(manifest_path).resolve()),
         "summary": {
             "totalFiles": total_files,
+            "sourceTotalFiles": total_files if source_total_files is None else source_total_files,
+            "wavFiles": 0 if wav_files is None else wav_files,
+            "conversionFiles": total_files if conversion_files is None else conversion_files,
             "queued": queued,
             "running": running,
             "completed": completed,
@@ -313,12 +534,13 @@ def _write_audio_conversion_manifest(
                 "originalPath": item["sourcePath"],
                 "cachedPath": item["cachedPath"],
                 "activeStage": str(item.get("stage") or AUDIO_CONVERTING_STAGE),
-                "status": "completed",
-                "error": "",
+                "status": str(item.get("status") or "completed"),
+                "error": str(item.get("error") or ""),
             }
             for item in mappings
         ],
         "activeStage": active_stage,
+        "activeSourcePath": str(active_source_path or ""),
     }
     try:
         from .manifest_io import atomic_write_json
@@ -347,12 +569,11 @@ def prepare_audio_wav_cache(
 
     prepared = prepare_selected_audio_input_cache(input_root, cache_folder=cache_folder, recursive=recursive, log=None)
     converted = sum(1 for item in prepared.mappings if str(item.get("stage", "")).endswith("convert-to-wav") and str(item.get("status", "")) != "cached")
-    linked = sum(1 for item in prepared.mappings if str(item.get("stage", "")).endswith("link-wav") and str(item.get("status", "")) != "cached")
     return {
         "inputPath": str(prepared.input_folder),
         "total": len(prepared.mappings),
         "converted": converted,
-        "linked": linked,
+        "linked": 0,
         "mappings": prepared.mappings,
     }
 
@@ -364,42 +585,34 @@ def _prepare_selected_sources(input_root: Path, cache_root: Path, audio_paths: S
     used_targets: set[Path] = set()
     mappings: list[dict[str, str]] = []
     converted = 0
-    linked = 0
     reused = 0
     for index, source_path in enumerate(audio_paths, start=1):
+        if source_path.suffix.lower() in WAV_AUDIO_EXTS:
+            mappings.append(_source_audio_mapping(source_path, source_path, AUDIO_SOURCE_WAV_STAGE, "completed"))
+            continue
+
         relative = _safe_relative_audio_path(source_path, input_root, index)
         target_path = _cache_target_for_relative(cache_root, relative, used_targets)
         target_path.parent.mkdir(parents=True, exist_ok=True)
         if _cached_wav_is_current(source_path, target_path):
             reused += 1
+            status = "cached"
         else:
             if target_path.exists():
                 target_path.unlink()
-            if source_path.suffix.lower() in WAV_AUDIO_EXTS:
-                _stage_existing_wav(source_path, target_path)
-                linked += 1
-            else:
-                _convert_audio_to_wav(source_path, target_path)
-                _copy_source_mtime(source_path, target_path)
-                converted += 1
-        mappings.append({"sourcePath": str(source_path), "cachedPath": str(target_path)})
+            _convert_audio_to_wav(source_path, target_path)
+            _copy_source_mtime(source_path, target_path)
+            converted += 1
+            status = "completed"
+        mappings.append(_source_audio_mapping(source_path, target_path, AUDIO_CONVERT_STAGE, status))
     return {
         "inputPath": str(cache_root),
         "total": len(mappings),
         "converted": converted,
-        "linked": linked,
+        "linked": 0,
         "cached": reused,
         "mappings": mappings,
     }
-
-
-def _stage_existing_wav(source_path: Path, target_path: Path) -> None:
-    if source_path.resolve() == target_path.resolve():
-        return
-    try:
-        os.link(source_path, target_path)
-    except OSError:
-        shutil.copy2(source_path, target_path)
 
 
 def _convert_audio_to_wav(source_path: Path, target_path: Path) -> None:
@@ -516,9 +729,9 @@ def _is_generated_path(path: Path, root: Path) -> bool:
 
 
 def run_audio_converting_cli(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Prepare a stable WAV cache for an input audio folder")
+    parser = argparse.ArgumentParser(description="Prepare a stable converted WAV folder for an input audio folder")
     parser.add_argument("--input", required=True, help="Original input folder")
-    parser.add_argument("--cache-dir", required=True, help="Stable WAV cache directory")
+    parser.add_argument("--cache-dir", required=True, help="Stable converted WAV directory")
     parser.add_argument("--source-map", required=False, default="", help="JSON map from source audio to cached WAV")
     parser.add_argument("--manifest", required=False, default="", help="Progress manifest JSON path")
     parser.add_argument("--log", required=False, default="", help="Log file path")
@@ -540,7 +753,7 @@ def run_audio_converting_cli(argv: Sequence[str] | None = None) -> int:
         print_kv("Python", sys.executable)
         print_kv("Working directory", Path.cwd())
         print_kv("Input folder", Path(args.input).resolve())
-        print_kv("WAV cache", Path(args.cache_dir).resolve())
+        print_kv("Converted WAV folder", Path(args.cache_dir).resolve())
         print_kv("Manifest", args.manifest or "-")
         print_kv("Source map", args.source_map or "-")
         print_section("오디오 컨버팅")

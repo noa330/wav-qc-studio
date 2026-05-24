@@ -1,7 +1,8 @@
-import { Check, LoaderCircle } from "lucide-react";
+import { Check } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { StartupSplashProgress, StartupSplashStep } from "@shared/ipc";
 import { createStartupSplashSteps } from "@shared/startup-splash";
+import logoUrl from "../assets/brand/wav-qc-studio-circle.png";
 import { useStartupSplashPresentation } from "./startup-splash-presentation";
 
 const progressEventName = "wavqc-startup-progress";
@@ -15,6 +16,12 @@ const defaultProgress: StartupSplashProgress = {
   detailText: "저장 상태 파일을 확인하고 있습니다.",
   steps: defaultSteps,
 };
+
+const waveformHeights = [
+  14, 22, 34, 28, 48, 70, 44, 30, 22, 18, 26, 46, 76, 104, 70, 38, 24, 30, 50, 90, 136, 86, 48, 34, 24, 30, 66,
+  118, 178, 132, 76, 44, 34, 52, 90, 150, 214, 122, 72, 42, 28, 36, 66, 126, 210, 258, 162, 94, 44, 28, 46, 82, 154,
+  236, 186, 110, 54, 30,
+];
 
 export function StartupSplash() {
   const [progress, setProgress] = useState<StartupSplashProgress>(defaultProgress);
@@ -52,79 +59,76 @@ export function StartupSplash() {
   return (
     <main className={`startup-splash${closing ? " startup-splash--closing" : ""}`} aria-live="polite">
       <section className="startup-splash__card" aria-label="WAV QC Studio loading">
-        <div className="startup-splash__glow" aria-hidden="true" />
-        <div className="startup-splash__mark" aria-hidden="true">
-          <div className="startup-splash__bars">
-            <span className="startup-splash__dot" />
-            {Array.from({ length: 5 }, (_, index) => (
-              <span key={index} className="startup-splash__bar" />
-            ))}
-            <span className="startup-splash__dot" />
+        <div className="startup-splash__content">
+          <header className="startup-splash__brand">
+            <img className="startup-splash__logo" src={logoUrl} alt="" aria-hidden="true" draggable={false} />
+            <div className="startup-splash__title-block">
+              <h1>WAV QC Studio</h1>
+              <p>Audio Slice &amp; QC Suite</p>
+            </div>
+          </header>
+
+          <div className="startup-splash__status-row">
+            <div className="startup-splash__status">
+              <strong>{progress.statusText}</strong>
+              {progress.detailText ? <span>{progress.detailText}</span> : null}
+            </div>
+            <span className="startup-splash__progress-value">{progressPercent}%</span>
           </div>
-        </div>
 
-        <div className="startup-splash__title-block">
-          <h1>WAV QC Studio</h1>
-          <p>Professional Audio QC &amp; Slicing</p>
-        </div>
-
-        <div className="startup-splash__status">
-          <strong>{progress.statusText}</strong>
-          {progress.detailText ? <span>{progress.detailText}</span> : null}
-        </div>
-
-        <div className="startup-splash__progress-row">
           <div className="startup-splash__progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
             <div className="startup-splash__progress-fill" style={{ width: `${progressPercent}%` }} />
           </div>
-          <span className="startup-splash__progress-value">{progressPercent}%</span>
+
+          <div className="startup-splash__steps">
+            {steps.map((step) => (
+              <div key={step.id} className="startup-splash__step" data-state={step.state}>
+                <span className="startup-splash__step-label">{step.label}</span>
+                <StepCheckbox state={step.state} />
+              </div>
+            ))}
+          </div>
+
         </div>
 
-        <div className="startup-splash__steps">
-          {steps.map((step) => (
-            <div key={step.id} className="startup-splash__step" data-state={step.state}>
-              <StepGlyph state={step.state} />
-              <span className="startup-splash__step-label">{step.label}</span>
-              <span className="startup-splash__step-state">{resolveStepStateLabel(step.state)}</span>
-            </div>
-          ))}
+        <div className="startup-splash__wave-panel" aria-hidden="true">
+          <div className="startup-splash__wave-line" />
+          <div className="startup-splash__wave-bars">
+            {waveformHeights.map((height, index) => (
+              <span
+                key={`${height}-${index}`}
+                className="startup-splash__wave-bar"
+                style={{
+                  height: `${height}px`,
+                  animationDelay: `${index * 38}ms`,
+                }}
+              />
+            ))}
+          </div>
         </div>
 
         <footer className="startup-splash__footer">
-          <span>Version {appVersion}</span>
-          <span>WAV QC Studio</span>
+          <span className="startup-splash__footer-group">
+            <span>WAV QC Studio</span>
+            <span>v{appVersion}</span>
+          </span>
+          <span>© 2024 WAV QC Studio. All rights reserved.</span>
         </footer>
       </section>
     </main>
   );
 }
 
-function StepGlyph({ state }: { state: StartupSplashStep["state"] }) {
+function StepCheckbox({ state }: { state: StartupSplashStep["state"] }) {
   if (state === "done") {
     return (
-      <span className="startup-splash__step-icon startup-splash__step-icon--done">
+      <span className="startup-splash__step-checkbox startup-splash__step-checkbox--done" aria-label="완료">
         <Check size={13} strokeWidth={3} />
       </span>
     );
   }
 
-  if (state === "active") {
-    return (
-      <span className="startup-splash__step-icon startup-splash__step-icon--active">
-        <LoaderCircle size={17} strokeWidth={2.7} />
-      </span>
-    );
-  }
-
-  return <span className="startup-splash__step-icon startup-splash__step-icon--pending" />;
-}
-
-function resolveStepStateLabel(state: StartupSplashStep["state"]): string {
-  if (state === "done") {
-    return "Done";
-  }
-
-  return state === "active" ? "In progress" : "Pending";
+  return <span className={`startup-splash__step-checkbox startup-splash__step-checkbox--${state}`} aria-label={state === "active" ? "진행 중" : "대기"} />;
 }
 
 function clampProgress(value: number): number {

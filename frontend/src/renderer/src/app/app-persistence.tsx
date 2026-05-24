@@ -34,6 +34,7 @@ import {
   workspaceIds,
   type WorkspaceRuntimeStore,
 } from "@/features/workspaces/state/workspace-runtime-store";
+import { findFirstAudioPath, findRowForPath, resolveAudioSelection, resolveInputAudioPath } from "@/features/workspaces/model/workspace-runtime-selection";
 import {
   createEmptyAudioEditSessionSnapshot,
   getAudioEditSessionSnapshot,
@@ -150,13 +151,18 @@ type AppPersistenceContextValue = {
   projects: PersistedProjectMeta[];
   projectSwitching: boolean;
   switchProject: (projectId: string) => Promise<void>;
-  createProjectFromFolder: () => Promise<void>;
+  createProject: (name: string) => Promise<ProjectCreateActionResult>;
   getWorkspaceUiSnapshot: (workspaceId: WorkspaceId) => PersistedWorkspaceUiState;
   recordRuntimeSnapshot: (snapshot: PersistedRuntimeSnapshot) => void;
   recordShellSnapshot: (snapshot: PersistedShellState) => void;
   recordWorkspaceUiSnapshot: (workspaceId: WorkspaceId, patch: Partial<PersistedWorkspaceUiState>) => void;
   flush: () => Promise<void>;
   flushSync: () => void;
+};
+
+export type ProjectCreateActionResult = {
+  ok: boolean;
+  error?: string;
 };
 
 const AppPersistenceContext = createContext<AppPersistenceContextValue | null>(null);
@@ -383,7 +389,14 @@ export function AppPersistenceProvider({ children }: { children: ReactNode }) {
       scheduleSave();
       await flush();
 
-      const targetState = normalizePersistedAppState(target.state, createDefaultPersistedAppState());
+      const loaded = target.rootPath
+        ? await studioBackend.loadProjectState({ projectId: target.id, rootPath: target.rootPath })
+        : { ok: true as const, state: undefined };
+      if (!loaded.ok && loaded.error) {
+        console.warn("Failed to load project state:", loaded.error);
+      }
+
+      const targetState = normalizePersistedAppState(loaded.state ?? target.state, createDefaultPersistedAppState());
       projectRecordsRef.current = updateProjectRecordState(projectRecordsRef.current, projectId, targetState);
       setProjectMetas(projectRecordsRef.current.map(projectRecordToMeta));
       applyProjectState(projectId, targetState);
@@ -394,21 +407,18 @@ export function AppPersistenceProvider({ children }: { children: ReactNode }) {
     }
   }, [applyProjectState, flush, scheduleSave]);
 
-  const createProjectFromFolder = useCallback(async () => {
+  const createProject = useCallback(async (name: string): Promise<ProjectCreateActionResult> => {
     if (projectSwitchingRef.current) {
-      return;
+      return { ok: false, error: "프로젝트 전환이 끝난 뒤 다시 시도하세요." };
     }
 
-    const selected = await studioBackend.selectFolder();
-    const rootPath = selected.path?.trim();
-    if (selected.canceled || !rootPath) {
-      return;
+    const requestedName = normalizeProjectName(name);
+    if (!requestedName) {
+      return { ok: false, error: "프로젝트 이름을 입력하세요." };
     }
 
-    const existingProject = projectRecordsRef.current.find((project) => sameProjectRoot(project.rootPath, rootPath));
-    if (existingProject) {
-      await switchProject(existingProject.id);
-      return;
+    if (projectRecordsRef.current.some((project) => sameProjectName(project.name, requestedName))) {
+      return { ok: false, error: "같은 이름의 프로젝트가 이미 있습니다." };
     }
 
     projectSwitchingRef.current = true;
@@ -419,12 +429,23 @@ export function AppPersistenceProvider({ children }: { children: ReactNode }) {
       scheduleSave();
       await flush();
 
+      const created = await studioBackend.createProject({ name: requestedName });
+      if (!created.ok || !created.rootPath || !created.name) {
+        return { ok: false, error: created.error ?? "프로젝트 폴더를 만들 수 없습니다." };
+      }
+
+      const existingProject = projectRecordsRef.current.find((project) => sameProjectRoot(project.rootPath, created.rootPath));
+      if (existingProject) {
+        applyProjectState(existingProject.id, normalizePersistedAppState(existingProject.state, createDefaultPersistedAppState()));
+        return { ok: true };
+      }
+
       const now = new Date().toISOString();
       const state = createDefaultPersistedAppState();
       const project: PersistedProjectRecord = {
-        id: createProjectId(),
-        name: projectNameFromPath(rootPath),
-        rootPath,
+        id: createProjectId(created.rootPath),
+        name: created.name,
+        rootPath: created.rootPath,
         createdAt: now,
         updatedAt: now,
         state,
@@ -433,11 +454,13 @@ export function AppPersistenceProvider({ children }: { children: ReactNode }) {
       setProjectMetas(projectRecordsRef.current.map(projectRecordToMeta));
       applyProjectState(project.id, state);
       scheduleSave();
+      await flush();
+      return { ok: true };
     } finally {
       projectSwitchingRef.current = false;
       setProjectSwitching(false);
     }
-  }, [applyProjectState, flush, scheduleSave, switchProject]);
+  }, [applyProjectState, flush, scheduleSave]);
 
   useEffect(() => {
     if (!loadState.ready) {
@@ -481,7 +504,7 @@ export function AppPersistenceProvider({ children }: { children: ReactNode }) {
       projects: projectMetas,
       projectSwitching,
       switchProject,
-      createProjectFromFolder,
+      createProject,
       getWorkspaceUiSnapshot,
       recordRuntimeSnapshot,
       recordShellSnapshot,
@@ -493,7 +516,7 @@ export function AppPersistenceProvider({ children }: { children: ReactNode }) {
     flush,
     flushSync,
     activeProjectId,
-    createProjectFromFolder,
+    createProject,
     getWorkspaceUiSnapshot,
     loadState,
     projectMetas,
@@ -626,14 +649,19 @@ function captureActiveProjectState(
 function buildPersistedProjectPayload(projects: PersistedProjectRecord[], activeProjectId: string): ProjectStorePayload {
   return {
     activeProjectId,
-    projects: projects.map((project) => ({
-      id: project.id,
-      name: project.name,
-      rootPath: project.rootPath,
-      createdAt: project.createdAt,
-      updatedAt: project.updatedAt,
-      state: project.state,
-    })),
+    projects: projects.map((project) => {
+      const meta = {
+        id: project.id,
+        name: project.name,
+        rootPath: project.rootPath,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt,
+      };
+
+      return project.id === activeProjectId
+        ? { ...meta, state: project.state }
+        : meta;
+    }),
   };
 }
 
@@ -716,7 +744,7 @@ function isProjectStorePayload(value: unknown): value is ProjectStorePayload {
 function normalizeProjectRecord(raw: Record<string, unknown>, index: number): PersistedProjectRecord {
   const now = new Date().toISOString();
   const rootPath = typeof raw.rootPath === "string" && raw.rootPath.trim() ? raw.rootPath.trim() : undefined;
-  const fallbackId = index === 0 ? defaultProjectId : `project-${index + 1}`;
+  const fallbackId = rootPath ? createProjectId(rootPath) : index === 0 ? defaultProjectId : `project-${index + 1}`;
   return {
     id: typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : fallbackId,
     name: typeof raw.name === "string" && raw.name.trim()
@@ -731,7 +759,11 @@ function normalizeProjectRecord(raw: Record<string, unknown>, index: number): Pe
   };
 }
 
-function createProjectId(): string {
+function createProjectId(rootPath?: string): string {
+  if (rootPath) {
+    return `project:${encodeURIComponent(normalizeProjectRoot(rootPath))}`;
+  }
+
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
@@ -741,6 +773,14 @@ function createProjectId(): string {
 
 function sameProjectRoot(left?: string, right?: string): boolean {
   return normalizeProjectRoot(left) === normalizeProjectRoot(right);
+}
+
+function sameProjectName(left: string, right: string): boolean {
+  return normalizeProjectName(left).toLocaleLowerCase() === normalizeProjectName(right).toLocaleLowerCase();
+}
+
+function normalizeProjectName(value: string): string {
+  return value.replace(/\s+/gu, " ").trim();
 }
 
 function normalizeProjectRoot(path?: string): string {
@@ -934,21 +974,20 @@ function normalizeWorkspaceRuntimeStore(raw: unknown): WorkspaceRuntimeStore {
       const wasBusy = merged.isRunning || merged.isExporting || merged.isBatchSpeakerRunning;
       const idleState = {
         ...merged,
-        sheets,
+        sheets: sheets.map((sheet) => repairWorkspaceAudioSelection(workspaceId, sheet)),
         activeSheetId,
         isRunning: false,
         isExporting: false,
         isBatchSpeakerRunning: false,
         progressPercent: 0,
+        progress: wasBusy ? undefined : merged.progress,
         statusText: wasBusy ? "Stopped" : merged.statusText || defaults[workspaceId].statusText,
         error: undefined,
         terminal: createEmptyTerminalState(),
         terminalOpenRequestId: 0,
       };
-      return [
-        workspaceId,
-        stateWithActiveSheet(idleState, sheets.find((sheet) => sheet.id === activeSheetId) ?? sheets[0]),
-      ];
+      const activeRepairedSheet = idleState.sheets.find((sheet) => sheet.id === activeSheetId) ?? idleState.sheets[0];
+      return [workspaceId, stateWithActiveSheet(idleState, activeRepairedSheet)];
     }),
   ) as WorkspaceRuntimeStore;
 }
@@ -967,25 +1006,90 @@ async function normalizeWorkspaceRuntimeStoreForStartup(raw: unknown, recordUnit
     const wasBusy = merged.isRunning || merged.isExporting || merged.isBatchSpeakerRunning;
     const idleState = {
       ...merged,
-      sheets,
+      sheets: sheets.map((sheet) => repairWorkspaceAudioSelection(workspaceId, sheet)),
       activeSheetId,
       isRunning: false,
       isExporting: false,
       isBatchSpeakerRunning: false,
       progressPercent: 0,
+      progress: wasBusy ? undefined : merged.progress,
       statusText: wasBusy ? "Stopped" : merged.statusText || defaults[workspaceId].statusText,
       error: undefined,
       terminal: createEmptyTerminalState(),
       terminalOpenRequestId: 0,
     };
-    entries.push([
-      workspaceId,
-      stateWithActiveSheet(idleState, sheets.find((sheet) => sheet.id === activeSheetId) ?? sheets[0]),
-    ]);
+    const activeRepairedSheet = idleState.sheets.find((sheet) => sheet.id === activeSheetId) ?? idleState.sheets[0];
+    entries.push([workspaceId, stateWithActiveSheet(idleState, activeRepairedSheet)]);
     await recordUnit();
   }
 
   return Object.fromEntries(entries) as WorkspaceRuntimeStore;
+}
+
+type RepairableAudioSelectionState = {
+  inputTree?: WorkspaceRuntimeStore[WorkspaceId]["inputTree"];
+  table: WorkspaceRuntimeStore[WorkspaceId]["table"];
+  selectedRowId?: string;
+  selectedRowIds: string[];
+  selectedFilePath?: string;
+  selectedAudioPath?: string;
+  selectedResultAudioPath?: string;
+};
+
+function repairWorkspaceAudioSelection<T extends RepairableAudioSelectionState>(workspaceId: WorkspaceId, state: T): T {
+  const inputTree = repairWorkspaceInputTree(state);
+  const rowById = new Map(state.table.rows.map((row) => [row.id, row]));
+  const selectedRow = (state.selectedRowId ? rowById.get(state.selectedRowId) : undefined)
+    ?? (state.selectedRowIds[0] ? rowById.get(state.selectedRowIds[0]) : undefined)
+    ?? state.table.rows[0];
+  const fallbackAudioPath = findFirstAudioPath(inputTree) || state.selectedAudioPath || state.selectedFilePath || "";
+  const audioSelection = resolveAudioSelection(workspaceId, selectedRow, fallbackAudioPath);
+
+  return {
+    ...state,
+    inputTree,
+    selectedFilePath: audioSelection.selectedFilePath ?? state.selectedFilePath,
+    selectedAudioPath: audioSelection.selectedAudioPath ?? state.selectedAudioPath,
+    selectedResultAudioPath: audioSelection.selectedResultAudioPath ?? state.selectedResultAudioPath,
+  };
+}
+
+function repairWorkspaceInputTree<T extends RepairableAudioSelectionState>(state: T): T["inputTree"] {
+  const tree = state.inputTree;
+  if (!tree || state.table.rows.length === 0) {
+    return tree;
+  }
+
+  return {
+    ...tree,
+    nodes: tree.nodes.map((node) => repairWorkspaceInputTreeNode(node, state.table.rows)),
+  };
+}
+
+function repairWorkspaceInputTreeNode(node: NonNullable<RepairableAudioSelectionState["inputTree"]>["nodes"][number], rows: RepairableAudioSelectionState["table"]["rows"]): typeof node {
+  if (node.kind === "directory") {
+    return {
+      ...node,
+      children: node.children?.map((child) => repairWorkspaceInputTreeNode(child, rows)),
+    };
+  }
+
+  const row = findRowForPath(rows, node.path);
+  const inputAudioPath = resolveInputAudioPath(row, node.path);
+  if (!inputAudioPath || inputAudioPath === node.path) {
+    return node;
+  }
+
+  return {
+    ...node,
+    id: inputAudioPath,
+    name: fileName(inputAudioPath),
+    path: inputAudioPath,
+  };
+}
+
+function fileName(path: string): string {
+  return path.split(/[\\/]/u).filter(Boolean).pop() || path;
 }
 
 function sanitizeRuntimeSnapshotForPersistence(snapshot: PersistedRuntimeSnapshot): PersistedRuntimeSnapshot {

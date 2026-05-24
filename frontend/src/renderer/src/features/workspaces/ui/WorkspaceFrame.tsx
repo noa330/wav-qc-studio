@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { ChartNoAxesColumnIncreasing, ChevronDown, EllipsisVertical, Expand, Filter, FoldHorizontal, FoldVertical, ListChecks, Pencil, Plus, Search, Shrink, Terminal, X } from "lucide-react";
-import type { DataTableRow, WorkspaceId } from "@shared/ipc";
+import { ChartNoAxesColumnIncreasing, ChevronDown, Download, EllipsisVertical, Expand, Filter, FoldHorizontal, FoldVertical, ListChecks, Pencil, Plus, Search, Shrink, Terminal, X } from "lucide-react";
+import type { DataTableRow, WorkspaceId, WorkspaceRuntimeEnvironmentStatus } from "@shared/ipc";
 import { useAppPersistence, type PersistedBatchReplaceState } from "@/app/app-persistence";
 import { cn } from "@/lib/utils";
 import { ChevronGlyph, NumericField, ToggleSwitch } from "@/shared/components/controls";
 import { ColumnSearchField } from "@/shared/components/column-search-field";
 import { DataGrid, type CellRenderContext, type DataGridViewState } from "@/shared/components/data-grid";
+import { AppDialog, DialogTextField } from "@/shared/components/dialog";
 import { DropdownMenuHeader, DropdownMenuOption, DropdownMenuSeparator, DropdownMenuSurface } from "@/shared/components/dropdown-menu";
 import { FileBrowser } from "@/shared/components/file-browser";
 import { MotionUnderlineTab } from "@/shared/components/motion-tabs";
@@ -19,7 +20,7 @@ import { PanelResizeHandle, WorkspaceLayoutResizeProvider, constrainPairPixels, 
 import { cardCollapsedSize, clampResizablePanelSize, workspaceSplitterSize } from "./layout/workspace-panel-sizing";
 import { isCollapsedMode, type PanelAutoCollapseSuppression, type PanelCollapseMode, type WorkspacePanelRenderer, type WorkspaceResizeAxis } from "./layout/workspace-layout-types";
 import { workspaces as workspaceDefinitions, type WorkspaceDefinition, type WorkspacePanel } from "../model/workspace-config";
-import type { WorkspaceTerminalState } from "../state/workspace-runtime-store";
+import type { WorkspaceRuntimeState, WorkspaceTerminalState } from "../state/workspace-runtime-store";
 import type { WorkspaceRuntime } from "../state/use-workspace-runtime";
 import { resolveBrowserTree } from "../model/workspace-browser-tree";
 import { readBatchWords, type BatchWordAlignment } from "../model/batch-alignment";
@@ -133,9 +134,10 @@ function useCompactWorkspaceHeader(): boolean {
   return compact;
 }
 
-function ProjectSelector({ disabled = false }: { disabled?: boolean }) {
+function ProjectSelector({ disabled = false, compact = false }: { disabled?: boolean; compact?: boolean }) {
   const persistence = useAppPersistence();
   const [open, setOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [menuGeometry, setMenuGeometry] = useState<{ left: number; top: number; width: number; maxHeight: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -200,7 +202,7 @@ function ProjectSelector({ disabled = false }: { disabled?: boolean }) {
 
   const handleCreateProject = () => {
     setOpen(false);
-    void persistence.createProjectFromFolder();
+    setCreateDialogOpen(true);
   };
 
   const handleSwitchProject = (projectId: string) => {
@@ -209,7 +211,8 @@ function ProjectSelector({ disabled = false }: { disabled?: boolean }) {
   };
 
   return (
-    <div className="flex min-w-0 items-center">
+    <>
+    <div className={cn("flex min-w-0 items-center", compact && "max-w-[210px]")} data-status-widget-interactive="true" onPointerDown={(event) => event.stopPropagation()}>
       <span className="mr-2 text-sm font-normal text-[var(--secondary-text)]">프로젝트</span>
       <motion.button
         ref={triggerRef}
@@ -221,7 +224,7 @@ function ProjectSelector({ disabled = false }: { disabled?: boolean }) {
         title={menuDisabled ? "실행 중에는 프로젝트를 바꿀 수 없습니다." : persistence.activeProject.name}
         onClick={() => setOpen((current) => !current)}
         whileTap={menuDisabled ? undefined : softPressTap}
-        className="flex h-8 max-w-48 min-w-0 items-center gap-1.5 bg-transparent px-0 text-sm font-normal text-[var(--primary-text)] outline-none transition-colors hover:text-[var(--accent-blue)] disabled:pointer-events-none disabled:opacity-45"
+        className={cn("flex h-8 min-w-0 items-center gap-1.5 bg-transparent px-0 text-sm font-normal text-[var(--primary-text)] outline-none transition-colors hover:text-[var(--accent-blue)] disabled:pointer-events-none disabled:opacity-45", compact ? "max-w-36" : "max-w-48")}
       >
         <span className="min-w-0 truncate">{persistence.activeProject.name}</span>
         <ChevronDown className={cn("size-3.5 shrink-0 text-[var(--control-arrow)] transition-transform", open && "rotate-180")} strokeWidth={1.9} />
@@ -238,7 +241,7 @@ function ProjectSelector({ disabled = false }: { disabled?: boolean }) {
               <DropdownMenuOption
                 role="menuitem"
                 checkable={false}
-                icon={<Plus className="size-4 text-[var(--accent-blue)]" strokeWidth={1.9} />}
+                icon={<Plus className="size-4" strokeWidth={1.9} />}
                 label={"\uc0c8 \ud504\ub85c\uc81d\ud2b8 \ucd94\uac00"}
                 onClick={handleCreateProject}
               />
@@ -262,26 +265,144 @@ function ProjectSelector({ disabled = false }: { disabled?: boolean }) {
           )
         : null}
     </div>
+    {createDialogOpen ? <ProjectCreateDialog onClose={() => setCreateDialogOpen(false)} /> : null}
+    </>
   );
 }
 
+function ProjectCreateDialog({ onClose }: { onClose: () => void }) {
+  const persistence = useAppPersistence();
+  const [name, setName] = useState(() => nextProjectName(persistence.projects.map((project) => project.name)));
+  const [error, setError] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (creating) {
+      return;
+    }
+
+    const projectName = normalizeProjectDraftName(name);
+    if (!projectName) {
+      setError("프로젝트 이름을 입력하세요.");
+      return;
+    }
+    if (persistence.projects.some((project) => normalizeProjectDraftName(project.name).toLocaleLowerCase() === projectName.toLocaleLowerCase())) {
+      setError("같은 이름의 프로젝트가 이미 있습니다.");
+      return;
+    }
+
+    setCreating(true);
+    setError("");
+    void persistence.createProject(projectName)
+      .then((result) => {
+        if (result.ok) {
+          onClose();
+          return;
+        }
+
+        setError(result.error ?? "프로젝트를 만들 수 없습니다.");
+        setCreating(false);
+      })
+      .catch((createError: unknown) => {
+        setError(createError instanceof Error ? createError.message : String(createError));
+        setCreating(false);
+      });
+  };
+
+  return (
+    <AppDialog
+      title="새 프로젝트"
+      onClose={creating ? () => undefined : onClose}
+      footer={
+        <>
+          <button type="button" className="wpf-button px-4 text-sm" onClick={onClose} disabled={creating}>취소</button>
+          <button type="submit" form="project-create-form" className="wpf-primary-button px-4 text-sm disabled:opacity-60" disabled={creating}>
+            {creating ? "생성 중..." : "생성"}
+          </button>
+        </>
+      }
+    >
+      <form id="project-create-form" onSubmit={submit}>
+        <DialogTextField
+          id="project-name"
+          label="프로젝트 이름"
+          value={name}
+          placeholder="프로젝트 이름"
+          autoFocus
+          disabled={creating}
+          error={error}
+          onChange={(value) => {
+            setName(value);
+            if (error) {
+              setError("");
+            }
+          }}
+        />
+      </form>
+    </AppDialog>
+  );
+}
+
+function nextProjectName(names: string[]): string {
+  const normalizedNames = new Set(names.map((name) => normalizeProjectDraftName(name).toLocaleLowerCase()).filter(Boolean));
+  for (let index = 1; index < 1000; index += 1) {
+    const candidate = `프로젝트${index}`;
+    if (!normalizedNames.has(candidate.toLocaleLowerCase())) {
+      return candidate;
+    }
+  }
+
+  return `프로젝트${Date.now().toString(36)}`;
+}
+
+function normalizeProjectDraftName(value: string): string {
+  return value.replace(/\s+/gu, " ").trim();
+}
+
+type WorkspaceHeaderStatusItem = {
+  label: string;
+  value: string;
+};
+
+function createWorkspaceHeaderStatusItems(state: WorkspaceRuntimeState): WorkspaceHeaderStatusItem[] {
+  const completedRows = state.table.rows.length;
+  const progress = state.progress ?? state.lastRun?.progress;
+  const finishedByProgress = (progress?.completed ?? completedRows) + (progress?.failed ?? 0);
+  const hasPendingWork = progress && progress.total > 0 ? finishedByProgress < progress.total : true;
+  const processing = state.isRunning || state.isBatchSpeakerRunning
+    ? hasPendingWork ? 1 : 0
+    : 0;
+
+  return [
+    { label: "처리중", value: `${processing}` },
+    { label: "완료", value: `${completedRows}` },
+  ];
+}
+
 function WorkspaceStatusWidget({
-  labels,
-  metrics,
+  statusItems,
   progressPercent,
+  projectSelectorDisabled,
   terminal,
   terminalTitle,
   terminalBubblePinned,
+  runtimeEnvironmentStatus,
+  runtimeEnvironmentInstalling,
   onTerminalBubblePinnedChange,
+  onInstallRuntime,
   onOpenFullTerminal,
 }: {
-  labels: string[];
-  metrics: string[];
+  statusItems: WorkspaceHeaderStatusItem[];
   progressPercent: number;
+  projectSelectorDisabled: boolean;
   terminal: WorkspaceTerminalState;
   terminalTitle: string;
   terminalBubblePinned: boolean;
+  runtimeEnvironmentStatus?: WorkspaceRuntimeEnvironmentStatus;
+  runtimeEnvironmentInstalling: boolean;
   onTerminalBubblePinnedChange: (pinned: boolean) => void;
+  onInstallRuntime: () => void;
   onOpenFullTerminal: () => void;
 }) {
   const [position, setPosition] = useState({ right: 20, top: 20 });
@@ -297,9 +418,13 @@ function WorkspaceStatusWidget({
     bottom: Math.min(1, Math.max(0, progressRatio - 0.5) / 0.38),
     left: Math.min(1, Math.max(0, progressRatio - 0.88) / 0.12),
   };
-  const items = [...labels.map((label, index) => ({ label, value: metrics[index] ?? "-" })), { label: "진행률", value: `${borderProgress}%` }];
+  const items = statusItems;
 
   const beginDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement | null)?.closest("[data-status-widget-interactive='true']")) {
+      return;
+    }
+
     event.currentTarget.setPointerCapture(event.pointerId);
     dragRef.current = {
       pointerId: event.pointerId,
@@ -388,6 +513,8 @@ function WorkspaceStatusWidget({
           <motion.span className="absolute bottom-0 left-0 h-full w-[2px] origin-bottom bg-[var(--accent-blue)]" initial={false} animate={{ scaleY: edgeProgress.left }} transition={progressSpring} />
         </div>
         <div className="relative z-10 flex min-w-0 items-center">
+          <ProjectSelector disabled={projectSelectorDisabled} compact />
+          <span className="mx-2 h-4 w-px shrink-0 bg-[var(--panel-stroke)] opacity-85" />
           {items.map((item, index) => (
             <div key={`${item.label}-${index}`} className="flex shrink-0 items-center gap-1.5 px-1.5">
               {index > 0 ? <span className="mr-1 h-4 w-px bg-[var(--panel-stroke)]" /> : null}
@@ -396,7 +523,7 @@ function WorkspaceStatusWidget({
             </div>
           ))}
           <span className="mx-2 h-4 w-px shrink-0 bg-[var(--panel-stroke)] opacity-85" />
-          <span ref={terminalSlotRef} className="relative shrink-0">
+          <span ref={terminalSlotRef} className="relative shrink-0" data-status-widget-interactive="true" onPointerDown={(event) => event.stopPropagation()}>
             <WorkspaceTerminalDock
               terminal={terminal}
               title={terminalTitle}
@@ -414,8 +541,76 @@ function WorkspaceStatusWidget({
               } as CSSProperties}
             />
           </span>
+          {runtimeEnvironmentStatus && !runtimeEnvironmentStatus.ok ? (
+            <>
+              <span className="mx-2 h-4 w-px shrink-0 bg-[var(--panel-stroke)] opacity-85" />
+              <WorkspaceRuntimeInstallDock
+                status={runtimeEnvironmentStatus}
+                installing={runtimeEnvironmentInstalling}
+                onInstall={onInstallRuntime}
+                compact
+                embedded
+              />
+            </>
+          ) : null}
         </div>
       </motion.div>
+    </motion.div>
+  );
+}
+
+function WorkspaceRuntimeInstallDock({
+  status,
+  installing,
+  onInstall,
+  compact = false,
+  embedded = false,
+  className,
+}: {
+  status: WorkspaceRuntimeEnvironmentStatus;
+  installing: boolean;
+  onInstall: () => void;
+  compact?: boolean;
+  embedded?: boolean;
+  className?: string;
+}) {
+  const missing = status.requirements.filter((item) => !item.installed);
+  if (status.ok || missing.length === 0) {
+    return null;
+  }
+
+  const label = missing.map((item) => item.label).join(", ");
+  return (
+    <motion.div
+      layout={embedded ? false : true}
+      className={cn(
+        "relative flex h-10 min-w-0 items-center gap-2 rounded-[5px] border border-[var(--panel-stroke)] bg-[#0d131c]/95 px-3 text-sm font-normal text-[var(--primary-text)] shadow-[0_16px_36px_rgba(0,0,0,.28)] backdrop-blur",
+        compact && "h-7 min-w-[176px] px-2 shadow-none",
+        embedded && "min-w-0 border-transparent bg-transparent px-0 shadow-none backdrop-blur-0",
+        className,
+      )}
+      transition={embedded ? { duration: 0 } : undefined}
+      data-status-widget-interactive="true"
+      title={label}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      {embedded ? null : (
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-[5px] border border-[var(--neutral-button-stroke)] bg-[var(--table-header-bg)] text-[var(--primary-text)]">
+          <Download className="size-3.5" strokeWidth={1.8} />
+        </span>
+      )}
+      <span className="min-w-0 flex-1 truncate">{embedded ? "런타임" : label}</span>
+      <span className={cn("size-2 shrink-0 rounded-full", installing ? "bg-[var(--accent-blue)]" : "bg-[#f7c34a]")} />
+      <span className="shrink-0 text-[13px] font-normal leading-[18px] text-[var(--primary-text)]">{installing ? "설치 중" : "없음"}</span>
+      <motion.button
+        type="button"
+        whileTap={installing ? undefined : softPressTap}
+        onClick={onInstall}
+        disabled={installing}
+        className="ml-1 flex h-7 shrink-0 items-center justify-center rounded-[4px] bg-[var(--accent-blue)] px-2.5 text-[12px] font-normal text-white hover:brightness-110 disabled:opacity-55"
+      >
+        {installing ? "..." : "설치"}
+      </motion.button>
     </motion.div>
   );
 }
@@ -426,8 +621,8 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
   const layoutRootRef = useRef<HTMLDivElement | null>(null);
   const workspaceGridRef = useRef<HTMLDivElement | null>(null);
   const state = runtime.getState(workspace.id);
-  const metrics = runtime.getMetrics(workspace.id);
-  const isBusy = state.isRunning || state.isExporting;
+  const statusItems = createWorkspaceHeaderStatusItems(state);
+  const isBusy = state.isRunning || state.isExporting || state.isBatchSpeakerRunning;
   const progressPercent = Math.max(0, Math.min(100, Math.round(state.progressPercent)));
   const compactHeader = useCompactWorkspaceHeader();
   const projectSwitchingDisabled = useMemo(() => {
@@ -489,6 +684,15 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
   } as CSSProperties;
   const guideTerminalOpen = Boolean(runtime.guideMode?.terminalOpen);
   const terminalDockVisible = terminalDockOpen || guideTerminalOpen;
+  const runtimeEnvironmentStatus = runtime.getRuntimeEnvironmentStatus(workspace.id);
+  const runtimeEnvironmentInstalling = runtime.isRuntimeEnvironmentInstalling(workspace.id);
+  const runtimeEnvironmentVisible = Boolean(runtimeEnvironmentStatus && !runtimeEnvironmentStatus.ok);
+
+  useEffect(() => {
+    if (!runtime.guideMode) {
+      void runtime.checkRuntimeEnvironment(workspace.id);
+    }
+  }, [runtime.checkRuntimeEnvironment, runtime.guideMode, workspace.id]);
 
   useEffect(() => {
     persistence.recordWorkspaceUiSnapshot(workspace.id, {
@@ -584,16 +788,19 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
           <motion.div key={`compact-status-${workspace.id}`} {...workspaceContentMotion}>
             <WorkspaceStatusWidget
               key="compact-status-widget"
-              labels={workspace.metricLabels}
-              metrics={metrics}
+              statusItems={statusItems}
               progressPercent={progressPercent}
+              projectSelectorDisabled={projectSwitchingDisabled}
               terminal={state.terminal}
-              terminalTitle={`${workspace.title} Console`}
+              terminalTitle={`${workspace.title} 콘솔`}
               terminalBubblePinned={terminalDockVisible && (terminalBubblePinned || guideTerminalOpen)}
+              runtimeEnvironmentStatus={runtimeEnvironmentStatus}
+              runtimeEnvironmentInstalling={runtimeEnvironmentInstalling}
               onTerminalBubblePinnedChange={(pinned) => {
                 setTerminalDockOpen(true);
                 setTerminalBubblePinned(pinned);
               }}
+              onInstallRuntime={() => void runtime.installRuntimeEnvironment(workspace.id)}
               onOpenFullTerminal={() => setTerminalDialogOpen(true)}
             />
           </motion.div>
@@ -619,11 +826,11 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
           <div className="col-start-4 row-start-1 ml-7 flex items-center justify-end">
             <ProjectSelector disabled={projectSwitchingDisabled} />
             <span className="mx-[18px] h-4 w-px shrink-0 bg-[var(--panel-stroke)] opacity-85" />
-            {workspace.metricLabels.map((label, index) => (
-              <div key={label} className="flex items-center">
+            {statusItems.map((item, index) => (
+              <div key={item.label} className="flex items-center">
                 {index > 0 ? <span className="mx-[18px] h-4 w-px bg-[var(--panel-stroke)] opacity-85" /> : null}
-                <span className="mr-2 text-sm font-normal text-[var(--secondary-text)]">{label}</span>
-                <span className="max-w-36 truncate text-sm font-normal text-[var(--primary-text)]">{metrics[index] ?? "-"}</span>
+                <span className="mr-2 text-sm font-normal text-[var(--secondary-text)]">{item.label}</span>
+                <span className="max-w-36 truncate text-sm font-normal text-[var(--primary-text)]">{item.value}</span>
               </div>
             ))}
             <motion.button
@@ -641,7 +848,7 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
               className="wpf-button ml-[18px] flex h-8 items-center gap-2 px-3 text-[13px]"
             >
               <Terminal className="size-3.5" strokeWidth={1.8} />
-              {terminalDockVisible ? "Close Terminal" : "Open Terminal"}
+              {terminalDockVisible ? "콘솔 닫기" : "콘솔 열기"}
             </motion.button>
           </div>
         </motion.header>
@@ -692,11 +899,11 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.985 }}
             transition={menuMotion.transition}
-            className="fixed bottom-6 right-6 z-[2100]"
+            className={cn("fixed right-6 z-[2100]", runtimeEnvironmentVisible ? "bottom-[78px]" : "bottom-6")}
           >
             <WorkspaceTerminalDock
               terminal={state.terminal}
-              title={`${workspace.title} Console`}
+              title={`${workspace.title} 콘솔`}
               bubblePinned={terminalBubblePinned || guideTerminalOpen}
               onBubblePinnedChange={setTerminalBubblePinned}
               onOpenFull={() => {
@@ -711,10 +918,29 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
         ) : null}
       </AnimatePresence>
       <AnimatePresence>
+        {!compactHeader && runtimeEnvironmentStatus && !runtimeEnvironmentStatus.ok ? (
+          <motion.div
+            key={`${workspace.id}-runtime-install-dock`}
+            initial={{ opacity: 0, y: 10, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.985 }}
+            transition={menuMotion.transition}
+            className="fixed bottom-6 right-6 z-[2100]"
+          >
+            <WorkspaceRuntimeInstallDock
+              status={runtimeEnvironmentStatus}
+              installing={runtimeEnvironmentInstalling}
+              onInstall={() => void runtime.installRuntimeEnvironment(workspace.id)}
+              className="w-[420px]"
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+      <AnimatePresence>
         {terminalDialogOpen ? (
           <WorkspaceTerminalDialog
             key={`${workspace.id}-terminal`}
-            title={`${workspace.title} Terminal`}
+            title={`${workspace.title} 터미널`}
             terminal={state.terminal}
             onClear={() => runtime.clearTerminal(workspace.id)}
             onClose={() => {
@@ -1223,6 +1449,7 @@ function WorkspaceDataGrid({ workspaceId, runtime, table, suspendWidthTracking =
         activeSheetId={state.activeSheetId}
         onSelectSheet={(sheetId) => runtime.selectSheet(workspaceId, sheetId)}
         onCreateSheet={() => runtime.createSheet(workspaceId)}
+        onDeleteSheet={state.isRunning || state.isExporting || state.isBatchSpeakerRunning ? undefined : () => runtime.deleteSheet(workspaceId)}
         selectedRowId={state.selectedRowId}
         selectedRowIds={state.selectedRowIds}
         selectedRowRevealRequestId={state.tableRevealRequestId}

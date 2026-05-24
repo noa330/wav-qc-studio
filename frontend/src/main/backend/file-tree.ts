@@ -6,7 +6,7 @@ import type { FileTreeNode, FileTreeResult, FileTreeScanOptions, WorkspaceId } f
 const DEFAULT_WINDOW_LIMIT = 50;
 const MAX_WINDOW_LIMIT = 100;
 const MAX_DEPTH = 6;
-const GENERATED_OUTPUT_FOLDERS = new Set(["_slicer_results", "_tagging_results", "_spica_results", "_wav_qc_results", "_batch_qc_results", "_spica_cache", "_audio_input_cache"]);
+const GENERATED_OUTPUT_FOLDERS = new Set(["_slicer_results", "_tagging_results", "_spica_results", "_wav_qc_results", "_batch_qc_results", "_spica_cache", "_audio_input_cache", "_converted_audio", "converted-audio"]);
 const OUTPUT_EXTENSIONS = new Set([".wav", ".list", ".jsonl", ".json", ".csv", ".ckpt", ".pth", ".safetensors", ".bin"]);
 
 export async function scanFileTree(rootPath: string, options: FileTreeScanOptions = {}): Promise<FileTreeResult> {

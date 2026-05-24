@@ -1,14 +1,16 @@
 import { app, dialog, ipcMain } from "electron";
-import { IPC_CHANNELS, type AppInfo, type AppStateSaveRequest, type AudioCropRequest, type AudioEditRequest, type DialogFileSelectionOptions, type FileTreeScanOptions, type TensorBoardSessionRequest, type TrainingModelListRequest, type WorkspaceBatchSpeakerDiarizationRequest, type WorkspaceCancelRequest, type WorkspaceCancelResult, type WorkspaceExportRequest, type WorkspaceExportResult, type WorkspaceLoadRequest, type WorkspaceRunRequest, type WorkspaceRunResult } from "@shared/ipc";
+import { IPC_CHANNELS, type AppInfo, type AppStateSaveRequest, type AudioCropRequest, type AudioEditRequest, type CreateProjectRequest, type DialogFileSelectionOptions, type FileTreeScanOptions, type TensorBoardSessionRequest, type TrainingModelListRequest, type WorkspaceBatchSpeakerDiarizationRequest, type WorkspaceCancelRequest, type WorkspaceCancelResult, type WorkspaceExportRequest, type WorkspaceExportResult, type WorkspaceLoadRequest, type WorkspaceRunRequest, type WorkspaceRunResult } from "@shared/ipc";
 import { createEmptyWorkspaceTable } from "@shared/table-schemas";
 import { createStartupSplashSteps, progressForStartupStep } from "@shared/startup-splash";
-import { loadAppStateSnapshot, saveAppStateSnapshot, saveAppStateSnapshotSync } from "../backend/app-state-store";
+import { loadAppStateSnapshot, loadProjectStateSnapshot, saveAppStateSnapshot, saveAppStateSnapshotSync } from "../backend/app-state-store";
 import { cropWaveFileWithBackup, editWaveFileInCache } from "../backend/audio-crop";
 import { scanFileTree } from "../backend/file-tree";
 import { listTrainingModels } from "../backend/training-models";
 import { cleanupTensorBoardSessions, startTensorBoard } from "../backend/voice-tensorboard";
 import { readWaveformData } from "../backend/wav-peaks";
+import { createManagedProjectFolder } from "../backend/project-workspaces";
 import { exportWorkspace } from "../backend/workspace-exporter";
+import { checkWorkspaceRuntimeEnvironment, installWorkspaceRuntimeEnvironment } from "../backend/workspace-runtime-installer";
 import { cleanupWorkspaceRunCaches, loadWorkspaceFromPath, resolveWorkspaceOutputPath, runBatchSpeakerDiarization, runWorkspace } from "../backend/workspace-runner";
 import { updateStartupSplashProgress } from "../startup-splash-window";
 
@@ -63,6 +65,10 @@ export function registerIpcHandlers(): void {
     event.returnValue = saveAppStateSnapshotSync(request);
   });
 
+  ipcMain.handle(IPC_CHANNELS.createProject, async (_event, request: CreateProjectRequest) => createManagedProjectFolder(request));
+
+  ipcMain.handle(IPC_CHANNELS.loadProjectState, async (_event, request) => loadProjectStateSnapshot(request));
+
   ipcMain.handle(IPC_CHANNELS.selectFolder, async () => {
     const result = await dialog.showOpenDialog({
       title: "폴더 선택",
@@ -96,9 +102,13 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.editWave, async (_event, request: AudioEditRequest) => editWaveFileInCache(request));
 
   ipcMain.handle(IPC_CHANNELS.loadWorkspace, async (_event, request: WorkspaceLoadRequest) => {
-    const loaded = await loadWorkspaceFromPath(request.workspaceId, request.paths.inputPath, request.paths.outputPath, request.settings);
+    const loaded = await loadWorkspaceFromPath(request.workspaceId, request.paths.inputPath, request.paths.outputPath, request.settings, request.paths.projectRoot, (progress) => {
+      if (!_event.sender.isDestroyed()) {
+        _event.sender.send(IPC_CHANNELS.runWorkspaceProgress, progress);
+      }
+    });
     const inputTree = loaded.inputTree ?? await scanFileTree(loaded.inputPath, { workspaceId: request.workspaceId, purpose: "input", offset: 0, limit: 50 });
-    const outputPath = resolveWorkspaceOutputPath(request.workspaceId, request.paths.inputPath, request.paths.outputPath);
+    const outputPath = resolveWorkspaceOutputPath(request.workspaceId, request.paths.inputPath, request.paths.outputPath, request.paths.projectRoot);
     return {
       workspaceId: request.workspaceId,
       inputPath: loaded.inputPath,
@@ -131,6 +141,27 @@ export function registerIpcHandlers(): void {
       };
     } finally {
       unregisterWorkspaceOperation(request.workspaceId, "batchSpeaker", controller);
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.checkWorkspaceRuntime, async (_event, request) => checkWorkspaceRuntimeEnvironment(request.workspaceId));
+
+  ipcMain.handle(IPC_CHANNELS.installWorkspaceRuntime, async (event, request) => {
+    const controller = registerWorkspaceOperation(request.workspaceId, "runtimeInstall");
+    try {
+      return await installWorkspaceRuntimeEnvironment(request.workspaceId, (terminal) => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send(IPC_CHANNELS.runWorkspaceProgress, {
+            workspaceId: request.workspaceId,
+            table: createEmptyWorkspaceTable(request.workspaceId),
+            details: [{ label: "Runtime", value: "Installing" }],
+            progress: { total: 0, completed: 0, failed: 0, percent: 0 },
+            terminal,
+          });
+        }
+      }, controller.signal);
+    } finally {
+      unregisterWorkspaceOperation(request.workspaceId, "runtimeInstall", controller);
     }
   });
 
@@ -187,6 +218,7 @@ export function registerIpcHandlers(): void {
       cancelWorkspaceOperation(request.workspaceId, "run");
       cancelWorkspaceOperation(request.workspaceId, "export");
       cancelWorkspaceOperation(request.workspaceId, "batchSpeaker");
+      cancelWorkspaceOperation(request.workspaceId, "runtimeInstall");
     }
     return {
       ok: true,
@@ -201,6 +233,8 @@ export function registerIpcHandlers(): void {
     ipcMain.removeHandler(IPC_CHANNELS.loadAppState);
     ipcMain.removeHandler(IPC_CHANNELS.saveAppState);
     ipcMain.removeAllListeners(IPC_CHANNELS.saveAppStateSync);
+    ipcMain.removeHandler(IPC_CHANNELS.createProject);
+    ipcMain.removeHandler(IPC_CHANNELS.loadProjectState);
     ipcMain.removeHandler(IPC_CHANNELS.selectFolder);
     ipcMain.removeHandler(IPC_CHANNELS.selectFile);
     ipcMain.removeHandler(IPC_CHANNELS.scanPath);
@@ -209,6 +243,8 @@ export function registerIpcHandlers(): void {
     ipcMain.removeHandler(IPC_CHANNELS.editWave);
     ipcMain.removeHandler(IPC_CHANNELS.loadWorkspace);
     ipcMain.removeHandler(IPC_CHANNELS.runWorkspace);
+    ipcMain.removeHandler(IPC_CHANNELS.checkWorkspaceRuntime);
+    ipcMain.removeHandler(IPC_CHANNELS.installWorkspaceRuntime);
     ipcMain.removeHandler(IPC_CHANNELS.listTrainingModels);
     ipcMain.removeHandler(IPC_CHANNELS.startTensorBoard);
     ipcMain.removeHandler(IPC_CHANNELS.runBatchSpeakerDiarization);
@@ -217,7 +253,7 @@ export function registerIpcHandlers(): void {
   });
 }
 
-type WorkspaceOperation = "run" | "export" | "batchSpeaker";
+type WorkspaceOperation = "run" | "export" | "batchSpeaker" | "runtimeInstall";
 
 function operationKey(workspaceId: string, operation: WorkspaceOperation): string {
   return `${workspaceId}:${operation}`;

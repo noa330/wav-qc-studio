@@ -233,13 +233,14 @@ export function SliceEditorBody({
 
   return (
     <div className={cn("grid h-full min-h-0", hasAudio ? "grid-rows-[minmax(50px,1fr)_10px_20px_18px_auto_12px_auto]" : "grid-rows-[minmax(50px,1fr)_12px_auto_12px_auto]")}>
-      <div className="min-h-[50px] overflow-hidden rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--field-bg)]">
+      <div className="min-h-[50px] overflow-hidden rounded-[5px] border border-transparent bg-transparent">
         <AnimatePresence mode="wait" initial={false}>
           {hasAudio ? (
             <motion.div key="waveform" {...fadeSlideUpMotion} className="relative h-full min-h-0">
               <WaveformSurface
                 audioPath={audioPath}
                 bucketCount={720}
+                framedTrack
                 showRuler
                 markers={markers}
                 selectionStart={selectionStart}
@@ -307,7 +308,7 @@ export function SliceEditorBody({
               />
             </motion.div>
           ) : (
-            <motion.div key="empty" {...fadeSlideUpMotion} className="h-full min-h-0">
+            <motion.div key="empty" {...fadeSlideUpMotion} className="h-full min-h-0 overflow-hidden rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--field-bg)]">
               <EmptyPanel text="선택한 WAV 파일의 파형을 표시할 수 없습니다." compact />
             </motion.div>
           )}

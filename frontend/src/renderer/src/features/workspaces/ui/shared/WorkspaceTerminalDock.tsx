@@ -53,7 +53,12 @@ export function WorkspaceTerminalDock({
       className={cn("relative", embedded ? "w-auto" : "w-[360px]", className)}
       style={style}
       onPointerDown={(event) => event.stopPropagation()}
-      onPointerEnter={() => setHovering(true)}
+      onPointerEnter={() => {
+        setHovering(true);
+        if (!bubblePinned) {
+          onBubblePinnedChange(true);
+        }
+      }}
       onPointerLeave={() => setHovering(false)}
       data-app-tour-target="workspace-terminal-widget"
     >
