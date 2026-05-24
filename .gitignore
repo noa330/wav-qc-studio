@@ -27,11 +27,7 @@ training/runtime/
 training/vendor/
 training/work/
 training/**/__pycache__/
-2training/cache/
-2training/runtime/
-2training/vendor/
-2training/work/
-2training/**/__pycache__/
+2training/
 
 # Runtime artifacts and large generated files
 /build/
@@ -39,7 +35,6 @@ input/
 projects/
 *.zip
 *.7z
-!training/training.7z
 *.exe
 *.onnx
 *.pt
@@ -48,7 +43,6 @@ projects/
 *.safetensors
 *.wav
 *.mp3
-!2training/training.7z
 
 # Manual copy/backup folders
 *복사본*/
