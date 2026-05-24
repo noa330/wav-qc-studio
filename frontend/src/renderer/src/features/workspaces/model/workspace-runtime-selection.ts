@@ -107,11 +107,7 @@ export function resolveInputAudioPath(row?: DataTableRow, sourcePath = ""): stri
     raw.input_path,
     row?.sourcePath,
   );
-  if (cachedPath && !isWavPath(originalPath || cachedPath)) {
-    return cachedPath;
-  }
-
-  return firstNonEmpty(originalPath, cachedPath) || "";
+  return firstNonEmpty(cachedPath, originalPath) || "";
 }
 
 export function findRowForPath(rows: DataTableRow[], path: string): DataTableRow | undefined {

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sys
 from dataclasses import dataclass
 from datetime import datetime
@@ -45,7 +46,7 @@ GENERATED_AUDIO_FOLDERS = {
 }
 
 AUDIO_CONVERTING_STAGE = "audio-converting"
-AUDIO_SOURCE_WAV_STAGE = "audio-converting/source-wav"
+AUDIO_COPY_WAV_STAGE = "audio-converting/copy-wav"
 AUDIO_CONVERT_STAGE = "audio-converting/convert-to-wav"
 AUDIO_CONVERTING_PROGRESS_LABEL = "audio-converting"
 AUDIO_SOURCE_MAP_FILE = "audio_source_map.json"
@@ -182,9 +183,8 @@ def prepare_selected_audio_input_cache(
 ) -> PreparedAudioInput:
     """Prepare a stable WAV view of an input folder.
 
-    Folder selection is the canonical conversion point. WAV/WAVE files stay at
-    their original paths and are recorded in the JSON source map. Non-WAV audio
-    is converted into the stable converted-audio folder, and the map keeps the
+    Folder selection is the canonical conversion point. Every supported input
+    is prepared under the stable converted-audio folder, and the map keeps the
     pre-conversion source path for UI/result restoration.
     """
 
@@ -200,33 +200,32 @@ def prepare_selected_audio_input_cache(
     _log_audio_converting_kv(log, "source folder", input_root)
     _log_audio_converting_kv(log, "detected audio files", f"{len(source_paths)} total / {wav_count} wav / {convert_count} convert")
 
-    if convert_count <= 0:
-        _log_audio_converting(log, "WAV/WAVE input only; conversion cache skipped")
-        source_mappings = [_source_audio_mapping(path, path, AUDIO_SOURCE_WAV_STAGE, "completed") for path in source_paths]
-        _write_audio_source_map(source_map_path, input_root, input_root, source_mappings)
-        _write_audio_conversion_manifest(
-            manifest_path,
-            input_root,
-            input_root,
-            0,
-            0,
-            0,
-            "completed",
-            [],
-            active_stage=AUDIO_CONVERTING_STAGE,
-            source_total_files=len(source_paths),
-            wav_files=wav_count,
-            conversion_files=0,
-        )
-        return PreparedAudioInput(input_folder=input_root, original_input_folder=input_root, mappings=source_mappings)
-
     if not cache_folder:
+        if convert_count <= 0:
+            _log_audio_converting(log, "WAV/WAVE input only; no cache folder was provided")
+            source_mappings = [_source_audio_mapping(path, path, AUDIO_COPY_WAV_STAGE, "completed") for path in source_paths]
+            _write_audio_source_map(source_map_path, input_root, input_root, source_mappings)
+            _write_audio_conversion_manifest(
+                manifest_path,
+                input_root,
+                input_root,
+                len(source_paths),
+                len(source_paths),
+                0,
+                "completed",
+                source_mappings,
+                active_stage=AUDIO_CONVERTING_STAGE,
+                source_total_files=len(source_paths),
+                wav_files=wav_count,
+                conversion_files=0,
+            )
+            return PreparedAudioInput(input_folder=input_root, original_input_folder=input_root, mappings=source_mappings)
         raise ValueError("audio cache folder is required when non-WAV input files are present")
 
     cache_root = Path(cache_folder).resolve()
     cache_root.mkdir(parents=True, exist_ok=True)
     _log_audio_converting_kv(log, "Converted WAV folder", cache_root)
-    _log_audio_converting(log, "WAV/WAVE files stay at original paths; converting missing or stale non-WAV files only")
+    _log_audio_converting(log, "Preparing all supported input files in the converted WAV folder")
 
     progress_line = None
     format_progress_line = None
@@ -246,7 +245,7 @@ def prepare_selected_audio_input_cache(
         format_finished_line = _format_finished_line
 
     total = len(source_paths)
-    conversion_total = convert_count
+    conversion_total = total
     conversion_completed = 0
     failed = 0
     converted = 0
@@ -255,19 +254,16 @@ def prepare_selected_audio_input_cache(
     jobs: list[dict[str, str]] = []
     for index, source_path in enumerate(source_paths, start=1):
         is_wav = source_path.suffix.lower() in WAV_AUDIO_EXTS
+        relative = _safe_relative_audio_path(source_path, input_root, index)
+        target_path = _cache_target_for_relative(cache_root, relative, used_targets)
+        is_current = _cached_wav_is_current(source_path, target_path)
         if is_wav:
-            target_path = source_path
-            action = AUDIO_SOURCE_WAV_STAGE
-            action_label = "source-wav"
-            is_current = True
-            status = "completed"
+            action = AUDIO_COPY_WAV_STAGE
+            action_label = "cached-wav" if is_current else "copy-wav"
         else:
-            relative = _safe_relative_audio_path(source_path, input_root, index)
-            target_path = _cache_target_for_relative(cache_root, relative, used_targets)
-            is_current = _cached_wav_is_current(source_path, target_path)
             action = AUDIO_CONVERT_STAGE
             action_label = "cached-wav" if is_current else "convert-to-wav"
-            status = "queued"
+        status = "queued"
 
         jobs.append({
             "sourcePath": str(source_path),
@@ -292,7 +288,7 @@ def prepare_selected_audio_input_cache(
         active_stage=AUDIO_CONVERTING_STAGE,
         source_total_files=total,
         wav_files=wav_count,
-        conversion_files=conversion_total,
+        conversion_files=convert_count,
     )
 
     mappings = jobs
@@ -305,8 +301,6 @@ def prepare_selected_audio_input_cache(
             action_label = job["actionLabel"]
             is_current = job["isCurrent"] == "true"
             is_wav = job["isWav"] == "true"
-            if is_wav:
-                continue
 
             target_path.parent.mkdir(parents=True, exist_ok=True)
             job["status"] = "running"
@@ -343,16 +337,19 @@ def prepare_selected_audio_input_cache(
                 active_source_path=str(source_path),
                 source_total_files=total,
                 wav_files=wav_count,
-                conversion_files=conversion_total,
+                conversion_files=convert_count,
             )
 
             try:
                 if not is_current:
                     if target_path.exists():
                         target_path.unlink()
-                    _convert_audio_to_wav(source_path, target_path)
+                    if is_wav:
+                        _copy_audio_to_cache(source_path, target_path)
+                    else:
+                        _convert_audio_to_wav(source_path, target_path)
+                        converted += 1
                     _copy_source_mtime(source_path, target_path)
-                    converted += 1
                 else:
                     reused += 1
             except Exception as exc:  # noqa: BLE001
@@ -372,7 +369,7 @@ def prepare_selected_audio_input_cache(
                     active_source_path=str(source_path),
                     source_total_files=total,
                     wav_files=wav_count,
-                    conversion_files=conversion_total,
+                    conversion_files=convert_count,
                 )
                 raise
 
@@ -390,7 +387,7 @@ def prepare_selected_audio_input_cache(
                 active_stage=action,
                 source_total_files=total,
                 wav_files=wav_count,
-                conversion_files=conversion_total,
+                conversion_files=convert_count,
             )
 
         if progress_line is not None and format_finished_line is not None:
@@ -407,11 +404,11 @@ def prepare_selected_audio_input_cache(
             active_stage=AUDIO_CONVERTING_STAGE,
             source_total_files=total,
             wav_files=wav_count,
-            conversion_files=conversion_total,
+            conversion_files=convert_count,
         )
         _write_audio_source_map(source_map_path, input_root, cache_root, mappings)
         _log_audio_converting(log, f"completed - runtime input: {cache_root}")
-        _log_audio_converting(log, f"summary: converted={converted}, original_wav={wav_count}, cached={reused}")
+        _log_audio_converting(log, f"summary: converted={converted}, copied_wav={wav_count}, cached={reused}")
         return PreparedAudioInput(input_folder=cache_root, original_input_folder=input_root, mappings=mappings)
     except AudioInputPreparationCancelled:
         failed = max(0, conversion_total - conversion_completed)
@@ -429,7 +426,7 @@ def prepare_selected_audio_input_cache(
             active_stage="audio-converting/cancelled",
             source_total_files=total,
             wav_files=wav_count,
-            conversion_files=conversion_total,
+            conversion_files=convert_count,
         )
         raise
     except Exception:
@@ -448,7 +445,7 @@ def prepare_selected_audio_input_cache(
             active_stage="audio-converting/failed",
             source_total_files=total,
             wav_files=wav_count,
-            conversion_files=conversion_total,
+            conversion_files=convert_count,
         )
         raise
 
@@ -587,10 +584,6 @@ def _prepare_selected_sources(input_root: Path, cache_root: Path, audio_paths: S
     converted = 0
     reused = 0
     for index, source_path in enumerate(audio_paths, start=1):
-        if source_path.suffix.lower() in WAV_AUDIO_EXTS:
-            mappings.append(_source_audio_mapping(source_path, source_path, AUDIO_SOURCE_WAV_STAGE, "completed"))
-            continue
-
         relative = _safe_relative_audio_path(source_path, input_root, index)
         target_path = _cache_target_for_relative(cache_root, relative, used_targets)
         target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -600,11 +593,15 @@ def _prepare_selected_sources(input_root: Path, cache_root: Path, audio_paths: S
         else:
             if target_path.exists():
                 target_path.unlink()
-            _convert_audio_to_wav(source_path, target_path)
+            if source_path.suffix.lower() in WAV_AUDIO_EXTS:
+                _copy_audio_to_cache(source_path, target_path)
+            else:
+                _convert_audio_to_wav(source_path, target_path)
+                converted += 1
             _copy_source_mtime(source_path, target_path)
-            converted += 1
             status = "completed"
-        mappings.append(_source_audio_mapping(source_path, target_path, AUDIO_CONVERT_STAGE, status))
+        stage = AUDIO_COPY_WAV_STAGE if source_path.suffix.lower() in WAV_AUDIO_EXTS else AUDIO_CONVERT_STAGE
+        mappings.append(_source_audio_mapping(source_path, target_path, stage, status))
     return {
         "inputPath": str(cache_root),
         "total": len(mappings),
@@ -625,6 +622,16 @@ def _convert_audio_to_wav(source_path: Path, target_path: Path) -> None:
         frames = audio
     frames = np.nan_to_num(frames.astype(np.float32, copy=False))
     sf.write(str(target_path), np.clip(frames, -1.0, 1.0), int(sample_rate), subtype="PCM_24", format="WAV")
+
+
+def _copy_audio_to_cache(source_path: Path, target_path: Path) -> None:
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        if source_path.samefile(target_path):
+            return
+    except OSError:
+        pass
+    shutil.copy2(source_path, target_path)
 
 
 def _read_any_audio(source_path: Path) -> tuple[np.ndarray, int]:
@@ -672,7 +679,7 @@ def _safe_relative_audio_path(source_path: Path, input_root: Path, index: int) -
         parts = [f"{index:06d}_{source_path.name}"]
     relative = Path(*parts)
     suffix = source_path.suffix.lower().lstrip(".") or "audio"
-    if source_path.suffix.lower() == ".wav":
+    if source_path.suffix.lower() in WAV_AUDIO_EXTS:
         file_name = source_path.name
     else:
         file_name = f"({suffix}){source_path.stem}.wav"

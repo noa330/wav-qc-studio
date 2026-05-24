@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
-import { copyFile, link, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { existsSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { copyFile, link, mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { AUDIO_INPUT_EXTENSIONS, WAV_AUDIO_EXTENSIONS } from "@shared/ipc";
 import { OMNIVOICE_PRETRAINED } from "@shared/training-defaults";
@@ -25,6 +25,7 @@ import type {
 import { createEmptyWorkspaceTable } from "@shared/table-schemas";
 import { scanFileTree } from "./file-tree";
 import { createBackendLayout } from "./project-layout";
+import { resolveManagedProjectsRoot } from "./project-workspaces";
 import { formatCommand, resolveHostLogPath, type PythonRunPlan, runPythonPlan } from "./python-runner";
 import { readWorkspaceDetails, readWorkspaceTable } from "./result-readers";
 import { assertTrainingDatasetExtension, loadTrainingDatasetPreview } from "./voice-training-dataset";
@@ -38,9 +39,11 @@ const TRAINING_OUTPUT_FOLDER = "_training_results";
 const INFERENCE_OUTPUT_FOLDER = "_voice_inference_results";
 const AUDIO_INPUT_CONVERSION_FOLDER = "converted-audio";
 const LOCAL_AUDIO_INPUT_CONVERSION_FOLDER = "_converted_audio";
+const activeAudioCachesFileName = "active-audio-caches.json";
+const activeAudioCachesSchemaVersion = 1;
 const FIRERED_FRAME_MS = 10;
 const TERMINAL_SNAPSHOT_CHAR_LIMIT = 60000;
-const audioConversionSelections = new Map<WorkspaceId, { inputRootKey: string; projectRootKey: string; cacheRoot: string }>();
+const audioConversionSelections = new Map<WorkspaceId, ActiveAudioCacheRecord>();
 const audioConversionWorkspaceIds = new Set<WorkspaceId>(["slice", "tagging", "speaker", "overview", "batch", "training", "inference"]);
 const WORD_ALIGNMENT_LANGUAGE_CODES = new Set([
   "ar",
@@ -88,12 +91,41 @@ const WORD_ALIGNMENT_LANGUAGE_CODES = new Set([
 const workspaceRunCachePaths = new Set<string>();
 type WorkspaceRunProgressHandler = (progress: WorkspaceRunProgressEvent) => void;
 
+type ActiveAudioCacheRecord = {
+  workspaceId: WorkspaceId;
+  projectRoot: string;
+  inputRoot: string;
+  cacheRoot: string;
+  activeCachePath: string;
+  updatedAt: string;
+};
+
 export function cleanupWorkspaceRunCaches(): void {
   for (const cachePath of workspaceRunCachePaths) {
     rmSync(cachePath, { recursive: true, force: true });
   }
 
   workspaceRunCachePaths.clear();
+}
+
+export function cleanupInactiveAudioConversionCaches(): void {
+  const records = mergeActiveAudioCacheRecords(readActiveAudioCacheRecordsSync(), Array.from(audioConversionSelections.values()));
+  const activeByCacheRoot = new Map<string, Set<string>>();
+  for (const record of records) {
+    const cacheRoot = resolve(record.cacheRoot);
+    const activeCachePath = resolve(record.activeCachePath);
+    if (!isSafeAudioConversionCacheRoot(cacheRoot) || !pathIsInside(activeCachePath, cacheRoot)) {
+      continue;
+    }
+
+    const key = normalizeRunAudioPath(cacheRoot);
+    activeByCacheRoot.set(key, activeByCacheRoot.get(key) ?? new Set<string>());
+    activeByCacheRoot.get(key)?.add(normalizeRunAudioPath(activeCachePath));
+  }
+
+  for (const cacheRoot of collectKnownAudioConversionRoots(records)) {
+    cleanupInactiveAudioConversionRoot(cacheRoot, activeByCacheRoot.get(normalizeRunAudioPath(cacheRoot)) ?? new Set<string>());
+  }
 }
 
 export async function runWorkspace(request: WorkspaceRunRequest, onProgress?: WorkspaceRunProgressHandler, signal?: AbortSignal): Promise<WorkspaceRunResult> {
@@ -1128,15 +1160,15 @@ type PreparedWorkspaceInput = {
 
 async function prepareWorkspaceAudioInput(workspaceId: WorkspaceId, inputPath: string, projectRoot?: string, onProgress?: WorkspaceRunProgressHandler): Promise<PreparedWorkspaceInput> {
   await assertInputDirectory(inputPath, "유효한 입력 오디오 폴더를 선택하세요.");
-  await clearAudioConversionCacheForSelection(workspaceId, inputPath, projectRoot);
   const summary = await summarizeInputAudio(inputPath);
-  if (!summary.hasNonWav) {
+  if (summary.total <= 0) {
     return { inputPath, originalInputPath: inputPath };
   }
 
   const layout = createAudioConvertingLayout(workspaceId);
   const convertedPath = resolveAudioInputConversionDirectory(workspaceId, inputPath, projectRoot);
   await mkdir(convertedPath, { recursive: true });
+  await recordActiveAudioConversionCache(workspaceId, inputPath, convertedPath, projectRoot);
 
   const runStamp = timestamp();
   const manifestPath = join(convertedPath, `audio_converting_${runStamp}.json`);
@@ -1183,37 +1215,25 @@ async function prepareWorkspaceAudioInput(workspaceId: WorkspaceId, inputPath: s
   return {
     inputPath: convertedPath,
     originalInputPath: inputPath,
-    inputTree: await scanPreparedAudioInputTree(workspaceId, inputPath, audioSourceMapPath, manifestPath),
+    inputTree: await scanFileTree(convertedPath, { workspaceId, purpose: "input", offset: 0, limit: 50 }),
     audioSourceMapPath,
     logPath,
   };
 }
 
-async function clearAudioConversionCacheForSelection(workspaceId: WorkspaceId, inputPath: string, projectRoot?: string): Promise<void> {
+async function recordActiveAudioConversionCache(workspaceId: WorkspaceId, inputPath: string, activeCachePath: string, projectRoot?: string): Promise<void> {
   const inputRoot = resolveFallbackInputFolder(inputPath);
-  const projectRootKey = normalizeRunAudioPath(projectRoot?.trim() || "");
-  const inputRootKey = normalizeRunAudioPath(inputRoot);
   const cacheRoot = resolveAudioInputConversionRoot(workspaceId, inputPath, projectRoot);
-  const previous = audioConversionSelections.get(workspaceId);
-  const folderChanged = !previous || previous.inputRootKey !== inputRootKey || previous.projectRootKey !== projectRootKey;
-
-  if (folderChanged) {
-    const roots = new Set([cacheRoot, previous?.cacheRoot].filter((value): value is string => Boolean(value)));
-    for (const root of roots) {
-      await removeAudioConversionCacheRoot(root);
-    }
-  }
-
-  audioConversionSelections.set(workspaceId, { inputRootKey, projectRootKey, cacheRoot });
-}
-
-async function removeAudioConversionCacheRoot(cacheRoot: string): Promise<void> {
-  const resolved = resolve(cacheRoot);
-  if (!isSafeAudioConversionCacheRoot(resolved)) {
-    return;
-  }
-
-  await rm(resolved, { recursive: true, force: true });
+  const record: ActiveAudioCacheRecord = {
+    workspaceId,
+    projectRoot: projectRoot?.trim() || "",
+    inputRoot,
+    cacheRoot,
+    activeCachePath,
+    updatedAt: new Date().toISOString(),
+  };
+  audioConversionSelections.set(workspaceId, record);
+  await writeActiveAudioCacheRecords(mergeActiveAudioCacheRecords(readActiveAudioCacheRecordsSync(), [record]));
 }
 
 function isSafeAudioConversionCacheRoot(cacheRoot: string): boolean {
@@ -1222,71 +1242,128 @@ function isSafeAudioConversionCacheRoot(cacheRoot: string): boolean {
   return audioConversionWorkspaceIds.has(leaf as WorkspaceId) && (parent === AUDIO_INPUT_CONVERSION_FOLDER || parent === LOCAL_AUDIO_INPUT_CONVERSION_FOLDER);
 }
 
-async function scanPreparedAudioInputTree(workspaceId: WorkspaceId, inputPath: string, audioSourceMapPath: string, manifestPath: string): Promise<FileTreeResult> {
-  const prepared = await readPreparedAudioSourceMapFile(audioSourceMapPath);
-  if (prepared?.mappings.length) {
-    return buildPreparedAudioInputTree(prepared, inputPath);
+function collectKnownAudioConversionRoots(records: ActiveAudioCacheRecord[]): string[] {
+  const roots = new Set(records.map((record) => record.cacheRoot).filter(Boolean));
+  const projectRoots = new Set(records.map((record) => record.projectRoot).filter(Boolean));
+
+  try {
+    for (const entry of readdirSync(resolveManagedProjectsRoot(), { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        projectRoots.add(join(resolveManagedProjectsRoot(), entry.name));
+      }
+    }
+  } catch {
+    // Project discovery is best-effort during shutdown.
   }
 
-  return scanAudioConversionInputTree(workspaceId, inputPath, manifestPath);
+  for (const projectRoot of projectRoots) {
+    for (const workspaceId of audioConversionWorkspaceIds) {
+      roots.add(join(projectRoot, AUDIO_INPUT_CONVERSION_FOLDER, workspaceId));
+    }
+  }
+
+  return Array.from(roots)
+    .map((root) => resolve(root))
+    .filter((root) => isSafeAudioConversionCacheRoot(root));
 }
 
-function buildPreparedAudioInputTree(prepared: PreparedAudioSourceMap, fallbackRootPath: string): FileTreeResult {
-  const rootPath = prepared.inputPath || fallbackRootPath;
-  const nodes = prepared.mappings
-    .flatMap((mapping): FileTreeNode[] => {
-      const path = resolvePreparedAudioDisplayPath(mapping);
-      if (!path || !existsSync(path)) {
+function cleanupInactiveAudioConversionRoot(cacheRoot: string, activeCachePaths: Set<string>): void {
+  const resolvedRoot = resolve(cacheRoot);
+  if (!isSafeAudioConversionCacheRoot(resolvedRoot) || !existsSync(resolvedRoot)) {
+    return;
+  }
+
+  let entries;
+  try {
+    entries = readdirSync(resolvedRoot, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const cachePath = resolve(resolvedRoot, entry.name);
+    if (activeCachePaths.has(normalizeRunAudioPath(cachePath))) {
+      continue;
+    }
+
+    try {
+      rmSync(cachePath, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
+    } catch {
+      // Shutdown cleanup must never block app exit; locked caches are retried next run.
+    }
+  }
+}
+
+function readActiveAudioCacheRecordsSync(): ActiveAudioCacheRecord[] {
+  try {
+    const parsed = JSON.parse(readFileSync(resolveActiveAudioCachesPath(), "utf8")) as unknown;
+    const records = isRecord(parsed) && Array.isArray(parsed.records) ? parsed.records : [];
+    return records.flatMap((record): ActiveAudioCacheRecord[] => {
+      if (!isRecord(record)) {
         return [];
       }
 
-      const fileStat = statSync(path);
-      if (!fileStat.isFile()) {
+      const workspaceId = stringValue(record.workspaceId) as WorkspaceId;
+      const cacheRoot = stringValue(record.cacheRoot);
+      const activeCachePath = stringValue(record.activeCachePath);
+      if (!audioConversionWorkspaceIds.has(workspaceId) || !cacheRoot || !activeCachePath) {
         return [];
       }
 
       return [{
-        id: path,
-        name: basename(path),
-        path,
-        kind: "file",
-        meta: formatFileSize(fileStat.size),
+        workspaceId,
+        projectRoot: stringValue(record.projectRoot),
+        inputRoot: stringValue(record.inputRoot),
+        cacheRoot,
+        activeCachePath,
+        updatedAt: stringValue(record.updatedAt),
       }];
-    })
-    .sort((left, right) => left.name.localeCompare(right.name, "ko"));
+    });
+  } catch {
+    return [];
+  }
+}
 
-  return {
-    rootPath,
-    nodes,
-    window: {
-      offset: 0,
-      limit: Math.max(1, nodes.length),
-      total: nodes.length,
-      hasPrevious: false,
-      hasMore: false,
-    },
+async function writeActiveAudioCacheRecords(records: ActiveAudioCacheRecord[]): Promise<void> {
+  const projectsRoot = resolveManagedProjectsRoot();
+  await mkdir(projectsRoot, { recursive: true });
+  const payload = {
+    schemaVersion: activeAudioCachesSchemaVersion,
+    savedAt: new Date().toISOString(),
+    records,
   };
+  const filePath = resolveActiveAudioCachesPath();
+  const tempPath = join(projectsRoot, `${activeAudioCachesFileName}.${process.pid}.${Date.now()}.tmp`);
+  await writeFile(tempPath, JSON.stringify(payload, null, 2), "utf8");
+  await rename(tempPath, filePath);
 }
 
-function resolvePreparedAudioDisplayPath(mapping: AudioSourceMapping): string {
-  if (mapping.isWav || isWavAudioPath(mapping.sourcePath)) {
-    return mapping.sourcePath;
+function mergeActiveAudioCacheRecords(existing: ActiveAudioCacheRecord[], updates: ActiveAudioCacheRecord[]): ActiveAudioCacheRecord[] {
+  const records = new Map(existing.map((record) => [activeAudioCacheRecordKey(record), record]));
+  for (const update of updates) {
+    records.set(activeAudioCacheRecordKey(update), update);
   }
-
-  return mapping.cachedPath;
+  return Array.from(records.values());
 }
 
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  }
-
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+function activeAudioCacheRecordKey(record: ActiveAudioCacheRecord): string {
+  return `${normalizeRunAudioPath(record.projectRoot)}|${record.workspaceId}`;
 }
+
+function resolveActiveAudioCachesPath(): string {
+  return join(resolveManagedProjectsRoot(), activeAudioCachesFileName);
+}
+
+function pathIsInside(path: string, parentPath: string): boolean {
+  const normalizedPath = normalizeRunAudioPath(resolve(path));
+  const normalizedParent = normalizeRunAudioPath(resolve(parentPath));
+  return normalizedPath === normalizedParent || normalizedPath.startsWith(`${normalizedParent}/`);
+}
+
 
 function startAudioConversionTerminalPolling(workspaceId: WorkspaceId, plan: PythonRunPlan, onProgress?: WorkspaceRunProgressHandler): () => void {
   if (!onProgress) {
@@ -1452,15 +1529,14 @@ function annotateAudioConversionNodeStatus(node: FileTreeNode, activeSourcePath:
   };
 }
 
-async function summarizeInputAudio(inputPath: string): Promise<{ total: number; hasNonWav: boolean }> {
+async function summarizeInputAudio(inputPath: string): Promise<{ total: number }> {
   const root = resolveFallbackInputFolder(inputPath);
   let total = 0;
-  let hasNonWav = false;
   let entries;
   try {
     entries = await readdir(root, { withFileTypes: true });
   } catch {
-    return { total, hasNonWav };
+    return { total };
   }
 
   for (const entry of entries) {
@@ -1472,11 +1548,8 @@ async function summarizeInputAudio(inputPath: string): Promise<{ total: number; 
       continue;
     }
     total += 1;
-    if (!WAV_AUDIO_EXTENSIONS.includes(extension as (typeof WAV_AUDIO_EXTENSIONS)[number])) {
-      hasNonWav = true;
-    }
   }
-  return { total, hasNonWav };
+  return { total };
 }
 
 function createAudioConvertingLayout(workspaceId: WorkspaceId): ReturnType<typeof createBackendLayout> {

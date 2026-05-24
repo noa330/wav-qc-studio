@@ -5,6 +5,8 @@ directories:
   output: release
   buildResources: build
 
+afterPack: ./build/after-pack-require-admin.cjs
+
 files:
   - out/**
   - package.json
@@ -24,17 +26,10 @@ extraResources:
       - "**/*"
       - "!**/__pycache__/**"
       - "!**/*.pyc"
-  - from: ../training
-    to: training
-    filter:
-      - "install_gpt_sovits_runtime.ps1"
-      - "training.7z"
-      - "!cache/**"
-      - "!runtime/**"
-      - "!vendor/**"
-      - "!work/**"
-      - "!__pycache__/**"
-      - "!**/*.pyc"
+  - from: ../training/install_gpt_sovits_runtime.ps1
+    to: training/install_gpt_sovits_runtime.ps1
+  - from: ../training/training.7z
+    to: training/training.7z
   - from: ../requirements.txt
     to: requirements.txt
   - from: ../requirements_noise.txt
@@ -61,6 +56,7 @@ win:
     - nsis
   icon: build/icon.ico
   executableName: WavQcStudio
+  requestedExecutionLevel: requireAdministrator
   signAndEditExecutable: false
 
 nsis:

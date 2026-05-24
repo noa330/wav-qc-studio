@@ -511,7 +511,7 @@ function sanitizeDataTableRowAudioMapping(row: Record<string, unknown>, audioMap
     || stringValue(raw.input_path)
     || stringValue(row.sourcePath);
   const mapping = findAudioSourceMapping(audioMappings, sourcePath);
-  if (!mapping || mapping.isWav || !pathExists(mapping.cachedPath)) {
+  if (!mapping || !pathExists(mapping.cachedPath)) {
     return row;
   }
 
@@ -709,7 +709,7 @@ function dedupeAudioSourceMappings(mappings: AudioSourceMapping[]): AudioSourceM
 
 function resolveMappedAudioPath(path: string, audioMappings: AudioSourceMapping[]): string {
   const mapping = findAudioSourceMapping(audioMappings, path);
-  if (!mapping || mapping.isWav || !pathExists(mapping.cachedPath)) {
+  if (!mapping || !pathExists(mapping.cachedPath)) {
     return "";
   }
 
@@ -720,7 +720,9 @@ function findAudioSourceMapping(audioMappings: AudioSourceMapping[], sourcePath:
   const normalizedSourcePath = normalizeStatePath(sourcePath);
   const sourceName = basename(sourcePath).toLowerCase();
   return audioMappings.find((mapping) => normalizeStatePath(mapping.sourcePath) === normalizedSourcePath)
-    ?? audioMappings.find((mapping) => basename(mapping.sourcePath).toLowerCase() === sourceName);
+    ?? audioMappings.find((mapping) => normalizeStatePath(mapping.cachedPath) === normalizedSourcePath)
+    ?? audioMappings.find((mapping) => basename(mapping.sourcePath).toLowerCase() === sourceName)
+    ?? audioMappings.find((mapping) => basename(mapping.cachedPath).toLowerCase() === sourceName);
 }
 
 function resolveSanitizedTreeRoot(rootPath: string, nodes: unknown[], audioMappings: AudioSourceMapping[]): string {
@@ -734,7 +736,7 @@ function resolveSanitizedTreeRoot(rootPath: string, nodes: unknown[], audioMappi
     return commonNodeRoot;
   }
 
-  const mappedRoot = commonParentPath(audioMappings.filter((mapping) => !mapping.isWav && pathExists(mapping.cachedPath)).map((mapping) => mapping.cachedPath));
+  const mappedRoot = commonParentPath(audioMappings.filter((mapping) => pathExists(mapping.cachedPath)).map((mapping) => mapping.cachedPath));
   if (mappedRoot) {
     return mappedRoot;
   }

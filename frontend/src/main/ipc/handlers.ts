@@ -11,7 +11,7 @@ import { readWaveformData } from "../backend/wav-peaks";
 import { createManagedProjectFolder } from "../backend/project-workspaces";
 import { exportWorkspace } from "../backend/workspace-exporter";
 import { checkWorkspaceRuntimeEnvironment, installWorkspaceRuntimeEnvironment } from "../backend/workspace-runtime-installer";
-import { cleanupWorkspaceRunCaches, loadWorkspaceFromPath, resolveWorkspaceOutputPath, runBatchSpeakerDiarization, runWorkspace } from "../backend/workspace-runner";
+import { cleanupInactiveAudioConversionCaches, cleanupWorkspaceRunCaches, loadWorkspaceFromPath, resolveWorkspaceOutputPath, runBatchSpeakerDiarization, runWorkspace } from "../backend/workspace-runner";
 import { updateStartupSplashProgress } from "../startup-splash-window";
 
 const activeWorkspaceOperations = new Map<string, AbortController>();
@@ -228,6 +228,7 @@ export function registerIpcHandlers(): void {
 
   app.on("will-quit", () => {
     cleanupWorkspaceRunCaches();
+    cleanupInactiveAudioConversionCaches();
     cleanupTensorBoardSessions();
     ipcMain.removeHandler(IPC_CHANNELS.appInfo);
     ipcMain.removeHandler(IPC_CHANNELS.loadAppState);

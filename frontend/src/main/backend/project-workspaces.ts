@@ -1,9 +1,12 @@
+import { createHash } from "node:crypto";
 import { mkdir } from "node:fs/promises";
+import { userInfo } from "node:os";
 import { join } from "node:path";
 import type { CreateProjectRequest, CreateProjectResult } from "@shared/ipc";
 import { resolveProjectRoot } from "./project-layout";
 
 export const managedProjectsFolderName = "projects";
+const managedProjectUsersFolderName = "users";
 export const defaultManagedProjectName = "기본 프로젝트";
 const maxProjectNameLength = 80;
 const reservedWindowsNames = new Set([
@@ -67,7 +70,34 @@ export async function createManagedProjectFolder(request: CreateProjectRequest):
 }
 
 export function resolveManagedProjectsRoot(): string {
-  return join(resolveProjectRoot(), managedProjectsFolderName);
+  return join(resolveProjectRoot(), managedProjectsFolderName, managedProjectUsersFolderName, currentUserProjectsFolderName());
+}
+
+function currentUserProjectsFolderName(): string {
+  const identity = readCurrentUserIdentity();
+  const label = sanitizeProjectFolderName(identity.username) || "user";
+  const hash = createHash("sha1")
+    .update(`${identity.domain}\\${identity.username}|${identity.home}`)
+    .digest("hex")
+    .slice(0, 10);
+  return `${label}_${hash}`;
+}
+
+function readCurrentUserIdentity(): { username: string; domain: string; home: string } {
+  try {
+    const info = userInfo();
+    return {
+      username: info.username || "user",
+      domain: process.env.USERDOMAIN || "",
+      home: info.homedir || "",
+    };
+  } catch {
+    return {
+      username: process.env.USERNAME || process.env.USER || "user",
+      domain: process.env.USERDOMAIN || "",
+      home: process.env.USERPROFILE || process.env.HOME || "",
+    };
+  }
 }
 
 function normalizeProjectName(value: string): string {
