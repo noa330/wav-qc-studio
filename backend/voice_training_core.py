@@ -9,7 +9,6 @@ import sys
 import threading
 import time
 import glob as glob_module
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Optional
@@ -42,36 +41,8 @@ OMNI_HF = HF_DIR / "OmniVoice"
 if str(APP_ROOT) not in sys.path:
     sys.path.insert(0, str(APP_ROOT))
 
-try:
-    from backend.console_ui import DownloadProgress
-    from backend.console_ui_core import LiveConsoleLine, prepare_for_regular_output
-except Exception:
-    class DownloadProgress:  # type: ignore[no-redef]
-        def __init__(self, label: str) -> None:
-            self.label = label
-
-        def __call__(self, block_num: int, block_size: int, total_size: int) -> None:
-            if total_size > 0:
-                downloaded = max(0, block_num * block_size)
-                percent = min(100, int(downloaded * 100 / total_size))
-                print(f"\r[download] {self.label} - {percent:3d}%", end="", flush=True)
-
-        def finish(self, success_message: str | None = None) -> None:
-            print(f"\r{success_message or f'[download complete] {self.label}'}", flush=True)
-
-    class LiveConsoleLine:  # type: ignore[no-redef]
-        def update(self, message: str) -> None:
-            print("\r" + message, end="", flush=True)
-
-        def finish(self, message: str | None = None) -> None:
-            if message is not None:
-                print("\r" + message, flush=True)
-            else:
-                print(flush=True)
-
-    def prepare_for_regular_output(text: str | None = None) -> None:  # type: ignore[no-redef]
-        if text is not None:
-            print(text, flush=True)
+from backend.console_ui_core import LiveConsoleLine, prepare_for_regular_output
+from backend.downloads import download_url_to_path, is_download_complete
 
 DEFAULT_LIST = ""
 DEFAULT_OMNI_JSONL = ""
@@ -637,10 +608,8 @@ def install_miniconda(log: LogFn = log_print) -> None:
     if gpt_conda_exe().exists():
         return
     installer = CACHE_DIR / "Miniconda3-latest-Windows-x86_64.exe"
-    temp_path = installer.with_suffix(installer.suffix + ".part")
     log(f"[Miniconda] downloading installer: {MINICONDA_URL}")
-    progress = DownloadProgress("Miniconda")
-    retry_download(lambda: download_to_target(MINICONDA_URL, temp_path, installer, progress), log=log, label="Miniconda")
+    download_url_to_path(MINICONDA_URL, installer, label="Miniconda", log=log, retry_label="Miniconda")
     if target.exists() and any(target.iterdir()):
         raise ToolError(f"GPT-SoVITS repo Miniconda target already exists but conda.exe is missing: {target}")
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -873,65 +842,20 @@ def ensure_hf_snapshot(repo_id: str, dest: Path, log: LogFn = log_print, label: 
 
     for file_name in selected:
         target_path = dest / file_name
-        if is_complete_download(target_path):
+        if is_download_complete(target_path, reject_git_lfs_pointer=True):
             log(f"[model cache ready] {model_label}: {file_name}")
             continue
 
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        temp_path = target_path.with_suffix(target_path.suffix + ".part")
-        if temp_path.exists():
-            temp_path.unlink()
-
         log(f"[model download] {model_label}: {file_name}")
-        progress = DownloadProgress(f"{model_label} {Path(file_name).name}")
         url = hf_hub_url(repo_id=repo_id, filename=file_name)
-        try:
-            with clean_network_env():
-                retry_download(lambda: download_to_target(url, temp_path, target_path, progress), log=log, label=f"{model_label}: {file_name}")
-        except Exception:
-            progress.finish(f"[download failed] {model_label} {Path(file_name).name}")
-            if temp_path.exists():
-                temp_path.unlink()
-            raise
-
-
-def is_complete_download(path: Path) -> bool:
-    if not path.exists() or path.stat().st_size <= 0:
-        return False
-    return not is_git_lfs_pointer(path)
-
-
-def is_git_lfs_pointer(path: Path) -> bool:
-    try:
-        if path.stat().st_size > 1024:
-            return False
-        return path.read_text(encoding="utf-8", errors="ignore").startswith("version https://git-lfs.github.com/spec/v1")
-    except OSError:
-        return False
-
-
-def download_to_target(url: str, temp_path: Path, target_path: Path, progress: DownloadProgress) -> None:
-    if temp_path.exists():
-        temp_path.unlink()
-    urllib.request.urlretrieve(url, temp_path, reporthook=progress)
-    shutil.move(str(temp_path), str(target_path))
-    size_mb = target_path.stat().st_size / (1024 * 1024)
-    progress.finish(f"[download complete] {target_path.name} - {size_mb:.1f} MB")
-
-
-def retry_download(download_fn: Callable[[], None], log: LogFn, label: str, attempts: int = 3) -> None:
-    last_error: Exception | None = None
-    for attempt in range(1, attempts + 1):
-        try:
-            download_fn()
-            return
-        except Exception as exc:
-            last_error = exc
-            if attempt >= attempts:
-                break
-            log(f"[model download retry] {label}: attempt {attempt}/{attempts} failed: {type(exc).__name__}: {exc}")
-            time.sleep(float(attempt * 2))
-    raise last_error  # type: ignore[misc]
+        with clean_network_env():
+            download_url_to_path(
+                url,
+                target_path,
+                label=f"{model_label} {Path(file_name).name}",
+                log=log,
+                retry_label=f"{model_label}: {file_name}",
+            )
 
 
 def gpt_hf_cache_ready(version: str | None = None) -> bool:
@@ -945,7 +869,7 @@ def gpt_hf_cache_ready(version: str | None = None) -> bool:
         spec = GPT_PRETRAINED[item]
         required.extend([spec["gpt"], spec["s2g"], spec["s2d"]])
     required.append("sv/pretrained_eres2netv2w24s4ep4.ckpt")
-    return all(is_complete_download(GPT_HF / file_name) for file_name in required)
+    return all(is_download_complete(GPT_HF / file_name, reject_git_lfs_pointer=True) for file_name in required)
 
 
 def omni_hf_cache_ready() -> bool:

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { IPC_CHANNELS, type AppStateSaveRequest, type AudioCropRequest, type AudioEditRequest, type CreateProjectRequest, type DialogFileSelectionOptions, type FileTreeScanOptions, type ProjectStateLoadRequest, type StartupSplashProgress, type StudioBackendApi, type TensorBoardSessionRequest, type WorkspaceBatchSpeakerDiarizationRequest, type WorkspaceCancelRequest, type WorkspaceExportProgressEvent, type WorkspaceExportRequest, type WorkspaceLoadRequest, type WorkspaceRunProgressEvent, type WorkspaceRunRequest, type WorkspaceRuntimeEnvironmentRequest } from "@shared/ipc";
+import { IPC_CHANNELS, type AppStateSaveRequest, type AudioCropRequest, type AudioEditRequest, type CreateProjectRequest, type DialogFileSelectionOptions, type FileTreeScanOptions, type ProjectStateLoadRequest, type StartupSplashProgress, type StudioBackendApi, type TensorBoardSessionRequest, type VoiceModelRuntimeRequest, type WorkspaceBatchSpeakerDiarizationRequest, type WorkspaceCancelRequest, type WorkspaceExportProgressEvent, type WorkspaceExportRequest, type WorkspaceLoadRequest, type WorkspaceRunProgressEvent, type WorkspaceRunRequest, type WorkspaceRuntimeEnvironmentRequest } from "@shared/ipc";
 
 const studioBackend: StudioBackendApi = {
   getAppInfo: () => ({
@@ -27,6 +27,8 @@ const studioBackend: StudioBackendApi = {
   runWorkspace: (request: WorkspaceRunRequest) => ipcRenderer.invoke(IPC_CHANNELS.runWorkspace, request),
   checkWorkspaceRuntime: (request: WorkspaceRuntimeEnvironmentRequest) => ipcRenderer.invoke(IPC_CHANNELS.checkWorkspaceRuntime, request),
   installWorkspaceRuntime: (request: WorkspaceRuntimeEnvironmentRequest) => ipcRenderer.invoke(IPC_CHANNELS.installWorkspaceRuntime, request),
+  checkVoiceModelRuntime: (request: VoiceModelRuntimeRequest) => ipcRenderer.invoke(IPC_CHANNELS.checkVoiceModelRuntime, request),
+  installVoiceModelRuntime: (request: VoiceModelRuntimeRequest) => ipcRenderer.invoke(IPC_CHANNELS.installVoiceModelRuntime, request),
   listTrainingModels: (request) => ipcRenderer.invoke(IPC_CHANNELS.listTrainingModels, request),
   startTensorBoard: (request: TensorBoardSessionRequest) => ipcRenderer.invoke(IPC_CHANNELS.startTensorBoard, request),
   runBatchSpeakerDiarization: (request: WorkspaceBatchSpeakerDiarizationRequest) => ipcRenderer.invoke(IPC_CHANNELS.runBatchSpeakerDiarization, request),

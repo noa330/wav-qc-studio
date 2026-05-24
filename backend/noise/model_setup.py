@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import os
 import shutil
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
 
-from ..console_ui import DownloadProgress
 from ..runtime import package_cache_dir
+from ..downloads import download_url_to_path
 
 LogFn = Callable[[str], None]
 
@@ -88,22 +87,9 @@ def _patch_resemble_hparams(path: Path, log: LogFn) -> None:
 
 
 def _download(asset: AssetSpec, log: LogFn) -> None:
-    asset.target.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = asset.target.with_suffix(asset.target.suffix + ".part")
-    if temp_path.exists():
-        temp_path.unlink()
-
-    progress = DownloadProgress(asset.label)
-    log(f"[모델 다운로드] {asset.label}")
-    try:
-        urllib.request.urlretrieve(asset.url, temp_path, reporthook=progress)
-        shutil.move(str(temp_path), str(asset.target))
-        size_mb = asset.target.stat().st_size / (1024 * 1024)
-        progress.finish(f"[모델 다운로드 완료] {asset.label} · {size_mb:.1f} MB")
-        log(f"[모델 저장] {asset.target}")
-    except Exception:
-        progress.finish(f"[모델 다운로드 실패] {asset.label}")
-        raise
+    log(f"[model download] {asset.label}")
+    download_url_to_path(asset.url, asset.target, label=asset.label, log=log, retry_label=asset.label)
+    log(f"[model saved] {asset.target}")
 
 
 def inspect_assets(assets: Iterable[AssetSpec], log: LogFn) -> list[AssetSpec]:

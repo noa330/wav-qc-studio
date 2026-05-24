@@ -41,6 +41,8 @@ export const IPC_CHANNELS = {
   runWorkspaceProgress: "workspace:run-progress",
   checkWorkspaceRuntime: "workspace:runtime-check",
   installWorkspaceRuntime: "workspace:runtime-install",
+  checkVoiceModelRuntime: "voice:model-runtime-check",
+  installVoiceModelRuntime: "voice:model-runtime-install",
   listTrainingModels: "training:list-models",
   startTensorBoard: "training:start-tensorboard",
   runBatchSpeakerDiarization: "workspace:batch-speaker-diarize",
@@ -487,6 +489,36 @@ export type WorkspaceRuntimeEnvironmentInstallResult = {
   command?: string;
 };
 
+export type VoiceModelRuntimeStatus = {
+  workspaceId: WorkspaceId;
+  selectedModel: VoiceTrainingModel;
+  toolRoot: string;
+  gptVersion?: VoiceTrainingSettings["gptVersion"];
+  settingsKey: string;
+  label: string;
+  path: string;
+  ok: boolean;
+  checkedAt: string;
+  error?: string;
+};
+
+export type VoiceModelRuntimeRequest = {
+  workspaceId: WorkspaceId;
+  settings: WorkspaceSettings;
+};
+
+export type VoiceModelRuntimeInstallResult = {
+  ok: boolean;
+  workspaceId: WorkspaceId;
+  status: VoiceModelRuntimeStatus;
+  exitCode?: number;
+  error?: string;
+  stdout?: string;
+  stderr?: string;
+  logPath?: string;
+  command?: string;
+};
+
 export type TrainingCheckpointSummary = {
   id: string;
   label: string;
@@ -540,7 +572,7 @@ export type WorkspaceBatchSpeakerDiarizationRequest = {
 
 export type WorkspaceCancelRequest = {
   workspaceId: WorkspaceId;
-  operation?: "run" | "export" | "batchSpeaker";
+  operation?: "run" | "export" | "batchSpeaker" | "runtimeInstall" | "modelInstall";
 };
 
 export type WorkspaceCancelResult = {
@@ -664,6 +696,8 @@ export type StudioBackendApi = {
   runWorkspace: (request: WorkspaceRunRequest) => Promise<WorkspaceRunResult>;
   checkWorkspaceRuntime: (request: WorkspaceRuntimeEnvironmentRequest) => Promise<WorkspaceRuntimeEnvironmentStatus>;
   installWorkspaceRuntime: (request: WorkspaceRuntimeEnvironmentRequest) => Promise<WorkspaceRuntimeEnvironmentInstallResult>;
+  checkVoiceModelRuntime: (request: VoiceModelRuntimeRequest) => Promise<VoiceModelRuntimeStatus>;
+  installVoiceModelRuntime: (request: VoiceModelRuntimeRequest) => Promise<VoiceModelRuntimeInstallResult>;
   listTrainingModels: (request: TrainingModelListRequest) => Promise<TrainingModelListResult>;
   startTensorBoard: (request: TensorBoardSessionRequest) => Promise<TensorBoardSessionResult>;
   runBatchSpeakerDiarization: (request: WorkspaceBatchSpeakerDiarizationRequest) => Promise<WorkspaceRunResult>;

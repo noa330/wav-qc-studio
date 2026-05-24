@@ -2,15 +2,14 @@ from __future__ import annotations
 
 import importlib.metadata as importlib_metadata
 import os
-import urllib.request
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable
 
 import torch
 
-from ..console_ui import DownloadProgress
 from .external_console import suppress_external_console
+from ..downloads import download_url_to_path
 from .model_cache import package_cache_dir
 
 _ORT_GPU_RUNTIME_READY: bool = False
@@ -183,24 +182,11 @@ def _patch_dnsmos_assets(tm_dnsmos: Any) -> None:
             if _valid_onnx_session(tm_dnsmos, target_path):
                 continue
 
-            temp_path = target_path.with_suffix(target_path.suffix + ".part")
-            if temp_path.exists():
-                temp_path.unlink()
-            progress = DownloadProgress(f"DNSMOS {target_path.name}")
-            try:
-                urllib.request.urlretrieve(
-                    f"{_DNSMOS_BASE_URL}/{remote_name}",
-                    temp_path,
-                    reporthook=progress,
-                )
-                os.replace(temp_path, target_path)
-                size_mb = target_path.stat().st_size / (1024 * 1024)
-                progress.finish(f"[download complete] DNSMOS {target_path.name} - {size_mb:.1f} MB")
-            except Exception:
-                progress.finish(f"[download failed] DNSMOS {target_path.name}")
-                if temp_path.exists():
-                    temp_path.unlink()
-                raise
+            download_url_to_path(
+                f"{_DNSMOS_BASE_URL}/{remote_name}",
+                target_path,
+                label=f"DNSMOS {target_path.name}",
+            )
 
     tm_dnsmos._prepare_dnsmos = _prepare_dnsmos_patched
     tm_dnsmos._wav_qc_dnsmos_assets_patch_applied = True

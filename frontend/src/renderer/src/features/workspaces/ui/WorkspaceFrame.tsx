@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { ChartNoAxesColumnIncreasing, ChevronDown, Download, EllipsisVertical, Expand, Filter, FoldHorizontal, FoldVertical, ListChecks, Pencil, Plus, Search, Shrink, Terminal, X } from "lucide-react";
-import type { DataTableRow, WorkspaceId, WorkspaceRuntimeEnvironmentStatus } from "@shared/ipc";
+import type { DataTableRow, VoiceModelRuntimeStatus, WorkspaceId, WorkspaceRuntimeEnvironmentStatus, WorkspaceSettings } from "@shared/ipc";
 import { useAppPersistence, type PersistedBatchReplaceState } from "@/app/app-persistence";
 import { cn } from "@/lib/utils";
 import { ChevronGlyph, NumericField, ToggleSwitch } from "@/shared/components/controls";
@@ -389,8 +389,11 @@ function WorkspaceStatusWidget({
   terminalBubblePinned,
   runtimeEnvironmentStatus,
   runtimeEnvironmentInstalling,
+  voiceModelRuntimeStatus,
+  voiceModelRuntimeInstalling,
   onTerminalBubblePinnedChange,
   onInstallRuntime,
+  onInstallVoiceModelRuntime,
   onOpenFullTerminal,
 }: {
   statusItems: WorkspaceHeaderStatusItem[];
@@ -401,8 +404,11 @@ function WorkspaceStatusWidget({
   terminalBubblePinned: boolean;
   runtimeEnvironmentStatus?: WorkspaceRuntimeEnvironmentStatus;
   runtimeEnvironmentInstalling: boolean;
+  voiceModelRuntimeStatus?: VoiceModelRuntimeStatus;
+  voiceModelRuntimeInstalling: boolean;
   onTerminalBubblePinnedChange: (pinned: boolean) => void;
   onInstallRuntime: () => void;
+  onInstallVoiceModelRuntime: () => void;
   onOpenFullTerminal: () => void;
 }) {
   const [position, setPosition] = useState({ right: 20, top: 20 });
@@ -553,6 +559,18 @@ function WorkspaceStatusWidget({
               />
             </>
           ) : null}
+          {voiceModelRuntimeStatus && !voiceModelRuntimeStatus.ok ? (
+            <>
+              <span className="mx-2 h-4 w-px shrink-0 bg-[var(--panel-stroke)] opacity-85" />
+              <WorkspaceVoiceModelInstallDock
+                status={voiceModelRuntimeStatus}
+                installing={voiceModelRuntimeInstalling}
+                onInstall={onInstallVoiceModelRuntime}
+                compact
+                embedded
+              />
+            </>
+          ) : null}
         </div>
       </motion.div>
     </motion.div>
@@ -615,6 +633,102 @@ function WorkspaceRuntimeInstallDock({
   );
 }
 
+function WorkspaceVoiceModelInstallDock({
+  status,
+  installing,
+  onInstall,
+  compact = false,
+  embedded = false,
+  className,
+}: {
+  status: VoiceModelRuntimeStatus;
+  installing: boolean;
+  onInstall: () => void;
+  compact?: boolean;
+  embedded?: boolean;
+  className?: string;
+}) {
+  if (status.ok) {
+    return null;
+  }
+
+  const label = `${status.label} 모델`;
+  const title = status.error ? `${label}: ${status.error}` : `${label}: ${status.path}`;
+  return (
+    <motion.div
+      layout={embedded ? false : true}
+      className={cn(
+        "relative flex h-10 min-w-0 items-center gap-2 rounded-[5px] border border-[var(--panel-stroke)] bg-[#0d131c]/95 px-3 text-sm font-normal text-[var(--primary-text)] shadow-[0_16px_36px_rgba(0,0,0,.28)] backdrop-blur",
+        compact && "h-7 min-w-[198px] px-2 shadow-none",
+        embedded && "min-w-0 border-transparent bg-transparent px-0 shadow-none backdrop-blur-0",
+        className,
+      )}
+      transition={embedded ? { duration: 0 } : undefined}
+      data-status-widget-interactive="true"
+      title={title}
+      onPointerDown={(event) => event.stopPropagation()}
+    >
+      {embedded ? null : (
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-[5px] border border-[var(--neutral-button-stroke)] bg-[var(--table-header-bg)] text-[var(--primary-text)]">
+          <Download className="size-3.5" strokeWidth={1.8} />
+        </span>
+      )}
+      <span className="min-w-0 flex-1 truncate">{embedded ? "모델" : label}</span>
+      <span className={cn("size-2 shrink-0 rounded-full", installing ? "bg-[var(--accent-blue)]" : "bg-[#f7c34a]")} />
+      <span className="shrink-0 text-[13px] font-normal leading-[18px] text-[var(--primary-text)]">{installing ? "설치 중" : "없음"}</span>
+      <motion.button
+        type="button"
+        whileTap={installing ? undefined : softPressTap}
+        onClick={onInstall}
+        disabled={installing}
+        className="ml-1 flex h-7 shrink-0 items-center justify-center rounded-[4px] bg-[var(--accent-blue)] px-2.5 text-[12px] font-normal text-white hover:brightness-110 disabled:opacity-55"
+      >
+        {installing ? "..." : "설치"}
+      </motion.button>
+    </motion.div>
+  );
+}
+
+type VoiceModelRuntimeKey = Pick<VoiceModelRuntimeStatus, "selectedModel" | "toolRoot" | "gptVersion" | "settingsKey">;
+
+function voiceModelRuntimeKeyForWorkspace(workspaceId: WorkspaceId, settings: WorkspaceSettings): VoiceModelRuntimeKey | undefined {
+  if (workspaceId === "training") {
+    const selectedModel = settings.training.selectedModel === "omnivoice" ? "omnivoice" : "gpt-sovits";
+    return {
+      selectedModel,
+      toolRoot: settings.training.toolRoot,
+      gptVersion: selectedModel === "gpt-sovits" ? settings.training.gptVersion : undefined,
+      settingsKey: [
+        workspaceId,
+        selectedModel,
+        settings.training.toolRoot.trim(),
+        selectedModel === "gpt-sovits" ? settings.training.gptVersion : "",
+      ].join("|"),
+    };
+  }
+
+  if (workspaceId === "inference") {
+    const selectedModel = settings.inference.selectedModel === "omnivoice" ? "omnivoice" : "gpt-sovits";
+    return {
+      selectedModel,
+      toolRoot: settings.inference.toolRoot,
+      gptVersion: selectedModel === "gpt-sovits" ? settings.inference.gptVersion : undefined,
+      settingsKey: [
+        workspaceId,
+        selectedModel,
+        settings.inference.toolRoot.trim(),
+        selectedModel === "gpt-sovits" ? settings.inference.gptVersion : "",
+      ].join("|"),
+    };
+  }
+
+  return undefined;
+}
+
+function voiceModelRuntimeStatusMatchesKey(status: VoiceModelRuntimeStatus, key: VoiceModelRuntimeKey): boolean {
+  return status.settingsKey === key.settingsKey;
+}
+
 export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
   const persistence = useAppPersistence();
   const initialWorkspaceUiRef = useRef(persistence.getWorkspaceUiSnapshot(workspace.id));
@@ -632,7 +746,7 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
 
     return workspaceDefinitions.some((definition) => {
       const workspaceState = runtime.getState(definition.id);
-      return workspaceState.isRunning || workspaceState.isExporting || workspaceState.isBatchSpeakerRunning;
+      return workspaceState.isRunning || workspaceState.isExporting || workspaceState.isBatchSpeakerRunning || runtime.isVoiceModelRuntimeInstalling(definition.id);
     });
   }, [runtime]);
   const [panelCollapseModes, setPanelCollapseModes] = useState<Record<string, PanelCollapseMode>>(() => initialWorkspaceUiRef.current.panelCollapseModes);
@@ -687,12 +801,39 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
   const runtimeEnvironmentStatus = runtime.getRuntimeEnvironmentStatus(workspace.id);
   const runtimeEnvironmentInstalling = runtime.isRuntimeEnvironmentInstalling(workspace.id);
   const runtimeEnvironmentVisible = Boolean(runtimeEnvironmentStatus && !runtimeEnvironmentStatus.ok);
+  const voiceModelRuntimeStatus = runtime.getVoiceModelRuntimeStatus(workspace.id);
+  const voiceModelRuntimeInstalling = runtime.isVoiceModelRuntimeInstalling(workspace.id);
+  const voiceModelRuntimeKey = useMemo(
+    () => voiceModelRuntimeKeyForWorkspace(workspace.id, runtime.settings),
+    [
+      runtime.settings.inference.gptVersion,
+      runtime.settings.inference.selectedModel,
+      runtime.settings.inference.toolRoot,
+      runtime.settings.training.gptVersion,
+      runtime.settings.training.selectedModel,
+      runtime.settings.training.toolRoot,
+      workspace.id,
+    ],
+  );
+  const voiceModelRuntimeVisible = Boolean(
+    voiceModelRuntimeKey
+      && runtimeEnvironmentStatus?.ok === true
+      && voiceModelRuntimeStatus
+      && voiceModelRuntimeStatusMatchesKey(voiceModelRuntimeStatus, voiceModelRuntimeKey)
+      && !voiceModelRuntimeStatus.ok,
+  );
 
   useEffect(() => {
     if (!runtime.guideMode) {
       void runtime.checkRuntimeEnvironment(workspace.id);
     }
   }, [runtime.checkRuntimeEnvironment, runtime.guideMode, workspace.id]);
+
+  useEffect(() => {
+    if (!runtime.guideMode && runtimeEnvironmentStatus?.ok === true && voiceModelRuntimeKey) {
+      void runtime.checkVoiceModelRuntime(workspace.id);
+    }
+  }, [runtime.checkVoiceModelRuntime, runtime.guideMode, runtimeEnvironmentStatus?.ok, voiceModelRuntimeKey, workspace.id]);
 
   useEffect(() => {
     persistence.recordWorkspaceUiSnapshot(workspace.id, {
@@ -796,11 +937,14 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
               terminalBubblePinned={terminalDockVisible && (terminalBubblePinned || guideTerminalOpen)}
               runtimeEnvironmentStatus={runtimeEnvironmentStatus}
               runtimeEnvironmentInstalling={runtimeEnvironmentInstalling}
+              voiceModelRuntimeStatus={voiceModelRuntimeVisible ? voiceModelRuntimeStatus : undefined}
+              voiceModelRuntimeInstalling={voiceModelRuntimeInstalling}
               onTerminalBubblePinnedChange={(pinned) => {
                 setTerminalDockOpen(true);
                 setTerminalBubblePinned(pinned);
               }}
               onInstallRuntime={() => void runtime.installRuntimeEnvironment(workspace.id)}
+              onInstallVoiceModelRuntime={() => void runtime.installVoiceModelRuntime(workspace.id)}
               onOpenFullTerminal={() => setTerminalDialogOpen(true)}
             />
           </motion.div>
@@ -899,7 +1043,8 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.985 }}
             transition={menuMotion.transition}
-            className={cn("fixed right-6 z-[2100]", runtimeEnvironmentVisible ? "bottom-[78px]" : "bottom-6")}
+            className="fixed right-6 z-[2100]"
+            style={{ bottom: runtimeEnvironmentVisible || voiceModelRuntimeVisible ? 78 : 24 }}
           >
             <WorkspaceTerminalDock
               terminal={state.terminal}
@@ -931,6 +1076,25 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
               status={runtimeEnvironmentStatus}
               installing={runtimeEnvironmentInstalling}
               onInstall={() => void runtime.installRuntimeEnvironment(workspace.id)}
+              className="w-[420px]"
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+      <AnimatePresence>
+        {!compactHeader && voiceModelRuntimeVisible && voiceModelRuntimeStatus ? (
+          <motion.div
+            key={`${workspace.id}-voice-model-install-dock`}
+            initial={{ opacity: 0, y: 10, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.985 }}
+            transition={menuMotion.transition}
+            className="fixed bottom-6 right-6 z-[2100]"
+          >
+            <WorkspaceVoiceModelInstallDock
+              status={voiceModelRuntimeStatus}
+              installing={voiceModelRuntimeInstalling}
+              onInstall={() => void runtime.installVoiceModelRuntime(workspace.id)}
               className="w-[420px]"
             />
           </motion.div>

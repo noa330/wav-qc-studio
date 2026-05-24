@@ -1,10 +1,11 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronRight, Terminal, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { menuMotion, softPressTap } from "@/shared/motion";
 import type { WorkspaceTerminalState } from "../../state/workspace-runtime-store";
-import { splitTerminalLines, terminalLineToneClass, terminalStatusDotClass, terminalStatusLabel } from "./workspace-terminal-format";
+import { WorkspacePtyTerminal } from "./WorkspacePtyTerminal";
+import { terminalStatusDotClass, terminalStatusLabel } from "./workspace-terminal-format";
 
 type WorkspaceTerminalDockProps = {
   terminal: WorkspaceTerminalState;
@@ -34,7 +35,6 @@ export function WorkspaceTerminalDock({
   style,
 }: WorkspaceTerminalDockProps) {
   const [hovering, setHovering] = useState(false);
-  const lines = useMemo(() => splitTerminalLines(terminal.text).slice(-5), [terminal.text]);
   const bubbleOpen = bubblePinned || hovering;
 
   const closeBubble = () => {
@@ -82,19 +82,15 @@ export function WorkspaceTerminalDock({
                 closeBubble();
               }}
               className="absolute right-2 top-2 flex size-6 items-center justify-center rounded-[4px] text-[var(--control-arrow)] hover:bg-[var(--soft-selection-hover)] hover:text-[var(--primary-text)]"
-              aria-label="터미널 말풍선 닫기"
+              aria-label="콘솔 미리보기 닫기"
             >
               <X className="size-3.5" strokeWidth={1.8} />
             </button>
-            <div className="max-h-[132px] overflow-hidden">
-              {lines.length > 0 ? (
-                lines.map((line, index) => (
-                  <div key={`${index}-${line}`} className={cn("min-h-5 truncate whitespace-pre", terminalLineToneClass(line))}>
-                    {line || " "}
-                  </div>
-                ))
+            <div className="h-[132px] overflow-hidden rounded-[4px] bg-[#0d131c]">
+              {terminal.text.trim() ? (
+                <WorkspacePtyTerminal text={terminal.text} className="h-full w-full px-2 py-2" fontSize={12} scrollback={800} />
               ) : (
-                <div className="font-sans text-sm font-normal text-[var(--secondary-text)]">표시할 터미널 로그가 없습니다.</div>
+                <div className="flex h-full items-center font-sans text-sm font-normal text-[var(--secondary-text)]">아직 표시할 콘솔 출력이 없습니다.</div>
               )}
             </div>
             {hideCaret ? null : (
@@ -134,7 +130,7 @@ export function WorkspaceTerminalDock({
           whileTap={softPressTap}
           onClick={onOpenFull}
           className="ml-1 flex size-7 shrink-0 items-center justify-center rounded-[4px] text-[var(--control-arrow)] hover:bg-[var(--soft-selection-hover)] hover:text-[var(--primary-text)]"
-          aria-label="전체 터미널 열기"
+          aria-label="전체 콘솔 열기"
         >
           <ChevronRight className="size-4" strokeWidth={1.8} />
         </motion.button>

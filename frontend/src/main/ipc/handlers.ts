@@ -1,5 +1,5 @@
 import { app, dialog, ipcMain } from "electron";
-import { IPC_CHANNELS, type AppInfo, type AppStateSaveRequest, type AudioCropRequest, type AudioEditRequest, type CreateProjectRequest, type DialogFileSelectionOptions, type FileTreeScanOptions, type TensorBoardSessionRequest, type TrainingModelListRequest, type WorkspaceBatchSpeakerDiarizationRequest, type WorkspaceCancelRequest, type WorkspaceCancelResult, type WorkspaceExportRequest, type WorkspaceExportResult, type WorkspaceLoadRequest, type WorkspaceRunRequest, type WorkspaceRunResult } from "@shared/ipc";
+import { IPC_CHANNELS, type AppInfo, type AppStateSaveRequest, type AudioCropRequest, type AudioEditRequest, type CreateProjectRequest, type DialogFileSelectionOptions, type FileTreeScanOptions, type TensorBoardSessionRequest, type TrainingModelListRequest, type VoiceModelRuntimeRequest, type WorkspaceBatchSpeakerDiarizationRequest, type WorkspaceCancelRequest, type WorkspaceCancelResult, type WorkspaceExportRequest, type WorkspaceExportResult, type WorkspaceLoadRequest, type WorkspaceRunRequest, type WorkspaceRunResult } from "@shared/ipc";
 import { createEmptyWorkspaceTable } from "@shared/table-schemas";
 import { createStartupSplashSteps, progressForStartupStep } from "@shared/startup-splash";
 import { loadAppStateSnapshot, loadProjectStateSnapshot, saveAppStateSnapshot, saveAppStateSnapshotSync } from "../backend/app-state-store";
@@ -11,6 +11,7 @@ import { readWaveformData } from "../backend/wav-peaks";
 import { createManagedProjectFolder } from "../backend/project-workspaces";
 import { exportWorkspace } from "../backend/workspace-exporter";
 import { checkWorkspaceRuntimeEnvironment, installWorkspaceRuntimeEnvironment } from "../backend/workspace-runtime-installer";
+import { checkVoiceModelRuntime, installVoiceModelRuntime } from "../backend/voice-model-runtime";
 import { cleanupInactiveAudioConversionCaches, cleanupWorkspaceRunCaches, loadWorkspaceFromPath, resolveWorkspaceOutputPath, runBatchSpeakerDiarization, runWorkspace } from "../backend/workspace-runner";
 import { updateStartupSplashProgress } from "../startup-splash-window";
 
@@ -165,6 +166,27 @@ export function registerIpcHandlers(): void {
     }
   });
 
+  ipcMain.handle(IPC_CHANNELS.checkVoiceModelRuntime, async (_event, request: VoiceModelRuntimeRequest) => checkVoiceModelRuntime(request));
+
+  ipcMain.handle(IPC_CHANNELS.installVoiceModelRuntime, async (event, request: VoiceModelRuntimeRequest) => {
+    const controller = registerWorkspaceOperation(request.workspaceId, "modelInstall");
+    try {
+      return await installVoiceModelRuntime(request, (terminal) => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send(IPC_CHANNELS.runWorkspaceProgress, {
+            workspaceId: request.workspaceId,
+            table: createEmptyWorkspaceTable(request.workspaceId),
+            details: [{ label: "Model", value: "Installing" }],
+            progress: { total: 0, completed: 0, failed: 0, percent: 0 },
+            terminal,
+          });
+        }
+      }, controller.signal);
+    } finally {
+      unregisterWorkspaceOperation(request.workspaceId, "modelInstall", controller);
+    }
+  });
+
   ipcMain.handle(IPC_CHANNELS.listTrainingModels, async (_event, request: TrainingModelListRequest) => listTrainingModels(request));
 
   ipcMain.handle(IPC_CHANNELS.startTensorBoard, async (_event, request: TensorBoardSessionRequest) => startTensorBoard(request));
@@ -219,6 +241,7 @@ export function registerIpcHandlers(): void {
       cancelWorkspaceOperation(request.workspaceId, "export");
       cancelWorkspaceOperation(request.workspaceId, "batchSpeaker");
       cancelWorkspaceOperation(request.workspaceId, "runtimeInstall");
+      cancelWorkspaceOperation(request.workspaceId, "modelInstall");
     }
     return {
       ok: true,
@@ -246,6 +269,8 @@ export function registerIpcHandlers(): void {
     ipcMain.removeHandler(IPC_CHANNELS.runWorkspace);
     ipcMain.removeHandler(IPC_CHANNELS.checkWorkspaceRuntime);
     ipcMain.removeHandler(IPC_CHANNELS.installWorkspaceRuntime);
+    ipcMain.removeHandler(IPC_CHANNELS.checkVoiceModelRuntime);
+    ipcMain.removeHandler(IPC_CHANNELS.installVoiceModelRuntime);
     ipcMain.removeHandler(IPC_CHANNELS.listTrainingModels);
     ipcMain.removeHandler(IPC_CHANNELS.startTensorBoard);
     ipcMain.removeHandler(IPC_CHANNELS.runBatchSpeakerDiarization);
@@ -254,7 +279,7 @@ export function registerIpcHandlers(): void {
   });
 }
 
-type WorkspaceOperation = "run" | "export" | "batchSpeaker" | "runtimeInstall";
+type WorkspaceOperation = "run" | "export" | "batchSpeaker" | "runtimeInstall" | "modelInstall";
 
 function operationKey(workspaceId: string, operation: WorkspaceOperation): string {
   return `${workspaceId}:${operation}`;

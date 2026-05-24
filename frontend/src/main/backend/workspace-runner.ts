@@ -28,6 +28,7 @@ import { createBackendLayout } from "./project-layout";
 import { resolveManagedProjectsRoot } from "./project-workspaces";
 import { formatCommand, resolveHostLogPath, type PythonRunPlan, runPythonPlan } from "./python-runner";
 import { readWorkspaceDetails, readWorkspaceTable } from "./result-readers";
+import { readRawTerminalSnapshot } from "./terminal-log";
 import { assertTrainingDatasetExtension, loadTrainingDatasetPreview } from "./voice-training-dataset";
 
 const SLICER_OUTPUT_FOLDER = "_slicer_results";
@@ -42,7 +43,6 @@ const LOCAL_AUDIO_INPUT_CONVERSION_FOLDER = "_converted_audio";
 const activeAudioCachesFileName = "active-audio-caches.json";
 const activeAudioCachesSchemaVersion = 1;
 const FIRERED_FRAME_MS = 10;
-const TERMINAL_SNAPSHOT_CHAR_LIMIT = 60000;
 const audioConversionSelections = new Map<WorkspaceId, ActiveAudioCacheRecord>();
 const audioConversionWorkspaceIds = new Set<WorkspaceId>(["slice", "tagging", "speaker", "overview", "batch", "training", "inference"]);
 const WORD_ALIGNMENT_LANGUAGE_CODES = new Set([
@@ -231,98 +231,13 @@ function startRunProgressPolling(workspaceId: WorkspaceId, plan: PythonRunPlan, 
 
 async function readRunTerminalSnapshot(plan: PythonRunPlan): Promise<WorkspaceTerminalUpdate | undefined> {
   const hostLogPath = resolveHostLogPath(plan.logPath);
-  const hostLog = await readTextIfExists(hostLogPath);
-  const backendLog = await readTextIfExists(plan.logPath);
-  const text = limitTerminalText(normalizeTerminalText(hostLog || backendLog));
-  if (!text.trim()) {
-    return undefined;
-  }
-
-  return {
-    text,
+  return readRawTerminalSnapshot({
+    primaryLogPath: hostLogPath,
+    fallbackLogPath: plan.logPath,
     logPath: hostLogPath,
     backendLogPath: plan.logPath,
     command: formatCommand(plan.pythonPath, plan.args),
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-async function readTextIfExists(path: string): Promise<string> {
-  try {
-    return await readFile(path, "utf8");
-  } catch {
-    return "";
-  }
-}
-
-function limitTerminalText(text: string): string {
-  if (text.length <= TERMINAL_SNAPSHOT_CHAR_LIMIT) {
-    return text;
-  }
-
-  return `... 이전 로그 생략 ...\r\n${text.slice(-TERMINAL_SNAPSHOT_CHAR_LIMIT)}`;
-}
-
-function normalizeTerminalText(text: string): string {
-  const lines: string[] = [];
-  let current = "";
-  let cursor = 0;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index];
-    if (char === "\r") {
-      if (text[index + 1] === "\n") {
-        lines.push(current.trimEnd());
-        current = "";
-        cursor = 0;
-        index += 1;
-      } else {
-        current = "";
-        cursor = 0;
-      }
-      continue;
-    }
-
-    if (char === "\n") {
-      lines.push(current.trimEnd());
-      current = "";
-      cursor = 0;
-      continue;
-    }
-
-    if (cursor >= current.length) {
-      current += char;
-    } else {
-      current = `${current.slice(0, cursor)}${char}${current.slice(cursor + 1)}`;
-    }
-    cursor += 1;
-  }
-
-  if (current) {
-    lines.push(current.trimEnd());
-  }
-
-  return collapseBlankTerminalLines(lines).join("\n");
-}
-
-function collapseBlankTerminalLines(lines: string[]): string[] {
-  const collapsed: string[] = [];
-  let blankCount = 0;
-
-  for (const line of lines) {
-    if (line.trim()) {
-      collapsed.push(line);
-      blankCount = 0;
-      continue;
-    }
-
-    blankCount += 1;
-    if (blankCount <= 1) {
-      collapsed.push("");
-    }
-  }
-
-  return collapsed;
+  });
 }
 
 async function readWorkspaceProgress(plan: PythonRunPlan, table: DataTable): Promise<WorkspaceProgress> {

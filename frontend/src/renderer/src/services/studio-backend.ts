@@ -1,4 +1,4 @@
-import type { AppStateSaveRequest, AudioCropRequest, AudioEditRequest, CreateProjectRequest, DialogFileSelectionOptions, FileTreeScanOptions, ProjectStateLoadRequest, StartupSplashProgress, TensorBoardSessionRequest, WorkspaceBatchSpeakerDiarizationRequest, WorkspaceCancelRequest, WorkspaceExportProgressEvent, WorkspaceExportRequest, WorkspaceLoadRequest, WorkspaceRunProgressEvent, WorkspaceRunRequest, WorkspaceRuntimeEnvironmentRequest } from "@shared/ipc";
+import type { AppStateSaveRequest, AudioCropRequest, AudioEditRequest, CreateProjectRequest, DialogFileSelectionOptions, FileTreeScanOptions, ProjectStateLoadRequest, StartupSplashProgress, TensorBoardSessionRequest, VoiceModelRuntimeRequest, WorkspaceBatchSpeakerDiarizationRequest, WorkspaceCancelRequest, WorkspaceExportProgressEvent, WorkspaceExportRequest, WorkspaceLoadRequest, WorkspaceRunProgressEvent, WorkspaceRunRequest, WorkspaceRuntimeEnvironmentRequest } from "@shared/ipc";
 
 export const studioBackend = {
   getAppInfo: () => window.studioBackend.getAppInfo(),
@@ -19,6 +19,8 @@ export const studioBackend = {
   runWorkspace: (request: WorkspaceRunRequest) => window.studioBackend.runWorkspace(request),
   checkWorkspaceRuntime: (request: WorkspaceRuntimeEnvironmentRequest) => window.studioBackend.checkWorkspaceRuntime(request),
   installWorkspaceRuntime: (request: WorkspaceRuntimeEnvironmentRequest) => window.studioBackend.installWorkspaceRuntime(request),
+  checkVoiceModelRuntime: (request: VoiceModelRuntimeRequest) => window.studioBackend.checkVoiceModelRuntime(request),
+  installVoiceModelRuntime: (request: VoiceModelRuntimeRequest) => window.studioBackend.installVoiceModelRuntime(request),
   listTrainingModels: (request: Parameters<typeof window.studioBackend.listTrainingModels>[0]) => window.studioBackend.listTrainingModels(request),
   startTensorBoard: (request: TensorBoardSessionRequest) => window.studioBackend.startTensorBoard(request),
   runBatchSpeakerDiarization: (request: WorkspaceBatchSpeakerDiarizationRequest) => window.studioBackend.runBatchSpeakerDiarization(request),

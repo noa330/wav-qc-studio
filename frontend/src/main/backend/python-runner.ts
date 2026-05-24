@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
-import { appendFile, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { WorkspaceId, WorkspaceRunMetadata } from "@shared/ipc";
+import { runPtyCommand } from "./pty-runner";
+import { readTextIfExists } from "./terminal-log";
 
 const BLOCKED_LOCAL_PROXY_PATTERN = /^https?:\/\/127\.0\.0\.1:9\/?$/iu;
 const PROXY_ENV_NAMES = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"] as const;
@@ -61,45 +63,15 @@ export async function runPythonPlan(plan: PythonRunPlan): Promise<PythonRunOutco
       };
     }
 
-    const child = spawn(plan.pythonPath, plan.args, {
+    const outcome = await runPtyCommand({
+      file: plan.pythonPath,
+      args: plan.args,
       cwd: plan.projectRoot,
-      windowsHide: true,
       env: createBackendEnvironment(),
+      logPath: hostLogPath,
+      signal: plan.signal,
     });
-    const removeProcessAbortListener = installProcessAbortHandler(plan.signal, child, hostLogPath);
-    let pendingHostLogWrite = Promise.resolve();
-    const queueHostLogAppend = (text: string) => {
-      pendingHostLogWrite = pendingHostLogWrite
-        .then(() => appendHostLog(hostLogPath, text))
-        .catch(() => undefined);
-    };
-
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => {
-      stdout += chunk;
-      queueHostLogAppend(chunk);
-    });
-    child.stderr.on("data", (chunk: string) => {
-      stderr += chunk;
-      queueHostLogAppend(chunk);
-    });
-
-    let rawExitCode = 1;
-    try {
-      rawExitCode = await new Promise<number>((resolve, reject) => {
-        child.on("error", reject);
-        child.on("close", (code) => resolve(code ?? 1));
-      });
-    } finally {
-      removeProcessAbortListener();
-    }
-
-    const exitCode = plan.signal?.aborted ? 130 : rawExitCode;
-    await pendingHostLogWrite;
+    const exitCode = outcome.exitCode;
     await appendHostLog(hostLogPath, `\r\n--- Python process exited with code ${exitCode} ---\r\n`);
     const hostLog = await readTextIfExists(hostLogPath);
     const backendLog = await readTextIfExists(plan.logPath);
@@ -107,8 +79,8 @@ export async function runPythonPlan(plan: PythonRunPlan): Promise<PythonRunOutco
 
     return {
       exitCode,
-      stdout: combinedLog || stdout,
-      stderr: exitCode === 0 ? stderr : lastLines([stderr, combinedLog || stdout].filter(Boolean).join("\n"), 28),
+      stdout: combinedLog || outcome.output,
+      stderr: exitCode === 0 ? "" : lastLines([combinedLog || outcome.output].filter(Boolean).join("\n"), 28),
       metadata: createMetadata(plan, hostLogPath),
     };
   } finally {
@@ -322,14 +294,6 @@ export function createBackendEnvironment(): NodeJS.ProcessEnv {
 
 function isBlockedLocalProxy(value: string | undefined): boolean {
   return BLOCKED_LOCAL_PROXY_PATTERN.test(value ?? "");
-}
-
-async function readTextIfExists(path: string): Promise<string> {
-  try {
-    return await readFile(path, "utf8");
-  } catch {
-    return "";
-  }
 }
 
 export function resolveHostLogPath(logPath: string): string {

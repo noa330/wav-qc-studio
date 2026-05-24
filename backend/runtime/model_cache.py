@@ -3,13 +3,10 @@ from __future__ import annotations
 import fnmatch
 import os
 import re
-import shutil
-import time
-import urllib.request
 from pathlib import Path
 from typing import Any, Callable
 
-from ..console_ui import DownloadProgress
+from ..downloads import download_url_to_path, is_download_complete
 
 LogFn = Callable[[str], None]
 
@@ -159,57 +156,22 @@ def _download_hf_file(
     from huggingface_hub import hf_hub_url
 
     target_path = target_dir / filename
-    if target_path.exists() and target_path.stat().st_size > 0:
+    if is_download_complete(target_path):
         if log is not None:
             log(f"[model cache ready] {label}: {filename}")
         return str(target_path)
 
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = target_path.with_suffix(target_path.suffix + ".part")
-    if temp_path.exists():
-        temp_path.unlink()
-
     url = hf_hub_url(repo_id=repo_id, filename=filename, revision=revision, repo_type=repo_type)
-    progress = DownloadProgress(f"{label} {Path(filename).name}")
     if log is not None:
         log(f"[model download] {label}: {filename}")
 
-    try:
-        return _retry_download(
-            lambda: _urlretrieve_to_target(url, temp_path, target_path, progress),
-            log=log,
-            label=f"{label}: {filename}",
-        )
-    except Exception:
-        progress.finish(f"[download failed] {label} {Path(filename).name}")
-        if temp_path.exists():
-            temp_path.unlink()
-        raise
-
-
-def _urlretrieve_to_target(url: str, temp_path: Path, target_path: Path, progress: DownloadProgress) -> str:
-    if temp_path.exists():
-        temp_path.unlink()
-    urllib.request.urlretrieve(url, temp_path, reporthook=progress)
-    shutil.move(str(temp_path), str(target_path))
-    size_mb = target_path.stat().st_size / (1024 * 1024)
-    progress.finish(f"[download complete] {target_path.name} - {size_mb:.1f} MB")
-    return str(target_path)
-
-
-def _retry_download(download_fn: Callable[[], str], *, log: LogFn | None, label: str, attempts: int = 3) -> str:
-    last_error: Exception | None = None
-    for attempt in range(1, attempts + 1):
-        try:
-            return download_fn()
-        except Exception as exc:  # noqa: BLE001
-            last_error = exc
-            if attempt >= attempts:
-                break
-            if log is not None:
-                log(f"[model download retry] {label}: attempt {attempt}/{attempts} failed: {type(exc).__name__}: {exc}")
-            time.sleep(float(attempt * 2))
-    raise last_error  # type: ignore[misc]
+    return str(download_url_to_path(
+        url,
+        target_path,
+        label=f"{label} {Path(filename).name}",
+        log=log,
+        retry_label=f"{label}: {filename}",
+    ))
 
 
 def _normalize_patterns(value: Any) -> list[str]:

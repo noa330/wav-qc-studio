@@ -1,6 +1,5 @@
-import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type {
   WorkspaceId,
@@ -10,7 +9,10 @@ import type {
   WorkspaceRuntimeEnvironmentStatus,
   WorkspaceTerminalUpdate,
 } from "@shared/ipc";
+import { createBackendEnvironment } from "./python-runner";
+import { runPtyCommand } from "./pty-runner";
 import { resolveProjectRoot } from "./project-layout";
+import { readRawTerminalSnapshot, readTextIfExists } from "./terminal-log";
 
 type WorkspaceRuntimeProgressHandler = (terminal: WorkspaceTerminalUpdate) => void;
 
@@ -81,44 +83,25 @@ export async function installWorkspaceRuntimeEnvironment(
     "",
   ].join("\r\n"), "utf8");
 
-  const appendLog = async (chunk: string) => {
-    await writeFile(logPath, chunk, { encoding: "utf8", flag: "a" });
-  };
-
-  const child = spawn(powershell, args, {
-    cwd: projectRoot,
-    windowsHide: true,
-    env: {
-      ...process.env,
-      PYTHONUTF8: "1",
-      PYTHONIOENCODING: "utf-8",
-    },
-  });
-
   const progressTimer = setInterval(() => {
     void emitInstallProgress(logPath, command, onProgress);
   }, 650);
   void emitInstallProgress(logPath, command, onProgress);
 
-  const abort = () => {
-    if (!child.killed) {
-      child.kill();
-    }
-  };
-  signal?.addEventListener("abort", abort);
-
   try {
-    child.stdout?.on("data", (chunk: Buffer) => {
-      void appendLog(chunk.toString("utf8"));
+    const outcome = await runPtyCommand({
+      file: powershell,
+      args,
+      cwd: projectRoot,
+      env: {
+        ...createBackendEnvironment(),
+        PYTHONUTF8: "1",
+        PYTHONIOENCODING: "utf-8",
+      },
+      logPath,
+      signal,
     });
-    child.stderr?.on("data", (chunk: Buffer) => {
-      void appendLog(chunk.toString("utf8"));
-    });
-
-    const exitCode = await new Promise<number>((resolve) => {
-      child.on("close", (code) => resolve(signal?.aborted ? 130 : code ?? 1));
-      child.on("error", () => resolve(1));
-    });
+    const exitCode = outcome.exitCode;
     clearInterval(progressTimer);
     await emitInstallProgress(logPath, command, onProgress);
 
@@ -138,7 +121,6 @@ export async function installWorkspaceRuntimeEnvironment(
     };
   } finally {
     clearInterval(progressTimer);
-    signal?.removeEventListener("abort", abort);
   }
 }
 
@@ -175,30 +157,17 @@ async function emitInstallProgress(logPath: string, command: string, onProgress?
     return;
   }
 
-  const text = await readTextIfExists(logPath);
-  if (!text.trim()) {
-    return;
-  }
-
-  onProgress({
-    text: normalizeTerminalText(text),
+  const terminal = await readRawTerminalSnapshot({
+    primaryLogPath: logPath,
     logPath,
     backendLogPath: logPath,
     command,
-    updatedAt: new Date().toISOString(),
   });
-}
-
-async function readTextIfExists(path: string): Promise<string> {
-  try {
-    return await readFile(path, "utf8");
-  } catch {
-    return "";
+  if (!terminal) {
+    return;
   }
-}
 
-function normalizeTerminalText(text: string): string {
-  return text.replace(/\r\n/gu, "\n").replace(/\r/gu, "\n");
+  onProgress(terminal);
 }
 
 function lastLines(text: string, count: number): string {

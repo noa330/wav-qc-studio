@@ -19,6 +19,8 @@ import type {
   FileTreeResult,
   TrainingCheckpointSummary,
   TrainingModelSummary,
+  VoiceModelRuntimeInstallResult,
+  VoiceModelRuntimeStatus,
   WorkspaceExportProgressEvent,
   WorkspaceExportResult,
   WorkspaceId,
@@ -142,6 +144,10 @@ export type WorkspaceRuntime = {
   isRuntimeEnvironmentInstalling: (workspaceId: WorkspaceId) => boolean;
   checkRuntimeEnvironment: (workspaceId: WorkspaceId) => Promise<WorkspaceRuntimeEnvironmentStatus | undefined>;
   installRuntimeEnvironment: (workspaceId: WorkspaceId) => Promise<void>;
+  getVoiceModelRuntimeStatus: (workspaceId: WorkspaceId) => VoiceModelRuntimeStatus | undefined;
+  isVoiceModelRuntimeInstalling: (workspaceId: WorkspaceId) => boolean;
+  checkVoiceModelRuntime: (workspaceId: WorkspaceId) => Promise<VoiceModelRuntimeStatus | undefined>;
+  installVoiceModelRuntime: (workspaceId: WorkspaceId) => Promise<void>;
   syncTrainingModelCheckpoints: (model: TrainingModelSummary | undefined, settingsOverride?: WorkspaceSettings["training"], options?: { activate?: boolean }) => void;
 };
 
@@ -158,6 +164,7 @@ type WorkspaceRowsClipboard = {
 
 const GPT_SOVITS_CHECKPOINT_POLL_MS = 2500;
 const TERMINAL_TEXT_LIMIT = 60000;
+const VOICE_MODEL_RUNTIME_INSTALLING_STATUS = "모델 설치 중";
 
 const WorkspaceRuntimeContext = createContext<WorkspaceRuntime | null>(null);
 
@@ -185,9 +192,13 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
   const [states, dispatch] = useReducer(workspaceRuntimeReducer, undefined, () => initialRuntimeSnapshotRef.current.states);
   const [runtimeEnvironmentStatuses, setRuntimeEnvironmentStatuses] = useState<Partial<Record<WorkspaceId, WorkspaceRuntimeEnvironmentStatus>>>({});
   const [runtimeEnvironmentInstalling, setRuntimeEnvironmentInstalling] = useState<Partial<Record<WorkspaceId, boolean>>>({});
+  const [voiceModelRuntimeStatuses, setVoiceModelRuntimeStatuses] = useState<Record<string, VoiceModelRuntimeStatus>>({});
+  const [voiceModelRuntimeInstalling, setVoiceModelRuntimeInstalling] = useState<Partial<Record<WorkspaceId, boolean>>>({});
   const statesRef = useRef(states);
   const runtimeEnvironmentStatusesRef = useRef(runtimeEnvironmentStatuses);
   const runtimeEnvironmentInstallingRef = useRef(runtimeEnvironmentInstalling);
+  const voiceModelRuntimeStatusesRef = useRef(voiceModelRuntimeStatuses);
+  const voiceModelRuntimeInstallingRef = useRef(voiceModelRuntimeInstalling);
   const settingsRef = useRef(settings);
   const cancelVersionRef = useRef<Partial<Record<WorkspaceId, number>>>({});
   const activeRunSessionRef = useRef<Partial<Record<WorkspaceId, WorkspaceRunSession>>>({});
@@ -196,6 +207,8 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
   const inputTreeRevealTimerRef = useRef<Partial<Record<WorkspaceId, ReturnType<typeof setTimeout>>>>({});
   const fileBrowserWindowTokenRef = useRef<Record<string, number>>({});
   const activeProjectRoot = persistence.activeProject.rootPath;
+
+  settingsRef.current = settings;
 
   useEffect(() => {
     statesRef.current = states;
@@ -208,6 +221,14 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
   useEffect(() => {
     runtimeEnvironmentInstallingRef.current = runtimeEnvironmentInstalling;
   }, [runtimeEnvironmentInstalling]);
+
+  useEffect(() => {
+    voiceModelRuntimeStatusesRef.current = voiceModelRuntimeStatuses;
+  }, [voiceModelRuntimeStatuses]);
+
+  useEffect(() => {
+    voiceModelRuntimeInstallingRef.current = voiceModelRuntimeInstalling;
+  }, [voiceModelRuntimeInstalling]);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -414,7 +435,8 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       const acceptsProgress = state.isRunning || (progress.workspaceId === "batch" && state.isBatchSpeakerRunning);
       const acceptsLoadTerminal = state.statusText === "Loading" || state.statusText === "Converting audio";
       const acceptsRuntimeInstallTerminal = state.statusText === "런타임 설치 중";
-      if (!acceptsProgress && acceptsRuntimeInstallTerminal && progress.terminal) {
+      const acceptsVoiceModelInstallTerminal = state.statusText === VOICE_MODEL_RUNTIME_INSTALLING_STATUS;
+      if (!acceptsProgress && (acceptsRuntimeInstallTerminal || acceptsVoiceModelInstallTerminal) && progress.terminal) {
         updateState(progress.workspaceId, {
           progressPercent: progress.progress.percent,
           progress: progress.progress,
@@ -770,6 +792,95 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       }
     },
     [checkRuntimeEnvironment, updateState],
+  );
+
+  const checkVoiceModelRuntime = useCallback(
+    async (workspaceId: WorkspaceId) => {
+      if (!isVoiceModelWorkspace(workspaceId)) {
+        return undefined;
+      }
+
+      const requestSettings = settingsRef.current;
+      const requestKey = voiceModelRuntimeSettingsKey(workspaceId, requestSettings);
+      try {
+        const status = await studioBackend.checkVoiceModelRuntime({ workspaceId, settings: requestSettings });
+        const currentKey = voiceModelRuntimeSettingsKey(workspaceId, settingsRef.current);
+        if (status.settingsKey !== requestKey || status.settingsKey !== currentKey) {
+          return undefined;
+        }
+
+        setVoiceModelRuntimeStatuses((current) => ({ ...current, [status.settingsKey]: status }));
+        if (!status.ok && !voiceModelRuntimeInstallingRef.current[workspaceId]) {
+          const state = statesRef.current[workspaceId];
+          if (!state.isRunning && !state.isExporting && !state.isBatchSpeakerRunning) {
+            updateState(workspaceId, { statusText: "모델 없음" });
+          }
+        }
+        return status;
+      } catch {
+        return requestKey ? voiceModelRuntimeStatusesRef.current[requestKey] : undefined;
+      }
+    },
+    [updateState],
+  );
+
+  const installVoiceModelRuntime = useCallback(
+    async (workspaceId: WorkspaceId) => {
+      if (!isVoiceModelWorkspace(workspaceId) || voiceModelRuntimeInstallingRef.current[workspaceId]) {
+        return;
+      }
+
+      const runtimeStatus = await checkRuntimeEnvironment(workspaceId);
+      if (runtimeStatus && !runtimeStatus.ok) {
+        return;
+      }
+
+      const status = await checkVoiceModelRuntime(workspaceId);
+      if (status?.ok) {
+        return;
+      }
+
+      setVoiceModelRuntimeInstalling((current) => ({ ...current, [workspaceId]: true }));
+      const state = statesRef.current[workspaceId];
+      updateState(workspaceId, {
+        statusText: VOICE_MODEL_RUNTIME_INSTALLING_STATUS,
+        progressPercent: 0,
+        progress: undefined,
+        error: undefined,
+        terminal: createTerminalStartState(`${workspaceId} 모델 설치 시작`),
+        terminalOpenRequestId: state.terminalOpenRequestId + 1,
+      });
+
+      try {
+        const installSettings = settingsRef.current;
+        const installKey = voiceModelRuntimeSettingsKey(workspaceId, installSettings);
+        const result = await studioBackend.installVoiceModelRuntime({ workspaceId, settings: installSettings });
+        if (result.status.settingsKey === installKey && result.status.settingsKey === voiceModelRuntimeSettingsKey(workspaceId, settingsRef.current)) {
+          setVoiceModelRuntimeStatuses((current) => ({ ...current, [result.status.settingsKey]: result.status }));
+        }
+        updateState(workspaceId, {
+          statusText: result.ok ? "모델 준비 완료" : "모델 설치 실패",
+          error: result.ok ? undefined : result.error ?? "모델 설치에 실패했습니다.",
+          progressPercent: result.ok ? 100 : statesRef.current[workspaceId].progressPercent,
+          terminal: createTerminalFromVoiceModelInstallResult(result),
+        });
+      } catch (error) {
+        updateState(workspaceId, {
+          statusText: "모델 설치 실패",
+          error: error instanceof Error ? error.message : String(error),
+          terminal: {
+            ...statesRef.current[workspaceId].terminal,
+            text: error instanceof Error ? error.message : String(error),
+            status: "failed",
+            updatedAt: new Date().toISOString(),
+          },
+        });
+      } finally {
+        setVoiceModelRuntimeInstalling((current) => ({ ...current, [workspaceId]: false }));
+        void checkVoiceModelRuntime(workspaceId);
+      }
+    },
+    [checkRuntimeEnvironment, checkVoiceModelRuntime, updateState],
   );
 
   const cancelWorkspace = useCallback(
@@ -1777,6 +1888,10 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       if (runtimeStatus && !runtimeStatus.ok) {
         return;
       }
+      const voiceModelStatus = await checkVoiceModelRuntime(workspaceId);
+      if (voiceModelStatus && !voiceModelStatus.ok) {
+        return;
+      }
 
       const emptyTable = workspaceId === "training"
         ? createTrainingTableForModel(settings.training.selectedModel)
@@ -1916,7 +2031,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         }));
       }
     },
-    [checkRuntimeEnvironment, createWorkspacePaths, replaceState, setSettings, updateSheetByIdState, updateState],
+    [checkRuntimeEnvironment, checkVoiceModelRuntime, createWorkspacePaths, replaceState, setSettings, updateSheetByIdState, updateState],
   );
 
   const retry = useCallback(
@@ -1929,6 +2044,10 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       }
       const runtimeStatus = await checkRuntimeEnvironment(workspaceId);
       if (runtimeStatus && !runtimeStatus.ok) {
+        return;
+      }
+      const voiceModelStatus = await checkVoiceModelRuntime(workspaceId);
+      if (voiceModelStatus && !voiceModelStatus.ok) {
         return;
       }
 
@@ -2041,7 +2160,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         }));
       }
     },
-    [checkRuntimeEnvironment, createWorkspacePaths, setSettings, updateSheetByIdState, updateState],
+    [checkRuntimeEnvironment, checkVoiceModelRuntime, createWorkspacePaths, setSettings, updateSheetByIdState, updateState],
   );
 
   const exportWorkspace = useCallback(
@@ -2118,10 +2237,10 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       deleteSheet,
       copyRows,
       pasteRows,
-      canRun: (workspaceId: WorkspaceId) => Boolean(states[workspaceId].inputPath) && !states[workspaceId].isRunning && !states[workspaceId].isExporting && !states[workspaceId].isBatchSpeakerRunning && !runtimeEnvironmentInstalling[workspaceId],
+      canRun: (workspaceId: WorkspaceId) => Boolean(states[workspaceId].inputPath) && !states[workspaceId].isRunning && !states[workspaceId].isExporting && !states[workspaceId].isBatchSpeakerRunning && !runtimeEnvironmentInstalling[workspaceId] && !voiceModelRuntimeInstalling[workspaceId],
       canRetry: (workspaceId: WorkspaceId) => {
         const state = states[workspaceId];
-        return Boolean(state.inputPath) && !state.isRunning && !state.isExporting && !state.isBatchSpeakerRunning && sheetCanRetry(activeSheet(state));
+        return Boolean(state.inputPath) && !state.isRunning && !state.isExporting && !state.isBatchSpeakerRunning && !voiceModelRuntimeInstalling[workspaceId] && sheetCanRetry(activeSheet(state));
       },
       canExport: (workspaceId: WorkspaceId) => workspaceId !== "training" && Boolean(states[workspaceId].inputPath) && states[workspaceId].table.rows.length > 0 && !states[workspaceId].isRunning && !states[workspaceId].isExporting && !states[workspaceId].isBatchSpeakerRunning,
       cancelWorkspace,
@@ -2156,9 +2275,16 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       isRuntimeEnvironmentInstalling: (workspaceId: WorkspaceId) => Boolean(runtimeEnvironmentInstalling[workspaceId]),
       checkRuntimeEnvironment,
       installRuntimeEnvironment,
+      getVoiceModelRuntimeStatus: (workspaceId: WorkspaceId) => {
+        const key = voiceModelRuntimeSettingsKey(workspaceId, settings);
+        return key ? voiceModelRuntimeStatuses[key] : undefined;
+      },
+      isVoiceModelRuntimeInstalling: (workspaceId: WorkspaceId) => Boolean(voiceModelRuntimeInstalling[workspaceId]),
+      checkVoiceModelRuntime,
+      installVoiceModelRuntime,
       syncTrainingModelCheckpoints,
     }),
-    [addSliceSegment, cancelBatchSpeakerDiarization, cancelWorkspace, checkRuntimeEnvironment, clearError, clearTerminal, copyRows, createSheet, deleteSheet, deleteSliceSegment, editBatchCell, exportWorkspace, getMetrics, getTable, installRuntimeEnvironment, loadFileBrowserWindow, mergeEnabledBatchSpeakers, mergeSliceSegments, overviewFilter, pasteRows, retry, rowsClipboard, run, runBatchSpeakerDiarization, runtimeEnvironmentInstalling, runtimeEnvironmentStatuses, selectAdjacentRow, selectFileNode, selectInputFolder, selectOutputFolder, selectRow, selectRows, selectSheet, setAllRowExportChecks, setBatchFilter, setRowsExportChecks, setTableSearch, settings, splitOrUnmergeSliceSegment, states, syncTrainingModelCheckpoints, tagScoreRules, toggleBatchSpeaker, toggleRowExportCheck, updateSliceSegmentBounds],
+    [addSliceSegment, cancelBatchSpeakerDiarization, cancelWorkspace, checkRuntimeEnvironment, checkVoiceModelRuntime, clearError, clearTerminal, copyRows, createSheet, deleteSheet, deleteSliceSegment, editBatchCell, exportWorkspace, getMetrics, getTable, installRuntimeEnvironment, installVoiceModelRuntime, loadFileBrowserWindow, mergeEnabledBatchSpeakers, mergeSliceSegments, overviewFilter, pasteRows, retry, rowsClipboard, run, runBatchSpeakerDiarization, runtimeEnvironmentInstalling, runtimeEnvironmentStatuses, selectAdjacentRow, selectFileNode, selectInputFolder, selectOutputFolder, selectRow, selectRows, selectSheet, setAllRowExportChecks, setBatchFilter, setRowsExportChecks, setTableSearch, settings, splitOrUnmergeSliceSegment, states, syncTrainingModelCheckpoints, tagScoreRules, toggleBatchSpeaker, toggleRowExportCheck, updateSliceSegmentBounds, voiceModelRuntimeInstalling, voiceModelRuntimeStatuses],
   );
 }
 
@@ -2770,6 +2896,34 @@ function trainingStatusText(status: string): string {
   }
 }
 
+function isVoiceModelWorkspace(workspaceId: WorkspaceId): workspaceId is "training" | "inference" {
+  return workspaceId === "training" || workspaceId === "inference";
+}
+
+function voiceModelRuntimeSettingsKey(workspaceId: WorkspaceId, settings: WorkspaceSettings): string | undefined {
+  if (workspaceId === "training") {
+    const selectedModel = settings.training.selectedModel === "omnivoice" ? "omnivoice" : "gpt-sovits";
+    return [
+      workspaceId,
+      selectedModel,
+      settings.training.toolRoot.trim(),
+      selectedModel === "gpt-sovits" ? settings.training.gptVersion : "",
+    ].join("|");
+  }
+
+  if (workspaceId === "inference") {
+    const selectedModel = settings.inference.selectedModel === "omnivoice" ? "omnivoice" : "gpt-sovits";
+    return [
+      workspaceId,
+      selectedModel,
+      settings.inference.toolRoot.trim(),
+      selectedModel === "gpt-sovits" ? settings.inference.gptVersion : "",
+    ].join("|");
+  }
+
+  return undefined;
+}
+
 function nextAnimationFrame(): Promise<void> {
   if (typeof window === "undefined") {
     return Promise.resolve();
@@ -2843,6 +2997,18 @@ function createTerminalFromResult(result: WorkspaceRunResult, status: WorkspaceT
 
 function createTerminalFromEnvironmentInstallResult(result: WorkspaceRuntimeEnvironmentInstallResult) {
   const fallback = result.ok ? "런타임 설치가 완료되었습니다." : result.error ?? "런타임 설치에 실패했습니다.";
+  return {
+    text: limitTerminalText(result.stdout || result.stderr || fallback),
+    status: result.ok ? "completed" as const : result.exitCode === 130 ? "cancelled" as const : "failed" as const,
+    logPath: result.logPath,
+    backendLogPath: result.logPath,
+    command: result.command,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function createTerminalFromVoiceModelInstallResult(result: VoiceModelRuntimeInstallResult) {
+  const fallback = result.ok ? "모델 설치가 완료되었습니다." : result.error ?? "모델 설치에 실패했습니다.";
   return {
     text: limitTerminalText(result.stdout || result.stderr || fallback),
     status: result.ok ? "completed" as const : result.exitCode === 130 ? "cancelled" as const : "failed" as const,
