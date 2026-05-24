@@ -1,6 +1,6 @@
 {
   "name": "wav-qc-studio-electron-frontend",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Electron-only React UI shell for WAV QC Studio.",
   "private": true,
   "type": "module",

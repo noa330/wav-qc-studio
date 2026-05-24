@@ -28,8 +28,6 @@ extraResources:
       - "!**/*.pyc"
   - from: ../training/install_gpt_sovits_runtime.ps1
     to: training/install_gpt_sovits_runtime.ps1
-  - from: ../training/training.7z
-    to: training/training.7z
   - from: ../requirements.txt
     to: requirements.txt
   - from: ../requirements_noise.txt
