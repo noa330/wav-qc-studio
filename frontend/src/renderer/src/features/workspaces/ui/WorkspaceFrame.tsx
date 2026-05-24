@@ -1204,7 +1204,7 @@ function PanelCard({
   }, [isSliceEditor, persistence, sliceEditorState, workspaceId]);
   const isTablePanel = panel.kind === "table" || panel.kind === "progress";
   const measuredCollapseMode = resizeCollapseMode ?? resolveMeasuredPanelCollapseMode(collapseMode, cardSize, activeAutoCollapseSuppression);
-  const physicallyCollapsed = measuredCollapseMode !== "none";
+  const physicallyCollapsed = collapseMode !== "none" && measuredCollapseMode !== "none";
   const expanded = measuredCollapseMode === "none";
   const layoutAnimationEnabled = !layoutResizing && expanded;
   const verticalCollapsed = measuredCollapseMode === "vertical";
