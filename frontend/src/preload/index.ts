@@ -1,5 +1,26 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { IPC_CHANNELS, type AppStateSaveRequest, type AudioCropRequest, type AudioEditRequest, type CreateProjectRequest, type DialogFileSelectionOptions, type FileTreeScanOptions, type ProjectStateLoadRequest, type StartupSplashProgress, type StudioBackendApi, type TensorBoardSessionRequest, type VoiceModelRuntimeRequest, type WorkspaceBatchSpeakerDiarizationRequest, type WorkspaceCancelRequest, type WorkspaceExportProgressEvent, type WorkspaceExportRequest, type WorkspaceLoadRequest, type WorkspaceRunProgressEvent, type WorkspaceRunRequest, type WorkspaceRuntimeEnvironmentRequest } from "@shared/ipc";
+import {
+  IPC_CHANNELS,
+  type AppStateSaveRequest,
+  type AudioCropRequest,
+  type AudioEditRequest,
+  type CreateProjectRequest,
+  type DialogFileSelectionOptions,
+  type FileTreeScanOptions,
+  type ProjectStateLoadRequest,
+  type StartupSplashProgress,
+  type StudioBackendApi,
+  type TensorBoardSessionRequest,
+  type VoiceModelRuntimeRequest,
+  type WorkspaceBatchSpeakerDiarizationRequest,
+  type WorkspaceCancelRequest,
+  type WorkspaceExportProgressEvent,
+  type WorkspaceExportRequest,
+  type WorkspaceLoadRequest,
+  type WorkspaceRunProgressEvent,
+  type WorkspaceRunRequest,
+  type WorkspaceRuntimeEnvironmentRequest,
+} from "@shared/ipc";
 
 const studioBackend: StudioBackendApi = {
   getAppInfo: () => ({

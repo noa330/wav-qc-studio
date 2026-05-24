@@ -8,10 +8,9 @@ import subprocess
 import sys
 import threading
 import time
-import glob as glob_module
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, Optional
+from typing import Callable, Optional
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -43,27 +42,27 @@ if str(APP_ROOT) not in sys.path:
 
 from backend.console_ui_core import LiveConsoleLine, prepare_for_regular_output
 from backend.downloads import download_url_to_path, is_download_complete
+from backend.voice_training_checkpoints import checkpoint_number, checkpoints, newest_file
+from backend.voice_training_config import (
+    BLOCKED_NETWORK_ENV_KEYS,
+    GPT_CODE_URL,
+    GPT_CONDA_ENV_NAME,
+    GPT_HF_REPO_ID,
+    GPT_PRETRAINED,
+    GPT_REQUIREMENTS_STAMP,
+    GPT_VERSIONS,
+    MINICONDA_URL,
+    OMNI_CODE_URL,
+    OMNI_HF_REPO_ID,
+    OMNI_OFFICIAL_DEPS_STAMP,
+)
+from backend.voice_training_io import read_text_any, to_simple_yaml
 
 DEFAULT_LIST = ""
 DEFAULT_OMNI_JSONL = ""
 
-GPT_CODE_URL = "https://github.com/RVC-Boss/GPT-SoVITS.git"
-OMNI_CODE_URL = "https://github.com/k2-fsa/OmniVoice.git"
-GPT_HF_REPO_ID = "lj1995/GPT-SoVITS"
-OMNI_HF_REPO_ID = "k2-fsa/OmniVoice"
-MINICONDA_URL = "https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe"
-GPT_CONDA_ENV_NAME = "GPTSoVits"
 GPT_RUNTIME_SCRIPT = PROJECT_ROOT / "install_gpt_sovits_runtime.ps1"
 GPT_RUNTIME_MARKER = GPT_REPO / ".gpt_sovits_runtime.json"
-OMNI_OFFICIAL_DEPS_STAMP = "omnivoice-uv-sync-v1"
-GPT_REQUIREMENTS_STAMP = "gpt-sovits-official-ps1-v3"
-BLOCKED_NETWORK_ENV_KEYS = {
-    "ALL_PROXY",
-    "HTTPS_PROXY",
-    "HTTP_PROXY",
-    "NO_PROXY",
-    "PIP_NO_INDEX",
-}
 
 
 def configure_tool_root(tool_root: Path | str) -> None:
@@ -83,54 +82,6 @@ def configure_tool_root(tool_root: Path | str) -> None:
     OMNI_HF = HF_DIR / "OmniVoice"
     GPT_RUNTIME_SCRIPT = PROJECT_ROOT / "install_gpt_sovits_runtime.ps1"
     GPT_RUNTIME_MARKER = GPT_REPO / ".gpt_sovits_runtime.json"
-
-GPT_VERSIONS = ("v1", "v2", "v3", "v4", "v2Pro", "v2ProPlus")
-
-GPT_PRETRAINED = {
-    "v1": {
-        "gpt": "s1bert25hz-2kh-longer-epoch=68e-step=50232.ckpt",
-        "s2g": "s2G488k.pth",
-        "s2d": "s2D488k.pth",
-        "s2_config": "GPT_SoVITS/configs/s2.json",
-        "s2_script": "GPT_SoVITS/s2_train.py",
-    },
-    "v2": {
-        "gpt": "gsv-v2final-pretrained/s1bert25hz-5kh-longer-epoch=12-step=369668.ckpt",
-        "s2g": "gsv-v2final-pretrained/s2G2333k.pth",
-        "s2d": "gsv-v2final-pretrained/s2D2333k.pth",
-        "s2_config": "GPT_SoVITS/configs/s2.json",
-        "s2_script": "GPT_SoVITS/s2_train.py",
-    },
-    "v3": {
-        "gpt": "s1v3.ckpt",
-        "s2g": "s2Gv3.pth",
-        "s2d": "s2Dv3.pth",
-        "s2_config": "GPT_SoVITS/configs/s2.json",
-        "s2_script": "GPT_SoVITS/s2_train_v3_lora.py",
-    },
-    "v4": {
-        "gpt": "s1v3.ckpt",
-        "s2g": "gsv-v4-pretrained/s2Gv4.pth",
-        "s2d": "gsv-v4-pretrained/s2Dv4.pth",
-        "s2_config": "GPT_SoVITS/configs/s2.json",
-        "s2_script": "GPT_SoVITS/s2_train_v3_lora.py",
-    },
-    "v2Pro": {
-        "gpt": "s1v3.ckpt",
-        "s2g": "v2Pro/s2Gv2Pro.pth",
-        "s2d": "v2Pro/s2Dv2Pro.pth",
-        "s2_config": "GPT_SoVITS/configs/s2v2Pro.json",
-        "s2_script": "GPT_SoVITS/s2_train.py",
-    },
-    "v2ProPlus": {
-        "gpt": "s1v3.ckpt",
-        "s2g": "v2Pro/s2Gv2ProPlus.pth",
-        "s2d": "v2Pro/s2Dv2ProPlus.pth",
-        "s2_config": "GPT_SoVITS/configs/s2v2ProPlus.json",
-        "s2_script": "GPT_SoVITS/s2_train.py",
-    },
-}
-
 
 class ToolError(RuntimeError):
     pass
@@ -927,15 +878,6 @@ def ensure_omnivoice_assets(log: LogFn = log_print, install_deps: bool = True) -
     return py
 
 
-def read_text_any(path: Path) -> str:
-    for encoding in ("utf-8-sig", "utf-8", "cp949", "mbcs"):
-        try:
-            return path.read_text(encoding=encoding)
-        except UnicodeDecodeError:
-            continue
-    return path.read_text(encoding="utf-8", errors="replace")
-
-
 def parse_gsv_list(list_path: Path) -> list[tuple[str, str, str, str]]:
     text = read_text_any(list_path)
     rows: list[tuple[str, str, str, str]] = []
@@ -1245,48 +1187,6 @@ def apply_gpt_train_options(
     }
     config_path.write_text(to_simple_yaml(data), encoding="utf-8")
     return config_path
-
-
-def to_simple_yaml(data: dict, indent: int = 0) -> str:
-    lines: list[str] = []
-    pad = " " * indent
-    for key, value in data.items():
-        if isinstance(value, dict):
-            lines.append(f"{pad}{key}:")
-            lines.append(to_simple_yaml(value, indent + 2).rstrip())
-        else:
-            lines.append(f"{pad}{key}: {yaml_scalar(value)}")
-    return "\n".join(lines) + "\n"
-
-
-def yaml_scalar(value) -> str:
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if value is None:
-        return "null"
-    if isinstance(value, int):
-        return str(value)
-    if isinstance(value, float):
-        text = f"{value:.10f}".rstrip("0").rstrip(".")
-        return text if text else "0"
-    return json.dumps(str(value), ensure_ascii=False)
-
-
-def checkpoints(patterns: Iterable[Path]) -> list[Path]:
-    found: list[Path] = []
-    for pattern in patterns:
-        found.extend(Path(p) for p in glob_module.glob(str(pattern)))
-    return sorted([p for p in found if p.is_file()], key=lambda p: p.stat().st_mtime)
-
-
-def newest_file(patterns: Iterable[Path]) -> Optional[Path]:
-    found = checkpoints(patterns)
-    return found[-1] if found else None
-
-
-def checkpoint_number(path: Path) -> int:
-    match = re.search(r"checkpoint-(\d+)$", path.name)
-    return int(match.group(1)) if match else -1
 
 
 def omnivoice_checkpoint_dirs(out_dir: Path) -> list[Path]:

@@ -1,5 +1,25 @@
 import { app, dialog, ipcMain } from "electron";
-import { IPC_CHANNELS, type AppInfo, type AppStateSaveRequest, type AudioCropRequest, type AudioEditRequest, type CreateProjectRequest, type DialogFileSelectionOptions, type FileTreeScanOptions, type TensorBoardSessionRequest, type TrainingModelListRequest, type VoiceModelRuntimeRequest, type WorkspaceBatchSpeakerDiarizationRequest, type WorkspaceCancelRequest, type WorkspaceCancelResult, type WorkspaceExportRequest, type WorkspaceExportResult, type WorkspaceLoadRequest, type WorkspaceRunRequest, type WorkspaceRunResult } from "@shared/ipc";
+import {
+  IPC_CHANNELS,
+  type AppInfo,
+  type AppStateSaveRequest,
+  type AudioCropRequest,
+  type AudioEditRequest,
+  type CreateProjectRequest,
+  type DialogFileSelectionOptions,
+  type FileTreeScanOptions,
+  type TensorBoardSessionRequest,
+  type TrainingModelListRequest,
+  type VoiceModelRuntimeRequest,
+  type WorkspaceBatchSpeakerDiarizationRequest,
+  type WorkspaceCancelRequest,
+  type WorkspaceCancelResult,
+  type WorkspaceExportRequest,
+  type WorkspaceExportResult,
+  type WorkspaceLoadRequest,
+  type WorkspaceRunRequest,
+  type WorkspaceRunResult,
+} from "@shared/ipc";
 import { createEmptyWorkspaceTable } from "@shared/table-schemas";
 import { createStartupSplashSteps, progressForStartupStep } from "@shared/startup-splash";
 import { loadAppStateSnapshot, loadProjectStateSnapshot, saveAppStateSnapshot, saveAppStateSnapshotSync } from "../backend/app-state-store";
@@ -14,8 +34,7 @@ import { checkWorkspaceRuntimeEnvironment, installWorkspaceRuntimeEnvironment } 
 import { checkVoiceModelRuntime, installVoiceModelRuntime } from "../backend/voice-model-runtime";
 import { cleanupInactiveAudioConversionCaches, cleanupWorkspaceRunCaches, loadWorkspaceFromPath, resolveWorkspaceOutputPath, runBatchSpeakerDiarization, runWorkspace } from "../backend/workspace-runner";
 import { updateStartupSplashProgress } from "../startup-splash-window";
-
-const activeWorkspaceOperations = new Map<string, AbortController>();
+import { cancelWorkspaceOperation, registerWorkspaceOperation, unregisterWorkspaceOperation } from "./workspace-operation-registry";
 
 function formatBytes(value: number): string {
   if (!Number.isFinite(value) || value <= 0) {
@@ -277,31 +296,4 @@ export function registerIpcHandlers(): void {
     ipcMain.removeHandler(IPC_CHANNELS.exportWorkspace);
     ipcMain.removeHandler(IPC_CHANNELS.cancelWorkspace);
   });
-}
-
-type WorkspaceOperation = "run" | "export" | "batchSpeaker" | "runtimeInstall" | "modelInstall";
-
-function operationKey(workspaceId: string, operation: WorkspaceOperation): string {
-  return `${workspaceId}:${operation}`;
-}
-
-function registerWorkspaceOperation(workspaceId: string, operation: WorkspaceOperation): AbortController {
-  cancelWorkspaceOperation(workspaceId, operation);
-  const controller = new AbortController();
-  activeWorkspaceOperations.set(operationKey(workspaceId, operation), controller);
-  return controller;
-}
-
-function unregisterWorkspaceOperation(workspaceId: string, operation: WorkspaceOperation, controller: AbortController): void {
-  const key = operationKey(workspaceId, operation);
-  if (activeWorkspaceOperations.get(key) === controller) {
-    activeWorkspaceOperations.delete(key);
-  }
-}
-
-function cancelWorkspaceOperation(workspaceId: string, operation: WorkspaceOperation): void {
-  const controller = activeWorkspaceOperations.get(operationKey(workspaceId, operation));
-  if (controller && !controller.signal.aborted) {
-    controller.abort();
-  }
 }

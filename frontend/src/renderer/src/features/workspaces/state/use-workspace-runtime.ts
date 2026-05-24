@@ -17,9 +17,7 @@ import type {
   DataTableRow,
   FileTreeNode,
   FileTreeResult,
-  TrainingCheckpointSummary,
   TrainingModelSummary,
-  VoiceModelRuntimeInstallResult,
   VoiceModelRuntimeStatus,
   WorkspaceExportProgressEvent,
   WorkspaceExportResult,
@@ -27,13 +25,11 @@ import type {
   WorkspaceRunProgressEvent,
   WorkspaceRunResult,
   WorkspaceSettings,
-  WorkspaceTerminalUpdate,
-  WorkspaceRuntimeEnvironmentInstallResult,
   WorkspaceRuntimeEnvironmentStatus,
 } from "@shared/ipc";
 import type { ScrollWindowMetrics } from "@shared/scroll-window";
 import { useAppPersistence, type PersistedRuntimeSnapshot } from "@/app/app-persistence";
-import { createEmptyWorkspaceTable, workspaceTableColumns } from "@shared/table-schemas";
+import { createEmptyWorkspaceTable } from "@shared/table-schemas";
 import { studioBackend } from "@/services/studio-backend";
 import { getAudioEditExportMap } from "./audio-edit-session";
 import {
@@ -69,7 +65,6 @@ import {
   retimeSliceComponents,
   serializeSliceComponents,
   splitSingleSliceComponent,
-  type SliceComponent,
 } from "../model/slice-segments";
 import {
   activeSheet,
@@ -78,14 +73,39 @@ import {
   nextSheetLabel,
   resultSheetHasRows,
   stateWithActiveSheet,
-  terminalStateFromUpdate,
   updateActiveSheet,
   workspaceRuntimeReducer,
   type WorkspaceRuntimeState,
-  type WorkspaceTerminalStatus,
-  type WorkspaceResultSheet,
-  type WorkspaceTrainingIdentity,
 } from "./workspace-runtime-store";
+import { createSliceComponentRow, createSliceRowIdAllocator, reindexSliceRows } from "./runtime/slice-table-rows";
+import {
+  createTerminalFromEnvironmentInstallResult,
+  createTerminalFromLogPath,
+  createTerminalFromResult,
+  createTerminalFromUpdate,
+  createTerminalFromVoiceModelInstallResult,
+  createTerminalStartState,
+  firstNonEmpty,
+  formatSecondsCell,
+  shortName,
+} from "./runtime/terminal-state";
+import {
+  applyTrainingIdentityToSettings,
+  createTrainingTableForModel,
+  findTrainingModelByName,
+  findTrainingSheetByIdentity,
+  hasNewTrainingRows,
+  mergeTrainingRows,
+  resolveTrainingIdentityFromSheet,
+  sameGptSovitsWatchTarget,
+  settingsWithTrainingSheet,
+  trainingCheckpointRows,
+  trainingIdentityFromSettings,
+  trainingModelMatchesIdentity,
+  trainingSheetMatchesIdentity,
+  trainingStatusText,
+  withTrainingTableModel,
+} from "./runtime/training-tables";
 
 export type { WorkspaceRuntimeState } from "./workspace-runtime-store";
 
@@ -163,7 +183,6 @@ type WorkspaceRowsClipboard = {
 };
 
 const GPT_SOVITS_CHECKPOINT_POLL_MS = 2500;
-const TERMINAL_TEXT_LIMIT = 60000;
 const VOICE_MODEL_RUNTIME_INSTALLING_STATUS = "모델 설치 중";
 
 const WorkspaceRuntimeContext = createContext<WorkspaceRuntime | null>(null);
@@ -2284,7 +2303,57 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       installVoiceModelRuntime,
       syncTrainingModelCheckpoints,
     }),
-    [addSliceSegment, cancelBatchSpeakerDiarization, cancelWorkspace, checkRuntimeEnvironment, checkVoiceModelRuntime, clearError, clearTerminal, copyRows, createSheet, deleteSheet, deleteSliceSegment, editBatchCell, exportWorkspace, getMetrics, getTable, installRuntimeEnvironment, installVoiceModelRuntime, loadFileBrowserWindow, mergeEnabledBatchSpeakers, mergeSliceSegments, overviewFilter, pasteRows, retry, rowsClipboard, run, runBatchSpeakerDiarization, runtimeEnvironmentInstalling, runtimeEnvironmentStatuses, selectAdjacentRow, selectFileNode, selectInputFolder, selectOutputFolder, selectRow, selectRows, selectSheet, setAllRowExportChecks, setBatchFilter, setRowsExportChecks, setTableSearch, settings, splitOrUnmergeSliceSegment, states, syncTrainingModelCheckpoints, tagScoreRules, toggleBatchSpeaker, toggleRowExportCheck, updateSliceSegmentBounds, voiceModelRuntimeInstalling, voiceModelRuntimeStatuses],
+    [
+      addSliceSegment,
+      cancelBatchSpeakerDiarization,
+      cancelWorkspace,
+      checkRuntimeEnvironment,
+      checkVoiceModelRuntime,
+      clearError,
+      clearTerminal,
+      copyRows,
+      createSheet,
+      deleteSheet,
+      deleteSliceSegment,
+      editBatchCell,
+      exportWorkspace,
+      getMetrics,
+      getTable,
+      installRuntimeEnvironment,
+      installVoiceModelRuntime,
+      loadFileBrowserWindow,
+      mergeEnabledBatchSpeakers,
+      mergeSliceSegments,
+      overviewFilter,
+      pasteRows,
+      retry,
+      rowsClipboard,
+      run,
+      runBatchSpeakerDiarization,
+      runtimeEnvironmentInstalling,
+      runtimeEnvironmentStatuses,
+      selectAdjacentRow,
+      selectFileNode,
+      selectInputFolder,
+      selectOutputFolder,
+      selectRow,
+      selectRows,
+      selectSheet,
+      setAllRowExportChecks,
+      setBatchFilter,
+      setRowsExportChecks,
+      setTableSearch,
+      settings,
+      splitOrUnmergeSliceSegment,
+      states,
+      syncTrainingModelCheckpoints,
+      tagScoreRules,
+      toggleBatchSpeaker,
+      toggleRowExportCheck,
+      updateSliceSegmentBounds,
+      voiceModelRuntimeInstalling,
+      voiceModelRuntimeStatuses,
+    ],
   );
 }
 
@@ -2320,238 +2389,6 @@ function toggleSelectedRowId(selectedRowIds: string[], rowId: string): string[] 
 
   const nextSelectedRowIds = selectedRowIds.filter((selectedRowId) => selectedRowId !== rowId);
   return nextSelectedRowIds.length > 0 ? nextSelectedRowIds : [rowId];
-}
-
-function createTrainingTableForModel(
-  selectedModel: WorkspaceTrainingIdentity["selectedModel"],
-  rows: DataTableRow[] = [],
-): DataTable {
-  return withTrainingTableModel({ ...createEmptyWorkspaceTable("training"), rows }, selectedModel);
-}
-
-function withTrainingTableModel(
-  table: DataTable,
-  selectedModel: WorkspaceTrainingIdentity["selectedModel"],
-): DataTable {
-  return {
-    ...table,
-    columns: trainingColumnsForModel(selectedModel),
-    rows: table.rows.map((row) => normalizeTrainingRowForModel(row, selectedModel)),
-  };
-}
-
-function trainingColumnsForModel(selectedModel: WorkspaceTrainingIdentity["selectedModel"]): DataTable["columns"] {
-  const hiddenColumn = selectedModel === "omnivoice" ? "epoch" : "step";
-  return workspaceTableColumns.training.filter((column) => column.key !== hiddenColumn);
-}
-
-function normalizeTrainingRowForModel(
-  row: DataTableRow,
-  selectedModel: WorkspaceTrainingIdentity["selectedModel"],
-): DataTableRow {
-  const epoch = selectedModel === "omnivoice" ? "" : row.cells.epoch || row.raw?.epoch || "";
-  const step = selectedModel === "omnivoice" ? row.cells.step || row.raw?.step || "" : "";
-  return {
-    ...row,
-    raw: row.raw ? { ...row.raw, epoch, step } : undefined,
-    cells: { ...row.cells, epoch, step },
-  };
-}
-
-function trainingIdentityFromSettings(settings: WorkspaceSettings["training"], modelNameOverride?: string): WorkspaceTrainingIdentity {
-  const selectedModel = settings.selectedModel === "omnivoice" ? "omnivoice" : "gpt-sovits";
-  return {
-    selectedModel,
-    toolRoot: settings.toolRoot.trim(),
-    modelName: (modelNameOverride ?? settings.modelName).trim(),
-    gptVersion: selectedModel === "gpt-sovits" ? settings.gptVersion : undefined,
-  };
-}
-
-function trainingModelMatchesIdentity(model: TrainingModelSummary, identity: WorkspaceTrainingIdentity): boolean {
-  return normalizedIdentityValue(model.name) === normalizedIdentityValue(identity.modelName);
-}
-
-function findTrainingModelByName(models: TrainingModelSummary[], modelName: string): TrainingModelSummary | undefined {
-  const normalizedName = normalizedIdentityValue(modelName);
-  return models.find((model) => normalizedIdentityValue(model.name) === normalizedName);
-}
-
-function sameGptSovitsWatchTarget(current: WorkspaceSettings["training"], polled: WorkspaceSettings["training"]): boolean {
-  return current.selectedModel === "gpt-sovits"
-    && polled.selectedModel === "gpt-sovits"
-    && current.gptVersion === polled.gptVersion
-    && normalizedIdentityValue(current.modelName) === normalizedIdentityValue(polled.modelName)
-    && normalizePathIdentity(current.toolRoot) === normalizePathIdentity(polled.toolRoot);
-}
-
-function applyTrainingIdentityToSettings(
-  settings: WorkspaceSettings["training"],
-  identity: WorkspaceTrainingIdentity,
-): WorkspaceSettings["training"] {
-  return {
-    ...settings,
-    selectedModel: identity.selectedModel,
-    toolRoot: identity.toolRoot || settings.toolRoot,
-    modelName: identity.modelName || settings.modelName,
-    gptVersion: identity.selectedModel === "gpt-sovits" && identity.gptVersion ? identity.gptVersion : settings.gptVersion,
-  };
-}
-
-function findTrainingSheetByIdentity(sheets: WorkspaceResultSheet[], identity: WorkspaceTrainingIdentity): WorkspaceResultSheet | undefined {
-  return sheets.find((sheet) => trainingSheetMatchesIdentity(sheet, identity));
-}
-
-function trainingSheetMatchesIdentity(sheet: WorkspaceResultSheet | undefined, identity: WorkspaceTrainingIdentity): boolean {
-  const sheetIdentity = resolveTrainingIdentityFromSheet(sheet);
-  return Boolean(sheetIdentity && trainingIdentityKey(sheetIdentity) === trainingIdentityKey(identity));
-}
-
-function resolveTrainingIdentityFromSheet(sheet: WorkspaceResultSheet | undefined): WorkspaceTrainingIdentity | undefined {
-  if (!sheet) {
-    return undefined;
-  }
-  if (sheet.trainingIdentity?.modelName.trim()) {
-    return sheet.trainingIdentity;
-  }
-
-  const row = sheet.table.rows.find((item) => item.raw?.modelName || item.cells.modelName);
-  const modelName = row?.raw?.modelName || row?.cells.modelName || "";
-  if (!modelName.trim()) {
-    return undefined;
-  }
-  const modelType = row?.raw?.modelType === "omnivoice" ? "omnivoice" : "gpt-sovits";
-  const gptVersion = row?.raw?.gptVersion as WorkspaceSettings["training"]["gptVersion"] | undefined;
-  return {
-    selectedModel: modelType,
-    toolRoot: row?.raw?.toolRoot || "",
-    modelName,
-    gptVersion: modelType === "gpt-sovits" ? gptVersion : undefined,
-  };
-}
-
-function trainingIdentityKey(identity: WorkspaceTrainingIdentity): string {
-  return [
-    identity.selectedModel,
-    identity.selectedModel === "gpt-sovits" ? identity.gptVersion ?? "" : "",
-    normalizePathIdentity(identity.toolRoot),
-    normalizedIdentityValue(identity.modelName),
-  ].join("|");
-}
-
-function trainingCheckpointRows(model: TrainingModelSummary, identity: WorkspaceTrainingIdentity): DataTableRow[] {
-  return model.checkpoints
-    .filter(isPublishableTrainingCheckpoint)
-    .map((checkpoint, index) => trainingCheckpointRow(checkpoint, identity, index));
-}
-
-function trainingCheckpointRow(
-  checkpoint: TrainingCheckpointSummary,
-  identity: WorkspaceTrainingIdentity,
-  index: number,
-): DataTableRow {
-  const checkpointName = shortName(checkpoint.path);
-  const stage = trainingCheckpointStageLabel(checkpoint);
-  const unit = checkpoint.kind === "omnivoice"
-    ? { epoch: "", step: checkpoint.step ?? "" }
-    : { epoch: checkpoint.epoch ?? "", step: "" };
-  const raw: Record<string, string> = {
-    id: checkpoint.path,
-    modelType: identity.selectedModel,
-    modelName: identity.modelName,
-    toolRoot: identity.toolRoot,
-    gptVersion: identity.gptVersion ?? "",
-    stage: checkpoint.kind,
-    checkpointRole: checkpoint.role ?? "",
-    checkpointComponent: checkpoint.component ?? "",
-    epoch: unit.epoch,
-    step: unit.step,
-    checkpoint: checkpointName,
-    checkpointPath: checkpoint.path,
-    status: "completed",
-    discoveredCheckpoint: "true",
-  };
-  return {
-    id: checkpoint.path || `${index + 1}`,
-    sourcePath: checkpoint.path,
-    raw,
-    cells: {
-      index: `${index + 1}`,
-      modelName: identity.modelName,
-      stage,
-      epoch: unit.epoch,
-      step: unit.step,
-      elapsed: "",
-      checkpoint: checkpointName,
-      status: "completed",
-    },
-  };
-}
-
-function isPublishableTrainingCheckpoint(checkpoint: TrainingCheckpointSummary): boolean {
-  const normalized = normalizePathIdentity(checkpoint.path);
-  if (!normalized) {
-    return false;
-  }
-  return !normalized.includes("/vendor/hf/");
-}
-
-function trainingCheckpointStageLabel(checkpoint: TrainingCheckpointSummary): string {
-  const roleText = checkpoint.role === "resume" ? "이어하기용" : checkpoint.role === "inference" ? "추론용" : "이어하기/추론용";
-  if (checkpoint.kind === "omnivoice") {
-    return `OmniVoice ${roleText}`;
-  }
-  if (checkpoint.kind === "gpt") {
-    return `GPT ${roleText}`;
-  }
-  if (checkpoint.component === "discriminator") {
-    return `SoVITS ${roleText} D`;
-  }
-  if (checkpoint.component === "generator") {
-    return `SoVITS ${roleText} G`;
-  }
-  return `SoVITS ${roleText}`;
-}
-
-function mergeTrainingRows(table: DataTable, incomingRows: DataTableRow[]): DataTable {
-  const rows = table.rows.map(cloneRow);
-  const existingKeys = new Set(rows.map(trainingRowKey).filter(Boolean));
-  for (const row of incomingRows) {
-    const key = trainingRowKey(row);
-    if (key && existingKeys.has(key)) {
-      continue;
-    }
-    rows.push(cloneRow(row));
-    if (key) {
-      existingKeys.add(key);
-    }
-  }
-  return reindexTable("training", tableWithRows(table, rows));
-}
-
-function hasNewTrainingRows(table: DataTable, incomingRows: DataTableRow[]): boolean {
-  const existingKeys = new Set(table.rows.map(trainingRowKey).filter(Boolean));
-  return incomingRows.some((row) => {
-    const key = trainingRowKey(row);
-    return !key || !existingKeys.has(key);
-  });
-}
-
-function trainingRowKey(row: DataTableRow): string {
-  const raw = row.raw ?? {};
-  const checkpointPath = raw.checkpointPath || raw.checkpoint_path || row.sourcePath;
-  if (checkpointPath) {
-    return `${raw.modelType || ""}|${raw.modelName || row.cells.modelName || ""}|${raw.stage || row.cells.stage || ""}|${normalizePathIdentity(checkpointPath)}`;
-  }
-  return `${raw.modelType || ""}|${raw.modelName || row.cells.modelName || ""}|${raw.stage || row.cells.stage || ""}|${row.cells.epoch || raw.epoch || ""}|${row.cells.step || raw.step || ""}`;
-}
-
-function normalizedIdentityValue(value: string | undefined): string {
-  return (value ?? "").trim().toLowerCase();
-}
-
-function normalizePathIdentity(value: string | undefined): string {
-  return (value ?? "").replace(/\\/gu, "/").trim().toLowerCase();
 }
 
 function sheetCanRetry(sheet: ReturnType<typeof activeSheet>): boolean {
@@ -2677,18 +2514,6 @@ function cloneRow(row: DataTableRow): DataTableRow {
     ...row,
     cells: { ...row.cells },
     raw: row.raw ? { ...row.raw } : undefined,
-  };
-}
-
-function settingsWithTrainingSheet(settings: WorkspaceSettings, sheet: WorkspaceResultSheet): WorkspaceSettings {
-  const identity = resolveTrainingIdentityFromSheet(sheet);
-  if (!identity) {
-    return settings;
-  }
-
-  return {
-    ...settings,
-    training: applyTrainingIdentityToSettings(settings.training, identity),
   };
 }
 
@@ -2865,37 +2690,6 @@ function trainingModelLabel(settings: WorkspaceSettings): string {
   return settings.training.selectedModel === "omnivoice" ? "OmniVoice" : "GPT-SoVITS";
 }
 
-function trainingStatusText(status: string): string {
-  switch (status) {
-    case "Loaded":
-      return "불러옴";
-    case "Listing input files":
-      return "입력 파일 나열 중";
-    case "Loading":
-      return "불러오는 중";
-    case "Load failed":
-      return "불러오기 실패";
-    case "Running":
-      return "학습 중";
-    case "Retrying":
-      return "이어하기 중";
-    case "Stopping":
-      return "중지 중";
-    case "Stopped":
-      return "중지됨";
-    case "Completed":
-      return "완료";
-    case "Failed":
-      return "실패";
-    case "Retry completed":
-      return "이어하기 완료";
-    case "Retry failed":
-      return "이어하기 실패";
-    default:
-      return status || "-";
-  }
-}
-
 function isVoiceModelWorkspace(workspaceId: WorkspaceId): workspaceId is "training" | "inference" {
   return workspaceId === "training" || workspaceId === "inference";
 }
@@ -2950,195 +2744,4 @@ function formatRunError(result: WorkspaceRunResult): string {
   }
 
   return Array.from(new Set(lines)).join("\n");
-}
-
-function createTerminalStartState(label: string) {
-  return {
-    text: `[${new Date().toLocaleTimeString()}] ${label}\n콘솔 출력을 기다리는 중입니다.`,
-    status: "running" as const,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-function createTerminalFromUpdate(update: WorkspaceTerminalUpdate, status: WorkspaceTerminalStatus) {
-  return terminalStateFromUpdate(
-    {
-      ...update,
-      text: limitTerminalText(update.text),
-    },
-    status,
-  );
-}
-
-function createTerminalFromResult(result: WorkspaceRunResult, status: WorkspaceTerminalStatus) {
-  const metadata = result.metadata;
-  const lines = [
-    result.stdout,
-    !result.stdout && result.stderr ? result.stderr : "",
-    !result.stdout && !result.stderr && result.error ? result.error : "",
-  ].filter(Boolean);
-  const fallback = metadata
-    ? [
-        "실행 로그 파일이 준비되었습니다.",
-        `Electron 로그: ${metadata.logPath}`,
-        metadata.backendLogPath ? `백엔드 로그: ${metadata.backendLogPath}` : "",
-      ].filter(Boolean).join("\n")
-    : "아직 표시할 터미널 로그가 없습니다.";
-
-  return {
-    text: limitTerminalText(lines.join("\n") || fallback),
-    status,
-    logPath: metadata?.logPath,
-    backendLogPath: metadata?.backendLogPath,
-    command: metadata?.command,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-function createTerminalFromEnvironmentInstallResult(result: WorkspaceRuntimeEnvironmentInstallResult) {
-  const fallback = result.ok ? "런타임 설치가 완료되었습니다." : result.error ?? "런타임 설치에 실패했습니다.";
-  return {
-    text: limitTerminalText(result.stdout || result.stderr || fallback),
-    status: result.ok ? "completed" as const : result.exitCode === 130 ? "cancelled" as const : "failed" as const,
-    logPath: result.logPath,
-    backendLogPath: result.logPath,
-    command: result.command,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-function createTerminalFromVoiceModelInstallResult(result: VoiceModelRuntimeInstallResult) {
-  const fallback = result.ok ? "모델 설치가 완료되었습니다." : result.error ?? "모델 설치에 실패했습니다.";
-  return {
-    text: limitTerminalText(result.stdout || result.stderr || fallback),
-    status: result.ok ? "completed" as const : result.exitCode === 130 ? "cancelled" as const : "failed" as const,
-    logPath: result.logPath,
-    backendLogPath: result.logPath,
-    command: result.command,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-function createTerminalFromLogPath(logPath: string | undefined) {
-  if (!logPath) {
-    return undefined;
-  }
-
-  return {
-    text: `오디오 변환 로그 파일이 준비되었습니다.\n${logPath}`,
-    status: "completed" as const,
-    backendLogPath: logPath,
-    updatedAt: new Date().toISOString(),
-  };
-}
-
-function limitTerminalText(text: string): string {
-  if (text.length <= TERMINAL_TEXT_LIMIT) {
-    return text;
-  }
-
-  return `... 이전 로그 생략 ...\n${text.slice(-TERMINAL_TEXT_LIMIT)}`;
-}
-
-function firstNonEmpty(...values: Array<string | undefined>): string {
-  return values.find((value) => value && value.trim())?.trim() ?? "";
-}
-
-function shortName(path: string): string {
-  const parts = path.split(/[\\/]/u).filter(Boolean);
-  return parts[parts.length - 1] ?? path;
-}
-
-function formatSecondsCell(value: number): string {
-  const minutes = Math.floor(Math.max(0, value) / 60);
-  const seconds = Math.max(0, value) % 60;
-  return `${minutes.toString().padStart(2, "0")}:${seconds.toFixed(3).padStart(6, "0")}`;
-}
-
-function createSliceComponentRow(sourceRow: DataTableRow, components: SliceComponent[], id: string, fallbackAudioPath?: string): DataTableRow {
-  const sortedComponents = components.slice().sort((left, right) => left.startSec - right.startSec || left.endSec - right.endSec);
-  const startSec = Math.min(...sortedComponents.map((component) => component.startSec));
-  const endSec = Math.max(...sortedComponents.map((component) => component.endSec));
-  const durationSec = Math.max(0, endSec - startSec);
-  const originalPath = resolveSliceSourcePath(sourceRow, fallbackAudioPath);
-  const fileName = firstNonEmpty(sourceRow.raw?.fileName, sourceRow.raw?.file_name, sourceRow.cells.fileName, shortName(originalPath));
-  const markerComponents = serializeSliceComponents(sortedComponents);
-
-  return {
-    ...sourceRow,
-    id,
-    sourcePath: originalPath || sourceRow.sourcePath,
-    raw: {
-      ...sourceRow.raw,
-      fileName,
-      file_name: fileName,
-      originalPath,
-      original_path: originalPath,
-      inputPath: originalPath,
-      input_path: originalPath,
-      absolute_path: originalPath,
-      outputPath: "",
-      output_path: "",
-      startSec: `${startSec}`,
-      endSec: `${endSec}`,
-      durationSec: `${durationSec}`,
-      markerCount: `${sortedComponents.length}`,
-      markerComponents,
-      marker_components: markerComponents,
-      status: "edited",
-    },
-    cells: {
-      ...sourceRow.cells,
-      fileName,
-      startSec: formatSecondsCell(startSec),
-      endSec: formatSecondsCell(endSec),
-      durationSec: `${durationSec.toFixed(2)}s`,
-      markerCount: `${sortedComponents.length}`,
-      status: "edited",
-      outputPath: "",
-    },
-  };
-}
-
-function reindexSliceRows(rows: DataTableRow[]): DataTableRow[] {
-  const allocateRowId = createSliceRowIdAllocator(rows);
-  const usedRowIds = new Set<string>();
-  return rows.map((row, index) => {
-    const nextIndex = `${index + 1}`;
-    const existingId = row.id.trim();
-    const id = existingId && !usedRowIds.has(existingId) ? existingId : allocateRowId();
-    usedRowIds.add(id);
-    return {
-      ...row,
-      id,
-      raw: {
-        ...row.raw,
-        index: nextIndex,
-        chunkIndex: nextIndex,
-      },
-      cells: {
-        ...row.cells,
-        index: nextIndex,
-      },
-    };
-  });
-}
-
-function createSliceRowIdAllocator(rows: DataTableRow[]): () => string {
-  const reservedIds = new Set(rows.map((row) => row.id.trim()).filter(Boolean));
-  let nextId = rows
-    .map((row) => Number(row.id) || Number(row.raw?.index || row.cells.index))
-    .filter(Number.isFinite)
-    .reduce((max, value) => Math.max(max, value), 0) + 1;
-
-  return () => {
-    while (reservedIds.has(`${nextId}`)) {
-      nextId += 1;
-    }
-
-    const id = `${nextId}`;
-    reservedIds.add(id);
-    nextId += 1;
-    return id;
-  };
 }

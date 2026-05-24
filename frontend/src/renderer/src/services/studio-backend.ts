@@ -1,4 +1,23 @@
-import type { AppStateSaveRequest, AudioCropRequest, AudioEditRequest, CreateProjectRequest, DialogFileSelectionOptions, FileTreeScanOptions, ProjectStateLoadRequest, StartupSplashProgress, TensorBoardSessionRequest, VoiceModelRuntimeRequest, WorkspaceBatchSpeakerDiarizationRequest, WorkspaceCancelRequest, WorkspaceExportProgressEvent, WorkspaceExportRequest, WorkspaceLoadRequest, WorkspaceRunProgressEvent, WorkspaceRunRequest, WorkspaceRuntimeEnvironmentRequest } from "@shared/ipc";
+import type {
+  AppStateSaveRequest,
+  AudioCropRequest,
+  AudioEditRequest,
+  CreateProjectRequest,
+  DialogFileSelectionOptions,
+  FileTreeScanOptions,
+  ProjectStateLoadRequest,
+  StartupSplashProgress,
+  TensorBoardSessionRequest,
+  VoiceModelRuntimeRequest,
+  WorkspaceBatchSpeakerDiarizationRequest,
+  WorkspaceCancelRequest,
+  WorkspaceExportProgressEvent,
+  WorkspaceExportRequest,
+  WorkspaceLoadRequest,
+  WorkspaceRunProgressEvent,
+  WorkspaceRunRequest,
+  WorkspaceRuntimeEnvironmentRequest,
+} from "@shared/ipc";
 
 export const studioBackend = {
   getAppInfo: () => window.studioBackend.getAppInfo(),
