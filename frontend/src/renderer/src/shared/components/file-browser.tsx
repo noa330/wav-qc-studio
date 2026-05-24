@@ -5,7 +5,7 @@ import type { FileTreeNode, FileTreeResult, WorkspaceId } from "@shared/ipc";
 import { SCROLL_WINDOW_BUFFER_SCREENS, resolveScrollWindowMetrics, type ScrollWindowMetrics } from "@shared/scroll-window";
 import { cn } from "@/lib/utils";
 import { ChevronGlyph } from "./controls";
-import { fadeSlideUpMotion, softPressTap, subtleSpring } from "@/shared/motion";
+import { fadeSlideUpMotion, loadingSpinnerTransition, softPressTap, subtleSpring } from "@/shared/motion";
 
 const fileBrowserRowExtent = 54;
 
@@ -273,6 +273,7 @@ function BrowserNodeRow({
   const [expanded, setExpanded] = useState(true);
   const FolderIcon = expanded ? FolderOpen : Folder;
   const Icon = node.kind === "directory" ? FolderIcon : isAudioFile(node.path) ? FileAudio : File;
+  const conversionStatus = node.kind === "file" ? readConversionStatus(node.meta) : undefined;
   const selected = normalizePath(selectedPath) === normalizePath(node.path);
   const unchecked = Boolean(node.exportRowId && rowChecks?.[node.exportRowId] === false);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
@@ -315,7 +316,7 @@ function BrowserNodeRow({
         {selected ? <motion.span layoutId={selectionLayoutId} transition={subtleSpring} className="absolute inset-0 rounded-[5px] bg-[var(--nav-selected-bg)]" /> : null}
         <div className="relative z-10 grid min-w-0 grid-cols-[18px_24px_minmax(0,1fr)] items-center" style={{ marginLeft: `${level * 14}px` }}>
           {hasChildren ? <ChevronGlyph direction={expanded ? "down" : "right"} className="col-start-1" /> : <span className="col-start-1" />}
-          <Icon className="col-start-2 size-[18px] text-[var(--icon-brush)]" strokeWidth={1.55} />
+          {conversionStatus ? <ConversionStatusIcon status={conversionStatus} /> : <Icon className="col-start-2 size-[18px] text-[var(--icon-brush)]" strokeWidth={1.55} />}
           <div className="col-start-3 min-w-0">
             <p className={cn("truncate text-sm font-normal text-[var(--primary-text)]", unchecked && "line-through decoration-[var(--primary-text)]")}>{node.name}</p>
             {node.meta ? <p className={cn("mt-0.5 truncate text-[13px] text-[var(--secondary-text)]", unchecked && "line-through decoration-[var(--secondary-text)]")}>{node.meta}</p> : null}
@@ -339,6 +340,36 @@ function BrowserNodeRow({
       </AnimatePresence>
     </div>
   );
+}
+
+function ConversionStatusIcon({ status }: { status: "pending" | "running" }) {
+  return (
+    <motion.span
+      aria-hidden="true"
+      className={cn(
+        "col-start-2 block size-[18px] rounded-full border-2 border-current text-[var(--icon-brush)]",
+        status === "running" && "border-t-transparent",
+      )}
+      animate={status === "running" ? { rotate: 360 } : { rotate: 0 }}
+      transition={status === "running" ? loadingSpinnerTransition : undefined}
+    />
+  );
+}
+
+function readConversionStatus(meta: string | undefined): "pending" | "running" | undefined {
+  if (!meta) {
+    return undefined;
+  }
+
+  if (meta.includes("변환 중")) {
+    return "running";
+  }
+
+  if (meta.includes("변환 대기")) {
+    return "pending";
+  }
+
+  return undefined;
 }
 
 function compactPath(value: string): string {

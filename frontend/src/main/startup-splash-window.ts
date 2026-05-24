@@ -53,7 +53,7 @@ export function createStartupSplashWindow(): BrowserWindow | null {
     movable: false,
     frame: false,
     transparent: true,
-    hasShadow: true,
+    hasShadow: false,
     alwaysOnTop: true,
     skipTaskbar: true,
     show: false,

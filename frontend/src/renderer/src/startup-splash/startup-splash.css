@@ -39,7 +39,6 @@ body {
     radial-gradient(circle at 8% 9%, rgba(131, 59, 211, .18), transparent 17%),
     radial-gradient(circle at 78% 36%, rgba(131, 59, 211, .18), transparent 35%),
     linear-gradient(180deg, #131924, #080c14);
-  box-shadow: 0 20px 52px var(--startup-widget-shadow);
 }
 
 .startup-splash__content {
@@ -249,25 +248,6 @@ body {
   height: 1px;
   background: linear-gradient(90deg, transparent, rgba(164, 85, 255, .34), rgba(214, 178, 255, .72), rgba(164, 85, 255, .34), transparent);
   filter: drop-shadow(0 0 7px rgba(164, 85, 255, .72));
-}
-
-.startup-splash__wave-line::before,
-.startup-splash__wave-line::after {
-  content: "";
-  position: absolute;
-  inset: -10px 0;
-  background:
-    radial-gradient(circle at 18% 50%, rgba(164, 85, 255, .68) 0 1px, transparent 2px),
-    radial-gradient(circle at 42% 50%, rgba(214, 178, 255, .7) 0 1px, transparent 2px),
-    radial-gradient(circle at 62% 50%, rgba(164, 85, 255, .58) 0 1px, transparent 2px),
-    radial-gradient(circle at 79% 50%, rgba(214, 178, 255, .68) 0 1px, transparent 2px);
-  opacity: .52;
-  transform: translateY(-16px);
-}
-
-.startup-splash__wave-line::after {
-  opacity: .38;
-  transform: translateY(16px);
 }
 
 .startup-splash__wave-bars {
