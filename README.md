@@ -179,59 +179,58 @@ python cleanup_onnxruntime_conflicts.py
 서드파티 모델, 체크포인트, 런타임 에셋은 각 업스트림 라이선스를 따르며,
 페이지별 모델 라이선스 목록은 `THIRD_PARTY_MODEL_LICENSES.md`에 정리했습니다.
 
-### Third-Party Model And Checkpoint Licenses
+### 서드파티 모델 및 체크포인트 라이선스
 
-Verified on 2026-05-25 KST from the tracked source tree and official upstream
-model cards, repositories, or documentation. This inventory covers models,
-checkpoints, and model runtime assets referenced by the app pages and tracked
-backend scripts. Package dependencies, user-supplied audio, datasets, fine-tuned
-checkpoints, or manually selected external model paths must be checked
-separately before redistribution.
+아래 목록은 2026-05-25 KST 기준으로, 현재 추적 중인 소스 코드와 공식 업스트림
+모델 카드, 저장소, 문서를 확인해 정리했습니다. 앱 페이지와 백엔드 스크립트에서
+참조하거나 내려받는 모델, 체크포인트, 모델 런타임 에셋을 대상으로 합니다. 패키지
+의존성, 사용자가 직접 넣는 오디오/데이터셋/파인튜닝 체크포인트, 수동으로 지정한
+외부 모델 경로는 배포 전에 별도로 라이선스를 확인해야 합니다.
 
-High-risk license notes:
+중요 라이선스 주의사항:
 
-- `torchaudio.pipelines.MMS_FA` is `CC-BY-NC-4.0`, so Batch WordAlign is
-  non-commercial unless a separate license is obtained.
-- DiariZen model weights are `CC-BY-NC-4.0`, so Batch diarization with the
-  bundled DiariZen options is non-commercial unless a separate license is
-  obtained.
-- NVIDIA NeMo legacy speaker analyzer models are NGC-hosted models. NVIDIA says
-  model licenses are shown per NGC model card; check and accept NGC terms before
-  redistribution or production use.
-- Voice cloning, voice conversion, restoration, and TTS outputs may require
-  consent and additional rights to the source voices, transcripts, and datasets.
+- `torchaudio.pipelines.MMS_FA`는 `CC-BY-NC-4.0`입니다. 따라서 Batch의
+  WordAlign 기능은 별도 라이선스를 받지 않는 한 비상업 용도로 제한됩니다.
+- DiariZen 모델 가중치는 `CC-BY-NC-4.0`입니다. 따라서 기본 DiariZen 옵션을
+  쓰는 Batch 화자 분리 기능은 별도 라이선스를 받지 않는 한 비상업 용도로
+  제한됩니다.
+- NVIDIA NeMo 레거시 화자 분석 모델은 NGC 호스팅 모델입니다. NVIDIA는 모델별
+  NGC 카드에 라이선스 섹션이 있다고 안내하므로, 재배포 또는 프로덕션 사용 전
+  NGC 약관과 각 모델 카드의 조건을 확인해야 합니다.
+- 보이스 클로닝, 음성 변환, 음성 복원, TTS 출력물은 원본 목소리, 텍스트,
+  데이터셋에 대한 동의와 별도 권리가 필요할 수 있습니다.
 
-| App page / path | Model or asset | Local references | Official source | License / policy |
+| 앱 페이지 / 경로 | 모델 또는 에셋 | 로컬 참조 위치 | 공식 출처 | 라이선스 / 정책 |
 | --- | --- | --- | --- | --- |
-| Slice | FireRedVAD | `backend/slicer/speech_detector.py`; `frontend/src/renderer/src/features/workspaces/ui/pages/slice/SliceSettingsPanel.tsx` | https://huggingface.co/FireRedTeam/FireRedVAD | `Apache-2.0` per Hugging Face model card. |
-| Tagging | PretrainedSED strong checkpoints: BEATs Strong, ATST-F Strong, fPaSST Strong | `backend/slicer/tagger.py`; `frontend/src/renderer/src/features/workspaces/model/workspace-option-catalogs.ts` | https://github.com/fschmid56/PretrainedSED | PretrainedSED source/checkpoint project: `MIT`. Component upstreams below still apply. |
-| Tagging | BEATs | `backend/slicer/tagger.py` | https://github.com/microsoft/unilm/tree/master/beats | Microsoft UniLM/BEATs repository: `MIT`. |
+| Slice | FireRedVAD | `backend/slicer/speech_detector.py`; `frontend/src/renderer/src/features/workspaces/ui/pages/slice/SliceSettingsPanel.tsx` | https://huggingface.co/FireRedTeam/FireRedVAD | Hugging Face 모델 카드 기준 `Apache-2.0`. |
+| Tagging | PretrainedSED strong 체크포인트: BEATs Strong, ATST-F Strong, fPaSST Strong | `backend/slicer/tagger.py`; `frontend/src/renderer/src/features/workspaces/model/workspace-option-catalogs.ts` | https://github.com/fschmid56/PretrainedSED | PretrainedSED 소스/체크포인트 프로젝트는 `MIT`. 아래 구성 모델의 업스트림 라이선스도 함께 적용됩니다. |
+| Tagging | BEATs | `backend/slicer/tagger.py` | https://github.com/microsoft/unilm/tree/master/beats | Microsoft UniLM/BEATs 저장소 기준 `MIT`. |
 | Tagging | ATST-F / ATST-SED | `backend/slicer/tagger.py` | https://github.com/Audio-WestlakeU/ATST-SED | `MIT`. |
 | Tagging | fPaSST / PaSST | `backend/slicer/tagger.py` | https://github.com/kkoutini/PaSST | `Apache-2.0`. |
-| Speaker | Sidon `sarulab-speech/sidon-v0.1` | `backend/noise/models/sidon_runner.py`; `frontend/src/renderer/src/features/workspaces/ui/pages/speaker/SpeakerPanels.tsx` | https://huggingface.co/sarulab-speech/sidon-v0.1 | `MIT` per Hugging Face model card. Model card lists base model and training datasets. |
-| Speaker | W2v-BERT 2.0 base for Sidon preprocessing | `backend/noise/models/sidon_runner.py` | https://huggingface.co/facebook/w2v-bert-2.0 | `MIT`. |
+| Speaker | Sidon `sarulab-speech/sidon-v0.1` | `backend/noise/models/sidon_runner.py`; `frontend/src/renderer/src/features/workspaces/ui/pages/speaker/SpeakerPanels.tsx` | https://huggingface.co/sarulab-speech/sidon-v0.1 | Hugging Face 모델 카드 기준 `MIT`. 모델 카드에는 기반 모델과 학습 데이터셋이 함께 표시되어 있습니다. |
+| Speaker | Sidon 전처리에 쓰는 W2v-BERT 2.0 기반 모델 | `backend/noise/models/sidon_runner.py` | https://huggingface.co/facebook/w2v-bert-2.0 | `MIT`. |
 | Speaker | Resemble Enhance | `backend/noise/model_setup.py`; `backend/noise/models/resemble_runner.py` | https://huggingface.co/ResembleAI/resemble-enhance | `MIT`. |
-| Speaker | VoiceFixer package/runtime | `backend/noise/model_setup.py`; `backend/noise/models/voicefixer_runner.py` | https://github.com/haoheliu/voicefixer and https://pypi.org/project/voicefixer/ | Source/package metadata: `MIT`. |
-| Speaker | VoiceFixer checkpoints `vf.ckpt`, `model.ckpt-1490000_trimed.pt` | `backend/noise/model_setup.py` | https://zenodo.org/records/5600188 | `CC-BY-4.0`. |
-| Overview | DNSMOS ONNX models | `backend/analyzers/noise.py` | https://github.com/microsoft/DNS-Challenge and https://github.com/Lightning-AI/torchmetrics/blob/master/src/torchmetrics/functional/audio/dnsmos.py | DNS-Challenge content/docs: `CC-BY-4.0`; DNS-Challenge code: `MIT`; TorchMetrics wrapper: `Apache-2.0`. |
-| Batch | Faster-Whisper ASR options `tiny`, `base`, `small`, `medium`, `large-v1`, `large-v2`, `large-v3` and `.en` backend aliases | `backend/batch_qc/asr.py`; `backend/analyzers/pronunciation.py`; `frontend/src/renderer/src/features/workspaces/model/workspace-option-catalogs.ts` | https://huggingface.co/Systran/faster-whisper-large-v3 and sibling `Systran/faster-whisper-*` repos | Systran converted checkpoints are tagged `MIT`; they are conversions of OpenAI Whisper checkpoints. |
-| Batch / legacy analyzer | OpenAI Whisper checkpoints such as `openai/whisper-small`, `openai/whisper-large-v3` | `backend/analyzers/pronunciation.py`; Systran conversion base | https://huggingface.co/openai/whisper-small and https://huggingface.co/openai/whisper-large-v3 | Hugging Face model cards: `Apache-2.0`; OpenAI Whisper source repository: `MIT`. |
-| Batch | WordAlign `torchaudio.pipelines.MMS_FA` | `backend/batch_qc/word_alignment.py` | https://docs.pytorch.org/audio/main/generated/torchaudio.pipelines.MMS_FA.html | `CC-BY-NC-4.0`; non-commercial. |
-| Batch | DiariZen `BUT-FIT/diarizen-wavlm-large-s80-md-v2` | `backend/batch_qc/diarization.py`; `config/models.json` | https://huggingface.co/BUT-FIT/diarizen-wavlm-large-s80-md-v2 | Source code: `MIT`; model weights: `CC-BY-NC-4.0` non-commercial. |
-| Batch | DiariZen legacy `BUT-FIT/diarizen-wavlm-large-s80-md` | `frontend/src/renderer/src/features/workspaces/model/workspace-option-catalogs.ts` | https://huggingface.co/BUT-FIT/diarizen-wavlm-large-s80-md | Source code: `MIT`; model weights: `CC-BY-NC-4.0` non-commercial. |
-| Batch | Pyannote WeSpeaker embedding `pyannote/wespeaker-voxceleb-resnet34-LM` | `backend/batch_qc/diarization.py`; `frontend/src/renderer/src/features/workspaces/model/workspace-option-catalogs.ts` | https://huggingface.co/pyannote/wespeaker-voxceleb-resnet34-LM | `CC-BY-4.0`; model card states the VoxCeleb-trained model follows the dataset license. |
-| Training / Inference | GPT-SoVITS source | `backend/voice_training_config.py`; `backend/voice_infer_main.py`; `training/install_gpt_sovits_runtime.ps1` | https://github.com/RVC-Boss/GPT-SoVITS | `MIT`. |
-| Training / Inference | GPT-SoVITS pretrained weights from `lj1995/GPT-SoVITS` | `backend/voice_training_config.py` | https://huggingface.co/lj1995/GPT-SoVITS | `MIT` per Hugging Face model card. |
-| Training / Inference | GPT-SoVITS runtime assets from `XXXXRT/GPT-SoVITS-Pretrained`, including `G2PWModel.zip`, optional `uvr5_weights.zip`, `nltk_data.zip`, and `open_jtalk_dic_utf_8-1.11.tar.gz` mirror downloads | `training/install_gpt_sovits_runtime.ps1` | https://huggingface.co/XXXXRT/GPT-SoVITS-Pretrained | Hugging Face repo is tagged `MIT`; README is empty, so retain source URL and any upstream notices contained inside downloaded archives. |
-| Training / Inference | g2pW / G2PWModel | `training/install_gpt_sovits_runtime.ps1` | https://pypi.org/project/g2pw/ | `Apache-2.0` per PyPI metadata. |
-| Training / Inference | Open JTalk dictionary `open_jtalk_dic_utf_8-1.11` | `training/install_gpt_sovits_runtime.ps1` | https://open-jtalk.sourceforge.net/ | Modified BSD license. |
-| Training / Inference | OmniVoice source and model `k2-fsa/OmniVoice` | `backend/voice_training_config.py`; `frontend/src/shared/training-defaults.ts`; `frontend/src/renderer/src/features/workspaces/ui/pages/training/TrainingPanels.tsx`; `frontend/src/renderer/src/features/workspaces/ui/pages/inference/InferencePanels.tsx` | https://github.com/k2-fsa/OmniVoice and https://huggingface.co/k2-fsa/OmniVoice | `Apache-2.0`; model card also prohibits unauthorized voice cloning, impersonation, fraud, scams, and illegal or unethical use. |
-| Training / Inference | Qwen3 `Qwen/Qwen3-0.6B` used as OmniVoice LLM default | `frontend/src/shared/training-defaults.ts` | https://huggingface.co/Qwen/Qwen3-0.6B | `Apache-2.0`. |
-| Legacy backend speaker analyzer | NVIDIA NeMo `vad_multilingual_marblenet`, `diar_msdd_telephonic`, `titanet_large` | `backend/analyzers/speaker_runtime.py`; `config/models.json` | https://docs.nvidia.com/nemo-framework/user-guide/24.12/nemotoolkit/asr/speaker_diarization/results.html and NGC model cards | NeMo toolkit is `Apache-2.0`, but NVIDIA states each NGC model card may carry its own license section. `titanet_large` NGC text states the model license is covered by the NeMo Toolkit license; verify the VAD/MSDD model cards in NGC before redistribution. |
+| Speaker | VoiceFixer 패키지/런타임 | `backend/noise/model_setup.py`; `backend/noise/models/voicefixer_runner.py` | https://github.com/haoheliu/voicefixer and https://pypi.org/project/voicefixer/ | 소스 및 패키지 메타데이터 기준 `MIT`. |
+| Speaker | VoiceFixer 체크포인트 `vf.ckpt`, `model.ckpt-1490000_trimed.pt` | `backend/noise/model_setup.py` | https://zenodo.org/records/5600188 | `CC-BY-4.0`. |
+| Overview | DNSMOS ONNX 모델 | `backend/analyzers/noise.py` | https://github.com/microsoft/DNS-Challenge and https://github.com/Lightning-AI/torchmetrics/blob/master/src/torchmetrics/functional/audio/dnsmos.py | DNS-Challenge 문서/콘텐츠는 `CC-BY-4.0`, DNS-Challenge 코드는 `MIT`, TorchMetrics 래퍼는 `Apache-2.0`. |
+| Batch | Faster-Whisper ASR 옵션 `tiny`, `base`, `small`, `medium`, `large-v1`, `large-v2`, `large-v3` 및 `.en` 백엔드 별칭 | `backend/batch_qc/asr.py`; `backend/analyzers/pronunciation.py`; `frontend/src/renderer/src/features/workspaces/model/workspace-option-catalogs.ts` | https://huggingface.co/Systran/faster-whisper-large-v3 and sibling `Systran/faster-whisper-*` repos | Systran 변환 체크포인트는 `MIT` 태그입니다. 원본은 OpenAI Whisper 체크포인트 변환본입니다. |
+| Batch / 레거시 분석기 | OpenAI Whisper 체크포인트 예: `openai/whisper-small`, `openai/whisper-large-v3` | `backend/analyzers/pronunciation.py`; Systran 변환 기반 | https://huggingface.co/openai/whisper-small and https://huggingface.co/openai/whisper-large-v3 | Hugging Face 모델 카드 기준 `Apache-2.0`; OpenAI Whisper 소스 저장소는 `MIT`. |
+| Batch | WordAlign `torchaudio.pipelines.MMS_FA` | `backend/batch_qc/word_alignment.py` | https://docs.pytorch.org/audio/main/generated/torchaudio.pipelines.MMS_FA.html | `CC-BY-NC-4.0`; 비상업 용도 제한. |
+| Batch | DiariZen `BUT-FIT/diarizen-wavlm-large-s80-md-v2` | `backend/batch_qc/diarization.py`; `config/models.json` | https://huggingface.co/BUT-FIT/diarizen-wavlm-large-s80-md-v2 | 소스 코드는 `MIT`; 모델 가중치는 `CC-BY-NC-4.0` 비상업 용도 제한. |
+| Batch | DiariZen 레거시 `BUT-FIT/diarizen-wavlm-large-s80-md` | `frontend/src/renderer/src/features/workspaces/model/workspace-option-catalogs.ts` | https://huggingface.co/BUT-FIT/diarizen-wavlm-large-s80-md | 소스 코드는 `MIT`; 모델 가중치는 `CC-BY-NC-4.0` 비상업 용도 제한. |
+| Batch | Pyannote WeSpeaker 임베딩 `pyannote/wespeaker-voxceleb-resnet34-LM` | `backend/batch_qc/diarization.py`; `frontend/src/renderer/src/features/workspaces/model/workspace-option-catalogs.ts` | https://huggingface.co/pyannote/wespeaker-voxceleb-resnet34-LM | `CC-BY-4.0`; 모델 카드에 VoxCeleb 학습 모델은 데이터셋 라이선스를 따른다고 명시되어 있습니다. |
+| Training / Inference | GPT-SoVITS 소스 | `backend/voice_training_config.py`; `backend/voice_infer_main.py`; `training/install_gpt_sovits_runtime.ps1` | https://github.com/RVC-Boss/GPT-SoVITS | `MIT`. |
+| Training / Inference | `lj1995/GPT-SoVITS`의 GPT-SoVITS 사전학습 가중치 | `backend/voice_training_config.py` | https://huggingface.co/lj1995/GPT-SoVITS | Hugging Face 모델 카드 기준 `MIT`. |
+| Training / Inference | `XXXXRT/GPT-SoVITS-Pretrained` 런타임 에셋: `G2PWModel.zip`, 선택 사항 `uvr5_weights.zip`, `nltk_data.zip`, `open_jtalk_dic_utf_8-1.11.tar.gz` 미러 다운로드 포함 | `training/install_gpt_sovits_runtime.ps1` | https://huggingface.co/XXXXRT/GPT-SoVITS-Pretrained | Hugging Face 저장소는 `MIT` 태그입니다. README가 비어 있으므로 출처 URL과 다운로드 아카이브 내부의 업스트림 고지를 함께 보존해야 합니다. |
+| Training / Inference | g2pW / G2PWModel | `training/install_gpt_sovits_runtime.ps1` | https://pypi.org/project/g2pw/ | PyPI 메타데이터 기준 `Apache-2.0`. |
+| Training / Inference | Open JTalk 사전 `open_jtalk_dic_utf_8-1.11` | `training/install_gpt_sovits_runtime.ps1` | https://open-jtalk.sourceforge.net/ | Modified BSD license. |
+| Training / Inference | OmniVoice 소스 및 모델 `k2-fsa/OmniVoice` | `backend/voice_training_config.py`; `frontend/src/shared/training-defaults.ts`; `frontend/src/renderer/src/features/workspaces/ui/pages/training/TrainingPanels.tsx`; `frontend/src/renderer/src/features/workspaces/ui/pages/inference/InferencePanels.tsx` | https://github.com/k2-fsa/OmniVoice and https://huggingface.co/k2-fsa/OmniVoice | `Apache-2.0`; 모델 카드에서 무단 보이스 클로닝, 사칭, 사기, 불법 또는 비윤리적 사용을 금지합니다. |
+| Training / Inference | OmniVoice 기본 LLM으로 쓰는 Qwen3 `Qwen/Qwen3-0.6B` | `frontend/src/shared/training-defaults.ts` | https://huggingface.co/Qwen/Qwen3-0.6B | `Apache-2.0`. |
+| 레거시 백엔드 화자 분석기 | NVIDIA NeMo `vad_multilingual_marblenet`, `diar_msdd_telephonic`, `titanet_large` | `backend/analyzers/speaker_runtime.py`; `config/models.json` | https://docs.nvidia.com/nemo-framework/user-guide/24.12/nemotoolkit/asr/speaker_diarization/results.html and NGC model cards | NeMo 툴킷은 `Apache-2.0`이지만, NVIDIA는 각 NGC 모델 카드에 별도 라이선스 섹션이 있을 수 있다고 안내합니다. `titanet_large` NGC 문구는 모델 라이선스가 NeMo Toolkit 라이선스를 따른다고 명시합니다. VAD/MSDD 모델은 재배포 전 각 NGC 모델 카드를 확인해야 합니다. |
 
-Future update required: `backend/analyzers/pronunciation.py` accepts an external
-`scorer_repo_id`, but no scorer repository is set in tracked `config/models.json`.
-If one is configured later, add its source and license before publishing a build
-that uses it. User-trained GPT-SoVITS, OmniVoice, RVC, or other checkpoints
-inherit the licenses and consent constraints of their training data and base
-checkpoints.
+추후 업데이트 필요 항목: `backend/analyzers/pronunciation.py`는 외부
+`scorer_repo_id`를 설정으로 받을 수 있지만, 현재 추적 중인 `config/models.json`에는
+해당 scorer 저장소가 설정되어 있지 않습니다. 나중에 scorer를 설정해 배포하는 경우
+공식 출처와 라이선스를 이 목록에 추가해야 합니다. 사용자가 직접 학습한 GPT-SoVITS,
+OmniVoice, RVC 또는 기타 체크포인트는 학습 데이터와 기반 체크포인트의 라이선스 및
+동의 조건을 함께 따릅니다.
