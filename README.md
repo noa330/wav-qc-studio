@@ -227,10 +227,3 @@ python cleanup_onnxruntime_conflicts.py
 | Training / Inference | OmniVoice 소스 및 모델 `k2-fsa/OmniVoice` | `backend/voice_training_config.py`; `frontend/src/shared/training-defaults.ts`; `frontend/src/renderer/src/features/workspaces/ui/pages/training/TrainingPanels.tsx`; `frontend/src/renderer/src/features/workspaces/ui/pages/inference/InferencePanels.tsx` | https://github.com/k2-fsa/OmniVoice and https://huggingface.co/k2-fsa/OmniVoice | `Apache-2.0`; 모델 카드에서 무단 보이스 클로닝, 사칭, 사기, 불법 또는 비윤리적 사용을 금지합니다. |
 | Training / Inference | OmniVoice 기본 LLM으로 쓰는 Qwen3 `Qwen/Qwen3-0.6B` | `frontend/src/shared/training-defaults.ts` | https://huggingface.co/Qwen/Qwen3-0.6B | `Apache-2.0`. |
 | 레거시 백엔드 화자 분석기 | NVIDIA NeMo `vad_multilingual_marblenet`, `diar_msdd_telephonic`, `titanet_large` | `backend/analyzers/speaker_runtime.py`; `config/models.json` | https://docs.nvidia.com/nemo-framework/user-guide/24.12/nemotoolkit/asr/speaker_diarization/results.html and NGC model cards | NeMo 툴킷은 `Apache-2.0`이지만, NVIDIA는 각 NGC 모델 카드에 별도 라이선스 섹션이 있을 수 있다고 안내합니다. `titanet_large` NGC 문구는 모델 라이선스가 NeMo Toolkit 라이선스를 따른다고 명시합니다. VAD/MSDD 모델은 재배포 전 각 NGC 모델 카드를 확인해야 합니다. |
-
-추후 업데이트 필요 항목: `backend/analyzers/pronunciation.py`는 외부
-`scorer_repo_id`를 설정으로 받을 수 있지만, 현재 추적 중인 `config/models.json`에는
-해당 scorer 저장소가 설정되어 있지 않습니다. 나중에 scorer를 설정해 배포하는 경우
-공식 출처와 라이선스를 이 목록에 추가해야 합니다. 사용자가 직접 학습한 GPT-SoVITS,
-OmniVoice, RVC 또는 기타 체크포인트는 학습 데이터와 기반 체크포인트의 라이선스 및
-동의 조건을 함께 따릅니다.

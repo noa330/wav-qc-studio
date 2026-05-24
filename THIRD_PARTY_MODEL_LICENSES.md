@@ -51,12 +51,3 @@ outside this inventory and must be checked separately before redistribution.
 | Training / Inference | OmniVoice source and model `k2-fsa/OmniVoice` | `backend/voice_training_config.py`, `frontend/src/shared/training-defaults.ts`, `frontend/src/renderer/src/features/workspaces/ui/pages/training/TrainingPanels.tsx`, `frontend/src/renderer/src/features/workspaces/ui/pages/inference/InferencePanels.tsx` | https://github.com/k2-fsa/OmniVoice and https://huggingface.co/k2-fsa/OmniVoice | `Apache-2.0`. Model card also prohibits unauthorized voice cloning, impersonation, fraud, scams, and illegal or unethical use. |
 | Training / Inference | Qwen3 `Qwen/Qwen3-0.6B` used as OmniVoice LLM default | `frontend/src/shared/training-defaults.ts` | https://huggingface.co/Qwen/Qwen3-0.6B | `Apache-2.0`. |
 | Legacy backend speaker analyzer | NVIDIA NeMo `vad_multilingual_marblenet`, `diar_msdd_telephonic`, `titanet_large` | `backend/analyzers/speaker_runtime.py`, `config/models.json` | https://docs.nvidia.com/nemo-framework/user-guide/24.12/nemotoolkit/asr/speaker_diarization/results.html and NGC model cards | NeMo toolkit is `Apache-2.0`, but NVIDIA states each NGC model card may carry its own license section. `titanet_large` NGC text states the model license is covered by the NeMo Toolkit license; verify the VAD/MSDD model cards in NGC before redistribution. |
-
-## Items Requiring A Future Update When Enabled
-
-- `backend/analyzers/pronunciation.py` accepts an external pronunciation
-  `scorer_repo_id` through configuration. No scorer repository is set in the
-  tracked `config/models.json`; if one is configured, add its source and license
-  here before publishing a build that uses it.
-- User-trained GPT-SoVITS, OmniVoice, RVC, or other checkpoints inherit the
-  licenses and consent constraints of their training data and base checkpoints.
