@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-import voice_training_core as training_core
+from backend import voice_training_core as training_core
 
 
 LogFn = Callable[[str], None]

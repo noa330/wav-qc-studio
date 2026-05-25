@@ -42,8 +42,8 @@ if str(APP_ROOT) not in sys.path:
 
 from backend.console_ui_core import LiveConsoleLine, prepare_for_regular_output
 from backend.downloads import download_url_to_path, is_download_complete
-from backend.voice_training_checkpoints import checkpoint_number, checkpoints, newest_file
-from backend.voice_training_config import (
+from backend.training.checkpoints import checkpoint_number, checkpoints, newest_file
+from backend.training.config import (
     BLOCKED_NETWORK_ENV_KEYS,
     GPT_CODE_URL,
     GPT_CONDA_ENV_NAME,
@@ -56,7 +56,32 @@ from backend.voice_training_config import (
     OMNI_HF_REPO_ID,
     OMNI_OFFICIAL_DEPS_STAMP,
 )
-from backend.voice_training_io import read_text_any, to_simple_yaml
+from backend.training.datasets import (
+    infer_gsv_wav_dir,
+    normalize_gsv_list_file,
+    normalize_omnivoice_jsonl_file,
+    parse_gsv_list as parse_gsv_list_file,
+    prepare_omnivoice_input_file,
+    resolve_input_file as resolve_input_file_from_path,
+    write_omnivoice_jsonl_from_gsv,
+)
+from backend.training.errors import ToolError
+from backend.training.gpt_configs import (
+    apply_gpt_train_options_config,
+    gpt_model_path_for,
+    write_gpt_config_file,
+    write_sovits_config_file,
+)
+from backend.training.omnivoice_checkpoints import (
+    count_webdataset_manifest_shards,
+    finalize_omnivoice_model_checkpoint_for,
+    omnivoice_checkpoint_dirs_for,
+    omnivoice_checkpoint_written_after_for,
+    relative_arg,
+    rewrite_webdataset_manifest_for_windows_file,
+    valid_omnivoice_weight_file_for,
+)
+from backend.training.omnivoice_configs import default_omnivoice_train_options, write_omnivoice_train_configs_file
 
 DEFAULT_LIST = ""
 DEFAULT_OMNI_JSONL = ""
@@ -83,10 +108,6 @@ def configure_tool_root(tool_root: Path | str) -> None:
     GPT_RUNTIME_SCRIPT = PROJECT_ROOT / "install_gpt_sovits_runtime.ps1"
     GPT_RUNTIME_MARKER = GPT_REPO / ".gpt_sovits_runtime.json"
 
-class ToolError(RuntimeError):
-    pass
-
-
 @dataclass
 class GptRunResult:
     exp_dir: Path
@@ -111,7 +132,7 @@ def gpt_sovits_nltk_data_dir(py: Optional[Path] = None) -> Path:
     env_prefix = gpt_conda_env_prefix_if_exists()
     if env_prefix is not None:
         return env_prefix / "nltk_data"
-    return GPT_REPO / "nltk_data"
+    return CACHE_DIR / "nltk_data"
 
 
 def gpt_miniconda_dir() -> Path:
@@ -590,7 +611,10 @@ def gpt_runtime_marker_ready(marker: Path, stamp: str, device: str, py: Optional
         return False
     if py is not None and python_path != py:
         return False
-    return python_path.exists() and python_modules_ready(python_path, ["torch", "torchaudio", "pytorch_lightning", "transformers", "gradio"])
+    ready_modules = ["torch", "torchaudio", "pytorch_lightning", "transformers", "gradio"]
+    if os.name == "nt":
+        ready_modules.append("eunjeon")
+    return python_path.exists() and python_modules_ready(python_path, ready_modules)
 
 
 def write_gpt_runtime_marker(marker: Path, stamp: str, device: str, conda: Path, log: LogFn) -> Path:
@@ -764,9 +788,30 @@ def install_omnivoice_official_deps(log: LogFn) -> Path:
     return py
 
 
+def _remove_preclone_scaffold(dest: Path) -> bool:
+    if not dest.exists() or (dest / ".git").exists():
+        return False
+    allowed_names = {"nltk_data"}
+    try:
+        children = list(dest.iterdir())
+    except OSError:
+        return False
+    if not children or any(child.name not in allowed_names or not child.is_dir() for child in children):
+        return False
+    for child in children:
+        if any(child.rglob("*")):
+            return False
+    shutil.rmtree(dest)
+    return True
+
+
 def ensure_clone(url: str, dest: Path, log: LogFn = log_print, lfs: bool = False) -> None:
     if (dest / ".git").exists():
         log(f"Already cloned: {dest}")
+    elif _remove_preclone_scaffold(dest):
+        log(f"Removed incomplete pre-clone scaffold: {dest}")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        run_stream(["git", "clone", "--progress", "--depth", "1", url, str(dest)], PROJECT_ROOT, log=log)
     elif dest.exists() and any(dest.iterdir()):
         raise ToolError(f"{dest} exists but is not a git clone.")
     else:
@@ -848,7 +893,10 @@ def ensure_gpt_sovits_assets(log: LogFn = log_print, install_deps: bool = True, 
             py = gpt_sovits_python()
         else:
             py = install_gpt_sovits_official_runtime(conda, device, log=log)
-        log_python_package_versions(py, "GPT-SoVITS", ["torch", "torchaudio", "pytorch_lightning", "transformers", "gradio"], log)
+        log_modules = ["torch", "torchaudio", "pytorch_lightning", "transformers", "gradio"]
+        if os.name == "nt":
+            log_modules.append("eunjeon")
+        log_python_package_versions(py, "GPT-SoVITS", log_modules, log)
     elif GPT_RUNTIME_MARKER.exists():
         py = gpt_sovits_python()
     else:
@@ -879,45 +927,19 @@ def ensure_omnivoice_assets(log: LogFn = log_print, install_deps: bool = True) -
 
 
 def parse_gsv_list(list_path: Path) -> list[tuple[str, str, str, str]]:
-    text = read_text_any(list_path)
-    rows: list[tuple[str, str, str, str]] = []
-    for idx, raw in enumerate(text.splitlines(), start=1):
-        line = raw.strip()
-        if not line:
-            continue
-        parts = line.split("|", 3)
-        if len(parts) != 4:
-            raise ToolError(f"Invalid list line {idx}: expected wav|speaker|language|text")
-        wav, speaker, lang, script = [p.strip() for p in parts]
-        if not Path(wav).exists():
-            raise ToolError(f"Audio file is missing on line {idx}: {wav}")
-        rows.append((wav, speaker or "speaker_unknown", lang.lower(), script))
-    if not rows:
-        raise ToolError(f"No usable rows in {list_path}")
-    return rows
+    return parse_gsv_list_file(list_path)
 
 
 def normalized_gsv_list(list_path: Path, exp_name: str, log: LogFn = log_print) -> Path:
-    rows = parse_gsv_list(list_path)
-    target = WORK_DIR / "gpt_sovits" / exp_name / "input.list"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    normalized = []
-    for wav, speaker, lang, script in rows:
-        normalized.append(f"{wav}|{speaker}|{lang}|{script}")
-    target.write_text("\n".join(normalized) + "\n", encoding="utf-8")
-    log(f"Prepared GPT-SoVITS list: {target} ({len(rows)} rows)")
-    return target
+    return normalize_gsv_list_file(list_path, exp_name, WORK_DIR, log)
 
 
 def infer_wav_dir(list_path: Path) -> str:
-    rows = parse_gsv_list(list_path)
-    parents = {str(Path(row[0]).parent) for row in rows}
-    return next(iter(parents)) if len(parents) == 1 else ""
+    return infer_gsv_wav_dir(list_path)
 
 
 def gpt_model_path(version: str, key: str) -> Path:
-    rel = GPT_PRETRAINED[version][key]
-    return GPT_HF / rel
+    return gpt_model_path_for(GPT_HF, GPT_PRETRAINED, version, key)
 
 
 def validate_gpt_version(version: str) -> None:
@@ -1040,88 +1062,35 @@ def write_sovits_config(
     pretrained_s2g: Optional[str] = None,
     pretrained_s2d: Optional[str] = None,
 ) -> Path:
-    source = GPT_REPO / GPT_PRETRAINED[version]["s2_config"]
-    data = json.loads(source.read_text(encoding="utf-8"))
-    exp_dir = GPT_REPO / "logs" / exp_name
-    (exp_dir / f"logs_s2_{version}").mkdir(parents=True, exist_ok=True)
-    data["train"]["batch_size"] = max(1, int(batch_size))
-    data["train"]["epochs"] = max(1, int(epochs))
-    data["train"]["text_low_lr_rate"] = float(text_low_lr_rate)
-    data["train"]["pretrained_s2G"] = pretrained_s2g or str(gpt_model_path(version, "s2g"))
-    data["train"]["pretrained_s2D"] = pretrained_s2d or str(gpt_model_path(version, "s2d"))
-    data["train"]["if_save_latest"] = bool(if_save_latest)
-    data["train"]["if_save_every_weights"] = bool(if_save_every_weights)
-    data["train"]["save_every_epoch"] = max(1, int(save_every_epoch))
-    data["train"]["gpu_numbers"] = gpu
-    data["train"]["grad_ckpt"] = bool(grad_ckpt)
-    data["train"]["lora_rank"] = max(1, int(lora_rank))
-    data["model"]["version"] = version
-    data["data"]["exp_dir"] = str(exp_dir)
-    data["s2_ckpt_dir"] = str(exp_dir)
-    save_weight_dir = GPT_REPO / (f"SoVITS_weights_{version}" if version != "v1" else "SoVITS_weights")
-    save_weight_dir.mkdir(parents=True, exist_ok=True)
-    data["save_weight_dir"] = str(save_weight_dir)
-    data["name"] = exp_name
-    data["version"] = version
-    out = WORK_DIR / "gpt_sovits" / exp_name / f"tmp_s2_{version}.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    return out
-
+    return write_sovits_config_file(
+        gpt_repo=GPT_REPO,
+        gpt_hf=GPT_HF,
+        work_dir=WORK_DIR,
+        gpt_pretrained=GPT_PRETRAINED,
+        exp_name=exp_name,
+        version=version,
+        batch_size=batch_size,
+        epochs=epochs,
+        gpu=gpu,
+        text_low_lr_rate=text_low_lr_rate,
+        if_save_latest=if_save_latest,
+        if_save_every_weights=if_save_every_weights,
+        save_every_epoch=save_every_epoch,
+        grad_ckpt=grad_ckpt,
+        lora_rank=lora_rank,
+        pretrained_s2g=pretrained_s2g,
+        pretrained_s2d=pretrained_s2d,
+    )
 
 def write_gpt_config(exp_name: str, version: str, batch_size: int, epochs: int, gpu: str) -> Path:
-    data = {
-        "train": {
-            "seed": 1234,
-            "epochs": 20,
-            "batch_size": 8,
-            "save_every_n_epoch": 1,
-            "precision": "16-mixed",
-            "gradient_clip": 1.0,
-        },
-        "optimizer": {
-            "lr": 0.01,
-            "lr_init": 0.00001,
-            "lr_end": 0.0001,
-            "warmup_steps": 2000,
-            "decay_steps": 40000,
-        },
-        "data": {
-            "max_eval_sample": 8,
-            "max_sec": 54,
-            "num_workers": 4,
-            "pad_val": 1024,
-        },
-        "model": {
-            "vocab_size": 1025,
-            "phoneme_vocab_size": 512 if version == "v1" else 732,
-            "embedding_dim": 512,
-            "hidden_dim": 512,
-            "head": 16,
-            "linear_units": 2048,
-            "n_layer": 24,
-            "dropout": 0,
-            "EOS": 1024,
-            "random_bert": 0,
-        },
-        "inference": {"top_k": 5 if version == "v1" else 15},
-    }
-    exp_dir = GPT_REPO / "logs" / exp_name
-    (exp_dir / f"logs_s1_{version}").mkdir(parents=True, exist_ok=True)
-    data["train"]["batch_size"] = max(1, int(batch_size))
-    data["train"]["epochs"] = max(1, int(epochs))
-    half_weights_dir = GPT_REPO / (f"GPT_weights_{version}" if version != "v1" else "GPT_weights")
-    half_weights_dir.mkdir(parents=True, exist_ok=True)
-    data["train"]["half_weights_save_dir"] = str(half_weights_dir)
-    data["train"]["exp_name"] = exp_name
-    data["train_semantic_path"] = str(exp_dir / "6-name2semantic.tsv")
-    data["train_phoneme_path"] = str(exp_dir / "2-name2text.txt")
-    data["output_dir"] = str(exp_dir / f"logs_s1_{version}")
-    out = WORK_DIR / "gpt_sovits" / exp_name / f"tmp_s1_{version}.yaml"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(to_simple_yaml(data), encoding="utf-8")
-    return out
-
+    return write_gpt_config_file(
+        gpt_repo=GPT_REPO,
+        work_dir=WORK_DIR,
+        exp_name=exp_name,
+        version=version,
+        batch_size=batch_size,
+        epochs=epochs,
+    )
 
 def apply_gpt_train_options(
     config_path: Path,
@@ -1135,149 +1104,41 @@ def apply_gpt_train_options(
     if_dpo: bool = False,
     pretrained_s1: Optional[str] = None,
 ) -> Path:
-    data = {}
-    # Rebuild through write_gpt_config's known structure, then patch options.
-    exp_dir = GPT_REPO / "logs" / exp_name
-    half_weights_dir = GPT_REPO / (f"GPT_weights_{version}" if version != "v1" else "GPT_weights")
-    half_weights_dir.mkdir(parents=True, exist_ok=True)
-    base_path = write_gpt_config(exp_name, version, batch_size, epochs, "0")
-    text = base_path.read_text(encoding="utf-8")
-    # This writer only needs a few mutable values. String replacement keeps the
-    # file dependency-free for the launcher and the training script still reads YAML.
-    # Recreate a full config as dict to avoid fragile replacement.
-    data = {
-        "train": {
-            "seed": 1234,
-            "epochs": max(1, int(epochs)),
-            "batch_size": max(1, int(batch_size)),
-            "save_every_n_epoch": max(1, int(save_every_epoch)),
-            "precision": "16-mixed",
-            "gradient_clip": 1.0,
-            "if_save_every_weights": bool(if_save_every_weights),
-            "if_save_latest": bool(if_save_latest),
-            "if_dpo": bool(if_dpo),
-            "half_weights_save_dir": str(half_weights_dir),
-            "exp_name": exp_name,
-        },
-        "optimizer": {
-            "lr": 0.01,
-            "lr_init": 0.00001,
-            "lr_end": 0.0001,
-            "warmup_steps": 2000,
-            "decay_steps": 40000,
-        },
-        "data": {"max_eval_sample": 8, "max_sec": 54, "num_workers": 4, "pad_val": 1024},
-        "model": {
-            "vocab_size": 1025,
-            "phoneme_vocab_size": 512 if version == "v1" else 732,
-            "embedding_dim": 512,
-            "hidden_dim": 512,
-            "head": 16,
-            "linear_units": 2048,
-            "n_layer": 24,
-            "dropout": 0,
-            "EOS": 1024,
-            "random_bert": 0,
-        },
-        "inference": {"top_k": 5 if version == "v1" else 15},
-        "pretrained_s1": pretrained_s1 or str(gpt_model_path(version, "gpt")),
-        "train_semantic_path": str(exp_dir / "6-name2semantic.tsv"),
-        "train_phoneme_path": str(exp_dir / "2-name2text.txt"),
-        "output_dir": str(exp_dir / f"logs_s1_{version}"),
-    }
-    config_path.write_text(to_simple_yaml(data), encoding="utf-8")
-    return config_path
-
+    return apply_gpt_train_options_config(
+        config_path=config_path,
+        gpt_repo=GPT_REPO,
+        gpt_hf=GPT_HF,
+        work_dir=WORK_DIR,
+        gpt_pretrained=GPT_PRETRAINED,
+        version=version,
+        exp_name=exp_name,
+        batch_size=batch_size,
+        epochs=epochs,
+        save_every_epoch=save_every_epoch,
+        if_save_latest=if_save_latest,
+        if_save_every_weights=if_save_every_weights,
+        if_dpo=if_dpo,
+        pretrained_s1=pretrained_s1,
+    )
 
 def omnivoice_checkpoint_dirs(out_dir: Path) -> list[Path]:
-    candidates: list[Path] = []
-    for path in out_dir.glob("checkpoint-*"):
-        if not path.is_dir():
-            continue
-        has_weights = any(valid_omnivoice_weight_file(weight) for weight in path.glob("model*.safetensors")) or valid_omnivoice_weight_file(path / "pytorch_model.bin")
-        if has_weights:
-            candidates.append(path)
-    return sorted(candidates, key=checkpoint_number)
+    return omnivoice_checkpoint_dirs_for(out_dir, OMNI_HF)
 
 
 def valid_omnivoice_weight_file(path: Path) -> bool:
-    if not path.exists() or not path.is_file():
-        return False
-    if path.suffix.lower() == ".safetensors":
-        reference = OMNI_HF / "model.safetensors"
-        if reference.exists():
-            return path.stat().st_size >= int(reference.stat().st_size * 0.95)
-    return path.stat().st_size > 0
+    return valid_omnivoice_weight_file_for(path, OMNI_HF)
 
 
 def finalize_omnivoice_model_checkpoint(checkpoint_dir: Path, train_cfg: Path, log: LogFn = log_print) -> None:
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("config.json", "tokenizer.json", "tokenizer_config.json", "chat_template.jinja"):
-        src = OMNI_HF / name
-        dst = checkpoint_dir / name
-        if src.exists() and not dst.exists():
-            shutil.copy2(src, dst)
-    train_dst = checkpoint_dir / "train_config.json"
-    if train_cfg.exists() and not train_dst.exists():
-        shutil.copy2(train_cfg, train_dst)
-
-    optimizer = checkpoint_dir / "optimizer.bin"
-    scheduler = checkpoint_dir / "scheduler.bin"
-    if optimizer.exists() and not scheduler.exists():
-        try:
-            optimizer.unlink()
-            log(f"[OmniVoice checkpoint] Removed incomplete optimizer state: {optimizer}")
-        except OSError:
-            pass
+    finalize_omnivoice_model_checkpoint_for(checkpoint_dir, train_cfg, OMNI_HF, log)
 
 
 def omnivoice_checkpoint_written_after(checkpoint_dir: Path, timestamp: float) -> bool:
-    candidates = list(checkpoint_dir.glob("model*.safetensors")) + [checkpoint_dir / "pytorch_model.bin"]
-    for path in candidates:
-        if valid_omnivoice_weight_file(path) and path.stat().st_mtime >= timestamp:
-            return True
-    return False
-
-
-def relative_arg(path: Path, cwd: Path) -> str:
-    return os.path.relpath(str(path), str(cwd))
-
-
-def relative_posix_arg(path: Path, cwd: Path) -> str:
-    return os.path.relpath(str(path.resolve()), str(cwd.resolve())).replace(os.sep, "/")
+    return omnivoice_checkpoint_written_after_for(checkpoint_dir, timestamp, OMNI_HF)
 
 
 def rewrite_webdataset_manifest_for_windows(manifest: Path, log: LogFn = log_print) -> None:
-    if not manifest.exists():
-        return
-    rewritten: list[str] = []
-    changed = False
-    for raw in manifest.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line:
-            continue
-        parts = line.split()
-        if len(parts) != 4:
-            rewritten.append(raw)
-            continue
-        tar_path, label_path, count, duration = parts
-        if re.match(r"^[A-Za-z]:[\\/]", tar_path):
-            tar_rel = relative_posix_arg(Path(tar_path), OMNI_REPO)
-            label_rel = relative_posix_arg(Path(label_path), OMNI_REPO)
-            rewritten.append(f"{tar_rel} {label_rel} {count} {duration}")
-            changed = True
-        else:
-            rewritten.append(raw)
-    if changed:
-        manifest.write_text("\n".join(rewritten) + "\n", encoding="utf-8")
-        log(f"Rewrote OmniVoice WebDataset manifest for Windows file URLs: {manifest}")
-
-
-def count_webdataset_manifest_shards(manifest: Path) -> int:
-    if not manifest.exists():
-        return 0
-    return sum(1 for line in manifest.read_text(encoding="utf-8").splitlines() if line.strip())
-
+    rewrite_webdataset_manifest_for_windows_file(manifest, OMNI_REPO, log)
 
 def train_sovits(
     exp_name: str,
@@ -1504,88 +1365,19 @@ def run_gpt_full_smoke(
 
 
 def gsv_to_omnivoice_jsonl(gsv_list: Path, exp_name: str, log: LogFn = log_print) -> Path:
-    rows = parse_gsv_list(gsv_list)
-    out = WORK_DIR / "omnivoice" / exp_name / "input.jsonl"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with out.open("w", encoding="utf-8") as f:
-        for idx, (wav, speaker, lang, text) in enumerate(rows, start=1):
-            sample_id = re.sub(r"[^A-Za-z0-9_.-]+", "_", f"{speaker}_{Path(wav).stem}_{idx:06d}")
-            f.write(
-                json.dumps(
-                    {
-                        "id": sample_id,
-                        "audio_path": wav,
-                        "text": text,
-                        "language_id": lang,
-                    },
-                    ensure_ascii=False,
-                )
-                + "\n"
-            )
-    log(f"Prepared OmniVoice JSONL: {out} ({len(rows)} rows)")
-    return out
+    return write_omnivoice_jsonl_from_gsv(gsv_list, exp_name, WORK_DIR, log)
 
 
 def resolve_input_file(path: Path, preferred_name: str = "train.jsonl") -> Path:
-    if path.is_dir():
-        candidate = path / preferred_name
-        if candidate.exists():
-            return candidate
-        files = sorted(path.glob("*.jsonl")) + sorted(path.glob("*.json")) + sorted(path.glob("*.list"))
-        if files:
-            return files[0]
-    return path
+    return resolve_input_file_from_path(path, preferred_name)
 
 
 def normalize_omnivoice_jsonl(jsonl_path: Path, exp_name: str, log: LogFn = log_print) -> Path:
-    jsonl_path = resolve_input_file(jsonl_path)
-    source_text = read_text_any(jsonl_path)
-    rows = []
-    wav_dir = jsonl_path.parent.parent / "wavs"
-    wav_files = sorted(wav_dir.glob("*.wav")) if wav_dir.exists() else []
-    for idx, raw in enumerate(source_text.splitlines(), start=1):
-        if not raw.strip():
-            continue
-        try:
-            item = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise ToolError(f"Invalid JSONL line {idx}: {exc}") from exc
-        sample_id = str(item.get("id") or idx)
-        audio_path = Path(str(item.get("audio_path") or ""))
-        if not audio_path.exists():
-            numeric = re.sub(r"\D", "", sample_id)
-            fallback = wav_dir / f"{int(numeric):06d}.wav" if numeric else None
-            if fallback and fallback.exists():
-                audio_path = fallback
-            elif idx <= len(wav_files):
-                audio_path = wav_files[idx - 1]
-            else:
-                raise ToolError(f"Audio path is missing for OmniVoice JSONL line {idx}: {item.get('audio_path')}")
-        rows.append(
-            {
-                "id": sample_id,
-                "audio_path": str(audio_path),
-                "text": str(item.get("text") or ""),
-                "language_id": str(item.get("language_id") or item.get("language") or "ko"),
-            }
-        )
-    if not rows:
-        raise ToolError(f"No usable rows in {jsonl_path}")
-    out = WORK_DIR / "omnivoice" / exp_name / "input.jsonl"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with out.open("w", encoding="utf-8") as f:
-        for row in rows:
-            f.write(json.dumps(row, ensure_ascii=False) + "\n")
-    log(f"Prepared OmniVoice JSONL: {out} ({len(rows)} rows)")
-    return out
+    return normalize_omnivoice_jsonl_file(jsonl_path, exp_name, WORK_DIR, log)
 
 
 def prepare_omnivoice_input(input_path: Path, exp_name: str, log: LogFn = log_print) -> Path:
-    input_path = resolve_input_file(input_path)
-    suffix = input_path.suffix.lower()
-    if suffix in {".jsonl", ".json"}:
-        return normalize_omnivoice_jsonl(input_path, exp_name, log=log)
-    return gsv_to_omnivoice_jsonl(input_path, exp_name, log=log)
+    return prepare_omnivoice_input_file(input_path, exp_name, WORK_DIR, log)
 
 
 def prepare_omnivoice_tokens(
@@ -1655,46 +1447,7 @@ def prepare_omnivoice_tokens(
     return manifest
 
 
-DEFAULT_OMNI_TRAIN_OPTIONS = {
-    "llm_name_or_path": "Qwen/Qwen3-0.6B",
-    "init_from_checkpoint": str(OMNI_HF),
-    "audio_vocab_size": 1025,
-    "audio_mask_id": 1024,
-    "num_audio_codebook": 8,
-    "audio_codebook_weights": [8, 8, 6, 6, 4, 4, 2, 2],
-    "drop_cond_ratio": 0.1,
-    "prompt_ratio_range": [0.0, 0.3],
-    "mask_ratio_range": [0.0, 1.0],
-    "language_ratio": 0.8,
-    "use_pinyin_ratio": 0.0,
-    "instruct_ratio": 0.0,
-    "only_instruct_ratio": 0.0,
-    "resume_from_checkpoint": None,
-    "learning_rate": 1e-5,
-    "weight_decay": 0.01,
-    "max_grad_norm": 1.0,
-    "steps": 5000,
-    "seed": 42,
-    "lr_scheduler_type": "cosine",
-    "warmup_type": "ratio",
-    "warmup_ratio": 0.01,
-    "warmup_steps": 0,
-    "batch_tokens": 8192,
-    "gradient_accumulation_steps": 1,
-    "num_workers": 2,
-    "mixed_precision": "bf16",
-    "allow_tf32": True,
-    "use_deepspeed": False,
-    "deepspeed_config": None,
-    "attn_implementation": "sdpa",
-    "max_sample_tokens": 2000,
-    "min_sample_tokens": 1,
-    "max_batch_size": 4,
-    "logging_steps": 50,
-    "eval_steps": 500,
-    "save_steps": 500,
-    "keep_last_n_checkpoints": -1,
-}
+DEFAULT_OMNI_TRAIN_OPTIONS = default_omnivoice_train_options(OMNI_HF)
 
 
 def write_omnivoice_train_configs(
@@ -1702,28 +1455,14 @@ def write_omnivoice_train_configs(
     exp_name: str,
     train_options: Optional[dict] = None,
 ) -> tuple[Path, Path, Path]:
-    cfg_dir = WORK_DIR / "omnivoice" / exp_name / "config"
-    cfg_dir.mkdir(parents=True, exist_ok=True)
-    data_cfg = cfg_dir / "data_config.json"
-    train_cfg = cfg_dir / "train_config.json"
-    out_dir = WORK_DIR / "omnivoice" / exp_name / "exp"
-    options = dict(DEFAULT_OMNI_TRAIN_OPTIONS)
-    if train_options:
-        options.update({k: v for k, v in train_options.items() if v != "" and k != "model_only_checkpoint"})
-    if not options.get("llm_name_or_path"):
-        options["llm_name_or_path"] = "Qwen/Qwen3-0.6B"
-    if not options.get("init_from_checkpoint"):
-        options["init_from_checkpoint"] = str(OMNI_HF)
-    data_cfg.write_text(
-        json.dumps({"train": [{"manifest_path": [str(manifest)]}], "dev": []}, indent=2),
-        encoding="utf-8",
+    return write_omnivoice_train_configs_file(
+        manifest=manifest,
+        exp_name=exp_name,
+        work_dir=WORK_DIR,
+        omni_hf=OMNI_HF,
+        default_options=DEFAULT_OMNI_TRAIN_OPTIONS,
+        train_options=train_options,
     )
-    train_cfg.write_text(
-        json.dumps(options, indent=2),
-        encoding="utf-8",
-    )
-    return train_cfg, data_cfg, out_dir
-
 
 def train_omnivoice(
     manifest: Path,

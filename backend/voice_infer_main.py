@@ -11,9 +11,13 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
-from voice_assets import DEFAULT_TOOL_ROOT, ensure_voice_assets, resolve_gpt_weights
-from voice_console import VoiceConsole
-from voice_manifests import InferenceManifestInput, InferenceManifestWriter
+APP_ROOT = Path(__file__).resolve().parents[1]
+if str(APP_ROOT) not in sys.path:
+    sys.path.insert(0, str(APP_ROOT))
+
+from backend.voice_assets import DEFAULT_TOOL_ROOT, ensure_voice_assets, resolve_gpt_weights
+from backend.voice_console import VoiceConsole
+from backend.voice_manifests import InferenceManifestInput, InferenceManifestWriter
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")

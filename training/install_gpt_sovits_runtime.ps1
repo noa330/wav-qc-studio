@@ -336,6 +336,10 @@ Write-Success "PyTorch Installed"
 Write-Info "Installing Python Dependencies From requirements.txt..."
 Invoke-Pip -r extra-req.txt --no-deps
 Install-FilteredRequirements "requirements.txt"
+if ($IsWindows -or $env:OS -eq "Windows_NT") {
+    Write-Info "Installing Windows Korean text frontend dependency..."
+    Invoke-Pip "eunjeon==0.4.0"
+}
 
 # requirements.txt can contain unpinned torch-domain packages on upstream GPT-SoVITS.
 # Re-apply the pinned runtime after requirements so pip cannot leave torch/torchaudio mismatched.

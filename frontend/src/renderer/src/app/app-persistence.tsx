@@ -36,97 +36,43 @@ import {
 } from "@/features/workspaces/state/workspace-runtime-store";
 import { findFirstAudioPath, findRowForPath, resolveAudioSelection, resolveInputAudioPath } from "@/features/workspaces/model/workspace-runtime-selection";
 import {
-  createEmptyAudioEditSessionSnapshot,
   getAudioEditSessionSnapshot,
   normalizeAudioEditSessionSnapshot,
   restoreAudioEditSessionSnapshot,
   subscribeAudioEditSession,
-  type AudioEditSessionSnapshot,
 } from "@/features/workspaces/state/audio-edit-session";
+import {
+  createDefaultPersistedAppState,
+  createDefaultRuntimeSnapshot,
+  createDefaultShellState,
+  createDefaultWorkspaceUiState,
+  createDefaultWorkspaceUiStore,
+  type PersistedAppState,
+  type PersistedBatchReplaceState,
+  type PersistedDataGridState,
+  type PersistedProjectMeta,
+  type PersistedRowsClipboard,
+  type PersistedRuntimeSnapshot,
+  type PersistedShellState,
+  type PersistedSliceEditorState,
+  type PersistedWorkspaceUiState,
+} from "./app-persistence-model";
+
+export type {
+  PersistedAppState,
+  PersistedBatchReplaceState,
+  PersistedDataGridState,
+  PersistedProjectMeta,
+  PersistedRowsClipboard,
+  PersistedRuntimeSnapshot,
+  PersistedShellState,
+  PersistedSliceEditorState,
+  PersistedWorkspaceUiState,
+} from "./app-persistence-model";
 
 const appStateSchemaVersion = 1;
 const saveDebounceMs = 650;
 const defaultProjectId = "default-project";
-
-export type PersistedRowsClipboard = {
-  workspaceId: WorkspaceId;
-  rows: DataTableRow[];
-};
-
-export type PersistedProjectMeta = {
-  id: string;
-  name: string;
-  rootPath?: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type PersistedRuntimeSnapshot = {
-  settings: WorkspaceSettings;
-  tagScoreRules: TagScoreRule[];
-  overviewFilter: OverviewFilterState;
-  rowsClipboard?: PersistedRowsClipboard;
-  states: WorkspaceRuntimeStore;
-};
-
-export type PersistedShellState = {
-  selectedWorkspaceId: WorkspaceId;
-  sidebarCollapsedByUser: boolean;
-};
-
-export type PersistedDataGridState = {
-  pageSize?: number;
-  pageIndex?: number;
-  columnWidths?: Record<string, number>;
-  autoFitColumns?: Record<string, boolean>;
-  rowHeights?: Record<string, number>;
-  autoFitRowsActive?: boolean;
-};
-
-export type PersistedSliceEditorState = {
-  viewStart: number;
-  viewEnd: number;
-  loopPreview: boolean;
-};
-
-export type PersistedBatchReplaceState = {
-  mode: "bulk" | "single";
-  scopes: {
-    visible: boolean;
-    checked: boolean;
-    displayed: boolean;
-  };
-  query: string;
-  replacement: string;
-  caseSensitive: boolean;
-  wholeWord: boolean;
-  timelineScoreFilterEnabled: boolean;
-  timelineScoreThreshold: number;
-  selectedIds: Record<string, boolean>;
-};
-
-export type PersistedWorkspaceUiState = {
-  outerLayoutSizes: {
-    left: number;
-    right: number;
-  };
-  sliceEditor: PersistedSliceEditorState;
-  grid: PersistedDataGridState;
-  dialogs: {
-    overviewEditorOpen: boolean;
-    batchReplaceOpen: boolean;
-    taggingScoreCutOpen: boolean;
-    trainingTensorBoardOpen: boolean;
-  };
-  batchReplace: PersistedBatchReplaceState;
-};
-
-export type PersistedAppState = {
-  runtime: PersistedRuntimeSnapshot;
-  shell: PersistedShellState;
-  workspaceUi: Record<WorkspaceId, PersistedWorkspaceUiState>;
-  audioEditSession: AudioEditSessionSnapshot;
-};
 
 type PersistedProjectRecord = PersistedProjectMeta & {
   state: PersistedAppState | unknown;
@@ -789,71 +735,6 @@ function normalizeProjectRoot(path?: string): string {
 function projectNameFromPath(path: string): string {
   const normalized = path.trim().replace(/\\/gu, "/").replace(/\/+$/u, "");
   return normalized.split("/").filter(Boolean).pop() || "새 프로젝트";
-}
-
-function createDefaultPersistedAppState(): PersistedAppState {
-  return {
-    runtime: createDefaultRuntimeSnapshot(),
-    shell: createDefaultShellState(),
-    workspaceUi: createDefaultWorkspaceUiStore(),
-    audioEditSession: createEmptyAudioEditSessionSnapshot(),
-  };
-}
-
-function createDefaultRuntimeSnapshot(): PersistedRuntimeSnapshot {
-  return {
-    settings: defaultWorkspaceSettings,
-    tagScoreRules: createDefaultTagScoreRules(),
-    overviewFilter: createDefaultOverviewFilterState(),
-    states: createInitialRuntimeStore(),
-  };
-}
-
-function createDefaultShellState(): PersistedShellState {
-  return {
-    selectedWorkspaceId: defaultWorkspaceId,
-    sidebarCollapsedByUser: false,
-  };
-}
-
-function createDefaultWorkspaceUiStore(): Record<WorkspaceId, PersistedWorkspaceUiState> {
-  return Object.fromEntries(workspaceIds.map((workspaceId) => [workspaceId, createDefaultWorkspaceUiState()])) as Record<WorkspaceId, PersistedWorkspaceUiState>;
-}
-
-function createDefaultWorkspaceUiState(): PersistedWorkspaceUiState {
-  return {
-    outerLayoutSizes: {
-      left: 292,
-      right: 322,
-    },
-    sliceEditor: {
-      viewStart: 0,
-      viewEnd: 1,
-      loopPreview: false,
-    },
-    grid: {},
-    dialogs: {
-      overviewEditorOpen: false,
-      batchReplaceOpen: false,
-      taggingScoreCutOpen: false,
-      trainingTensorBoardOpen: false,
-    },
-    batchReplace: {
-      mode: "bulk",
-      scopes: {
-        visible: false,
-        checked: false,
-        displayed: true,
-      },
-      query: "",
-      replacement: "",
-      caseSensitive: false,
-      wholeWord: false,
-      timelineScoreFilterEnabled: false,
-      timelineScoreThreshold: -1,
-      selectedIds: {},
-    },
-  };
 }
 
 async function reportStartupProgress(

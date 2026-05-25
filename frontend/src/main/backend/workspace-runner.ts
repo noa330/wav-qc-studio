@@ -1,8 +1,6 @@
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
-import { copyFile, link, mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, extname, join, resolve } from "node:path";
-import { AUDIO_INPUT_EXTENSIONS, WAV_AUDIO_EXTENSIONS } from "@shared/ipc";
+import { existsSync, rmSync } from "node:fs";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import type {
   DataTable,
   DetailField,
@@ -20,11 +18,13 @@ import type {
 import { createEmptyWorkspaceTable } from "@shared/table-schemas";
 import { scanFileTree } from "./file-tree";
 import { createBackendLayout } from "./project-layout";
-import { resolveManagedProjectsRoot } from "./project-workspaces";
 import { formatCommand, resolveHostLogPath, type PythonRunPlan, runPythonPlan } from "./python-runner";
 import { readWorkspaceDetails, readWorkspaceTable } from "./result-readers";
 import { readRawTerminalSnapshot } from "./terminal-log";
 import { assertTrainingDatasetExtension, loadTrainingDatasetPreview } from "./voice-training-dataset";
+import { recordActiveAudioConversionCache, resolveAudioInputConversionDirectory } from "./workspace-runner/audio-conversion-cache";
+import { findFirstInputAudio, isSupportedAudioPath, isWavAudioPath } from "./workspace-runner/audio-paths";
+import { resolveRunInputPath, restoreOriginalAudioSources } from "./workspace-runner/run-input-sources";
 import {
   boolArg,
   msToFireRedFrame,
@@ -38,31 +38,23 @@ import {
   round,
   timestamp,
 } from "./workspace-runner/setting-normalizers";
+import {
+  BATCH_OUTPUT_FOLDER,
+  INFERENCE_OUTPUT_FOLDER,
+  OVERVIEW_OUTPUT_FOLDER,
+  SLICER_OUTPUT_FOLDER,
+  SPEAKER_OUTPUT_FOLDER,
+  TAGGING_OUTPUT_FOLDER,
+  TRAINING_OUTPUT_FOLDER,
+  resolveFallbackInputFolder,
+  resolveOutputDirectory,
+} from "./workspace-runner/workspace-paths";
 
-const SLICER_OUTPUT_FOLDER = "_slicer_results";
-const TAGGING_OUTPUT_FOLDER = "_tagging_results";
-const SPEAKER_OUTPUT_FOLDER = "_spica_results";
-const OVERVIEW_OUTPUT_FOLDER = "_wav_qc_results";
-const BATCH_OUTPUT_FOLDER = "_batch_qc_results";
-const TRAINING_OUTPUT_FOLDER = "_training_results";
-const INFERENCE_OUTPUT_FOLDER = "_voice_inference_results";
-const AUDIO_INPUT_CONVERSION_FOLDER = "converted-audio";
-const LOCAL_AUDIO_INPUT_CONVERSION_FOLDER = "_converted_audio";
-const activeAudioCachesFileName = "active-audio-caches.json";
-const activeAudioCachesSchemaVersion = 1;
-const audioConversionSelections = new Map<WorkspaceId, ActiveAudioCacheRecord>();
-const audioConversionWorkspaceIds = new Set<WorkspaceId>(["slice", "tagging", "speaker", "overview", "batch", "training", "inference"]);
+export { resolveWorkspaceOutputPath } from "./workspace-runner/workspace-paths";
+export { cleanupInactiveAudioConversionCaches } from "./workspace-runner/audio-conversion-cache";
+
 const workspaceRunCachePaths = new Set<string>();
 type WorkspaceRunProgressHandler = (progress: WorkspaceRunProgressEvent) => void;
-
-type ActiveAudioCacheRecord = {
-  workspaceId: WorkspaceId;
-  projectRoot: string;
-  inputRoot: string;
-  cacheRoot: string;
-  activeCachePath: string;
-  updatedAt: string;
-};
 
 export function cleanupWorkspaceRunCaches(): void {
   for (const cachePath of workspaceRunCachePaths) {
@@ -70,26 +62,6 @@ export function cleanupWorkspaceRunCaches(): void {
   }
 
   workspaceRunCachePaths.clear();
-}
-
-export function cleanupInactiveAudioConversionCaches(): void {
-  const records = mergeActiveAudioCacheRecords(readActiveAudioCacheRecordsSync(), Array.from(audioConversionSelections.values()));
-  const activeByCacheRoot = new Map<string, Set<string>>();
-  for (const record of records) {
-    const cacheRoot = resolve(record.cacheRoot);
-    const activeCachePath = resolve(record.activeCachePath);
-    if (!isSafeAudioConversionCacheRoot(cacheRoot) || !pathIsInside(activeCachePath, cacheRoot)) {
-      continue;
-    }
-
-    const key = normalizeRunAudioPath(cacheRoot);
-    activeByCacheRoot.set(key, activeByCacheRoot.get(key) ?? new Set<string>());
-    activeByCacheRoot.get(key)?.add(normalizeRunAudioPath(activeCachePath));
-  }
-
-  for (const cacheRoot of collectKnownAudioConversionRoots(records)) {
-    cleanupInactiveAudioConversionRoot(cacheRoot, activeByCacheRoot.get(normalizeRunAudioPath(cacheRoot)) ?? new Set<string>());
-  }
 }
 
 export async function runWorkspace(request: WorkspaceRunRequest, onProgress?: WorkspaceRunProgressHandler, signal?: AbortSignal): Promise<WorkspaceRunResult> {
@@ -264,6 +236,10 @@ function stringValue(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizeAudioPathKey(path: string | undefined): string {
+  return (path ?? "").replace(/\\/g, "/").toLowerCase();
+}
+
 function tableSignature(table: DataTable): string {
   return JSON.stringify(table.rows.map((row) => [row.id, row.sourcePath, row.cells, row.raw]));
 }
@@ -304,10 +280,6 @@ export async function loadWorkspaceFromPath(workspaceId: WorkspaceId, inputPath:
     audioSourceMapPath: preparedInput.audioSourceMapPath,
     logPath: preparedInput.logPath,
   };
-}
-
-export function resolveWorkspaceOutputPath(workspaceId: WorkspaceId, inputPath: string, outputPath?: string, projectRoot?: string): string {
-  return outputPath || resolveDefaultOutputPath(workspaceId, inputPath, projectRoot);
 }
 
 async function createRunPlan(request: WorkspaceRunRequest): Promise<PythonRunPlan> {
@@ -963,72 +935,6 @@ function parseBatchRawJson(value: string | undefined, fallback: unknown): unknow
   }
 }
 
-function resolveDefaultOutputPath(workspaceId: WorkspaceId, inputPath: string, projectRoot?: string): string {
-  const projectOutputPath = resolveProjectOutputPath(projectRoot, workspaceId, outputFolderForWorkspace(workspaceId));
-  if (projectOutputPath) {
-    return projectOutputPath;
-  }
-
-  switch (workspaceId) {
-    case "slice":
-      return join(inputPath, SLICER_OUTPUT_FOLDER);
-    case "tagging":
-      return join(inputPath, TAGGING_OUTPUT_FOLDER);
-    case "speaker":
-      return join(inputPath, SPEAKER_OUTPUT_FOLDER);
-    case "overview":
-      return join(inputPath, OVERVIEW_OUTPUT_FOLDER);
-    case "batch":
-      return join(resolveFallbackInputFolder(inputPath), BATCH_OUTPUT_FOLDER);
-    case "training":
-      return join(dirname(inputPath), TRAINING_OUTPUT_FOLDER);
-    case "inference":
-      return join(resolveFallbackInputFolder(inputPath), INFERENCE_OUTPUT_FOLDER);
-  }
-}
-
-function outputFolderForWorkspace(workspaceId: WorkspaceId): string {
-  switch (workspaceId) {
-    case "slice":
-      return SLICER_OUTPUT_FOLDER;
-    case "tagging":
-      return TAGGING_OUTPUT_FOLDER;
-    case "speaker":
-      return SPEAKER_OUTPUT_FOLDER;
-    case "overview":
-      return OVERVIEW_OUTPUT_FOLDER;
-    case "batch":
-      return BATCH_OUTPUT_FOLDER;
-    case "training":
-      return TRAINING_OUTPUT_FOLDER;
-    case "inference":
-      return INFERENCE_OUTPUT_FOLDER;
-  }
-}
-
-function resolveProjectOutputPath(projectRoot: string | undefined, workspaceId: WorkspaceId, expectedLeafName: string): string | undefined {
-  const root = projectRoot?.trim();
-  return root ? join(root, "outputs", workspaceId, expectedLeafName) : undefined;
-}
-
-type AudioSourceMapping = {
-  sourcePath: string;
-  cachedPath: string;
-  isWav?: boolean;
-};
-
-type PreparedRunInput = {
-  inputPath: string;
-  displayInputPath: string;
-  audioSourceMappings?: AudioSourceMapping[];
-};
-
-type PreparedAudioSourceMap = {
-  inputPath?: string;
-  originalInputPath?: string;
-  mappings: AudioSourceMapping[];
-};
-
 type PreparedWorkspaceInput = {
   inputPath: string;
   originalInputPath: string;
@@ -1099,150 +1005,6 @@ async function prepareWorkspaceAudioInput(workspaceId: WorkspaceId, inputPath: s
     logPath,
   };
 }
-
-async function recordActiveAudioConversionCache(workspaceId: WorkspaceId, inputPath: string, activeCachePath: string, projectRoot?: string): Promise<void> {
-  const inputRoot = resolveFallbackInputFolder(inputPath);
-  const cacheRoot = resolveAudioInputConversionRoot(workspaceId, inputPath, projectRoot);
-  const record: ActiveAudioCacheRecord = {
-    workspaceId,
-    projectRoot: projectRoot?.trim() || "",
-    inputRoot,
-    cacheRoot,
-    activeCachePath,
-    updatedAt: new Date().toISOString(),
-  };
-  audioConversionSelections.set(workspaceId, record);
-  await writeActiveAudioCacheRecords(mergeActiveAudioCacheRecords(readActiveAudioCacheRecordsSync(), [record]));
-}
-
-function isSafeAudioConversionCacheRoot(cacheRoot: string): boolean {
-  const leaf = basename(cacheRoot).toLowerCase();
-  const parent = basename(dirname(cacheRoot)).toLowerCase();
-  return audioConversionWorkspaceIds.has(leaf as WorkspaceId) && (parent === AUDIO_INPUT_CONVERSION_FOLDER || parent === LOCAL_AUDIO_INPUT_CONVERSION_FOLDER);
-}
-
-function collectKnownAudioConversionRoots(records: ActiveAudioCacheRecord[]): string[] {
-  const roots = new Set(records.map((record) => record.cacheRoot).filter(Boolean));
-  const projectRoots = new Set(records.map((record) => record.projectRoot).filter(Boolean));
-
-  try {
-    for (const entry of readdirSync(resolveManagedProjectsRoot(), { withFileTypes: true })) {
-      if (entry.isDirectory()) {
-        projectRoots.add(join(resolveManagedProjectsRoot(), entry.name));
-      }
-    }
-  } catch {
-    // Project discovery is best-effort during shutdown.
-  }
-
-  for (const projectRoot of projectRoots) {
-    for (const workspaceId of audioConversionWorkspaceIds) {
-      roots.add(join(projectRoot, AUDIO_INPUT_CONVERSION_FOLDER, workspaceId));
-    }
-  }
-
-  return Array.from(roots)
-    .map((root) => resolve(root))
-    .filter((root) => isSafeAudioConversionCacheRoot(root));
-}
-
-function cleanupInactiveAudioConversionRoot(cacheRoot: string, activeCachePaths: Set<string>): void {
-  const resolvedRoot = resolve(cacheRoot);
-  if (!isSafeAudioConversionCacheRoot(resolvedRoot) || !existsSync(resolvedRoot)) {
-    return;
-  }
-
-  let entries;
-  try {
-    entries = readdirSync(resolvedRoot, { withFileTypes: true });
-  } catch {
-    return;
-  }
-
-  for (const entry of entries) {
-    if (!entry.isDirectory()) {
-      continue;
-    }
-
-    const cachePath = resolve(resolvedRoot, entry.name);
-    if (activeCachePaths.has(normalizeRunAudioPath(cachePath))) {
-      continue;
-    }
-
-    try {
-      rmSync(cachePath, { recursive: true, force: true, maxRetries: 5, retryDelay: 150 });
-    } catch {
-      // Shutdown cleanup must never block app exit; locked caches are retried next run.
-    }
-  }
-}
-
-function readActiveAudioCacheRecordsSync(): ActiveAudioCacheRecord[] {
-  try {
-    const parsed = JSON.parse(readFileSync(resolveActiveAudioCachesPath(), "utf8")) as unknown;
-    const records = isRecord(parsed) && Array.isArray(parsed.records) ? parsed.records : [];
-    return records.flatMap((record): ActiveAudioCacheRecord[] => {
-      if (!isRecord(record)) {
-        return [];
-      }
-
-      const workspaceId = stringValue(record.workspaceId) as WorkspaceId;
-      const cacheRoot = stringValue(record.cacheRoot);
-      const activeCachePath = stringValue(record.activeCachePath);
-      if (!audioConversionWorkspaceIds.has(workspaceId) || !cacheRoot || !activeCachePath) {
-        return [];
-      }
-
-      return [{
-        workspaceId,
-        projectRoot: stringValue(record.projectRoot),
-        inputRoot: stringValue(record.inputRoot),
-        cacheRoot,
-        activeCachePath,
-        updatedAt: stringValue(record.updatedAt),
-      }];
-    });
-  } catch {
-    return [];
-  }
-}
-
-async function writeActiveAudioCacheRecords(records: ActiveAudioCacheRecord[]): Promise<void> {
-  const projectsRoot = resolveManagedProjectsRoot();
-  await mkdir(projectsRoot, { recursive: true });
-  const payload = {
-    schemaVersion: activeAudioCachesSchemaVersion,
-    savedAt: new Date().toISOString(),
-    records,
-  };
-  const filePath = resolveActiveAudioCachesPath();
-  const tempPath = join(projectsRoot, `${activeAudioCachesFileName}.${process.pid}.${Date.now()}.tmp`);
-  await writeFile(tempPath, JSON.stringify(payload, null, 2), "utf8");
-  await rename(tempPath, filePath);
-}
-
-function mergeActiveAudioCacheRecords(existing: ActiveAudioCacheRecord[], updates: ActiveAudioCacheRecord[]): ActiveAudioCacheRecord[] {
-  const records = new Map(existing.map((record) => [activeAudioCacheRecordKey(record), record]));
-  for (const update of updates) {
-    records.set(activeAudioCacheRecordKey(update), update);
-  }
-  return Array.from(records.values());
-}
-
-function activeAudioCacheRecordKey(record: ActiveAudioCacheRecord): string {
-  return `${normalizeRunAudioPath(record.projectRoot)}|${record.workspaceId}`;
-}
-
-function resolveActiveAudioCachesPath(): string {
-  return join(resolveManagedProjectsRoot(), activeAudioCachesFileName);
-}
-
-function pathIsInside(path: string, parentPath: string): boolean {
-  const normalizedPath = normalizeRunAudioPath(resolve(path));
-  const normalizedParent = normalizeRunAudioPath(resolve(parentPath));
-  return normalizedPath === normalizedParent || normalizedPath.startsWith(`${normalizedParent}/`);
-}
-
 
 function startAudioConversionTerminalPolling(workspaceId: WorkspaceId, plan: PythonRunPlan, onProgress?: WorkspaceRunProgressHandler): () => void {
   if (!onProgress) {
@@ -1384,8 +1146,7 @@ function annotateAudioConversionNodeStatus(node: FileTreeNode, activeSourcePath:
     };
   }
 
-  const extension = extname(node.path).toLowerCase();
-  if (!isSupportedAudioPath(node.path) || WAV_AUDIO_EXTENSIONS.includes(extension as (typeof WAV_AUDIO_EXTENSIONS)[number])) {
+  if (!isSupportedAudioPath(node.path) || isWavAudioPath(node.path)) {
     return node;
   }
 
@@ -1422,8 +1183,7 @@ async function summarizeInputAudio(inputPath: string): Promise<{ total: number }
     if (entry.name.startsWith(".") || entry.isDirectory() || !entry.isFile()) {
       continue;
     }
-    const extension = extname(entry.name).toLowerCase();
-    if (!AUDIO_INPUT_EXTENSIONS.includes(extension as (typeof AUDIO_INPUT_EXTENSIONS)[number])) {
+    if (!isSupportedAudioPath(join(root, entry.name))) {
       continue;
     }
     total += 1;
@@ -1444,332 +1204,6 @@ function createAudioConvertingLayout(workspaceId: WorkspaceId): ReturnType<typeo
     case "inference":
       return createBackendLayout({ markerScript: "main.py", venvFolder: ".venv" });
   }
-}
-
-async function resolveRunInputPath(
-  request: WorkspaceRunRequest,
-  outputPath: string,
-  runStamp: string,
-): Promise<PreparedRunInput> {
-  const sourcePaths = [...new Set((request.retry?.sourcePaths ?? []).filter((sourcePath) => sourcePath && existsSync(sourcePath) && isSupportedAudioPath(sourcePath)))];
-  const displayInputPath = request.paths.inputPath;
-  const audioEdits = normalizeRunAudioEdits(request.audioEdits);
-
-  if (sourcePaths.length === 0) {
-    const preparedAudioInput = audioEdits.size === 0 ? await readPreparedAudioSourceMap(request.paths.inputPath) : undefined;
-    if (preparedAudioInput) {
-      return {
-        inputPath: request.paths.inputPath,
-        displayInputPath: preparedAudioInput.originalInputPath || displayInputPath,
-        audioSourceMappings: preparedAudioInput.mappings,
-      };
-    }
-
-    const editedInput = audioEdits.size > 0 ? await stageEditedInputFolder(request.paths.inputPath, outputPath, runStamp, audioEdits) : undefined;
-    return editedInput ?? { inputPath: request.paths.inputPath, displayInputPath };
-  }
-
-  const retryInputPath = join(outputPath, `_retry_input_${runStamp}`);
-  await mkdir(retryInputPath, { recursive: true });
-  const usedNames = new Set<string>();
-  const retryMappings: AudioSourceMapping[] = [];
-  for (const [index, sourcePath] of sourcePaths.entries()) {
-    retryMappings.push(await stageRetryInputFile(sourcePath, retryInputPath, usedNames, index, resolveEditedRunSourcePath(sourcePath, audioEdits)));
-  }
-  return {
-    inputPath: retryInputPath,
-    displayInputPath,
-    audioSourceMappings: retryMappings,
-  };
-}
-
-async function readPreparedAudioSourceMap(inputPath: string): Promise<PreparedAudioSourceMap | undefined> {
-  return readPreparedAudioSourceMapFile(join(inputPath, "audio_source_map.json"));
-}
-
-async function readPreparedAudioSourceMapFile(sourceMapPath: string): Promise<PreparedAudioSourceMap | undefined> {
-  try {
-    const parsed = JSON.parse(await readFile(sourceMapPath, "utf8")) as unknown;
-    if (!isRecord(parsed) || !Array.isArray(parsed.mappings)) {
-      return undefined;
-    }
-
-    const mappings = parsed.mappings.flatMap((item): AudioSourceMapping[] => {
-      if (!isRecord(item)) {
-        return [];
-      }
-
-      const sourcePath = stringValue(item.sourcePath) || stringValue(item.originalPath);
-      const cachedPath = stringValue(item.cachedPath);
-      const isWav = stringValue(item.isWav).toLowerCase() === "true" || isWavAudioPath(sourcePath);
-      return sourcePath && cachedPath ? [{ sourcePath, cachedPath, isWav }] : [];
-    });
-    return mappings.length > 0
-      ? { inputPath: stringValue(parsed.inputPath), originalInputPath: stringValue(parsed.originalInputPath), mappings }
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-async function stageEditedInputFolder(inputPath: string, outputPath: string, runStamp: string, audioEdits: Map<string, string>): Promise<PreparedRunInput | undefined> {
-  const inputRoot = resolveFallbackInputFolder(inputPath);
-  let entries;
-  try {
-    entries = await readdir(inputRoot, { withFileTypes: true });
-  } catch {
-    return undefined;
-  }
-
-  const audioEntries = entries.filter((entry) => !entry.name.startsWith(".") && entry.isFile() && isSupportedAudioPath(join(inputRoot, entry.name)));
-  if (!audioEntries.some((entry) => hasEditedRunSource(join(inputRoot, entry.name), audioEdits))) {
-    return undefined;
-  }
-
-  const editedInputPath = join(outputPath, `_edited_input_${runStamp}`);
-  await mkdir(editedInputPath, { recursive: true });
-  const usedNames = new Set<string>();
-  const mappings: AudioSourceMapping[] = [];
-  for (const [index, entry] of audioEntries.entries()) {
-    const sourcePath = join(inputRoot, entry.name);
-    mappings.push(await stageRetryInputFile(sourcePath, editedInputPath, usedNames, index, resolveEditedRunSourcePath(sourcePath, audioEdits)));
-  }
-
-  return {
-    inputPath: editedInputPath,
-    displayInputPath: inputPath,
-    audioSourceMappings: mappings,
-  };
-}
-
-async function stageRetryInputFile(sourcePath: string, retryInputPath: string, usedNames: Set<string>, index: number, stagedSourcePath = sourcePath): Promise<AudioSourceMapping> {
-  const fileName = uniqueRetryFileName(stagedAudioFileName(sourcePath, stagedSourcePath), usedNames, index);
-  const targetPath = join(retryInputPath, fileName);
-  try {
-    await link(stagedSourcePath, targetPath);
-  } catch {
-    await copyFile(stagedSourcePath, targetPath);
-  }
-  return { sourcePath, cachedPath: targetPath };
-}
-
-function normalizeRunAudioEdits(audioEdits: WorkspaceRunRequest["audioEdits"]): Map<string, string> {
-  const normalized = new Map<string, string>();
-  for (const [sourcePath, editedPath] of Object.entries(audioEdits ?? {})) {
-    const source = sourcePath.trim();
-    const edited = editedPath.trim();
-    if (!source || !edited || !existsSync(edited) || !isSupportedAudioPath(edited)) {
-      continue;
-    }
-
-    normalized.set(normalizeRunAudioPath(source), edited);
-  }
-  return normalized;
-}
-
-function hasEditedRunSource(sourcePath: string, audioEdits: Map<string, string>): boolean {
-  return audioEdits.has(normalizeRunAudioPath(sourcePath));
-}
-
-function resolveEditedRunSourcePath(sourcePath: string, audioEdits: Map<string, string>): string {
-  return audioEdits.get(normalizeRunAudioPath(sourcePath)) ?? sourcePath;
-}
-
-function stagedAudioFileName(sourcePath: string, stagedSourcePath: string): string {
-  const sourceExtension = extname(sourcePath);
-  const stagedExtension = extname(stagedSourcePath) || sourceExtension;
-  if (sourceExtension && stagedExtension && sourceExtension.toLowerCase() !== stagedExtension.toLowerCase()) {
-    return `${basename(sourcePath, sourceExtension)}${stagedExtension}`;
-  }
-  return basename(sourcePath);
-}
-
-function normalizeRunAudioPath(path: string): string {
-  return path.trim().replace(/\\/gu, "/").toLowerCase();
-}
-
-function uniqueRetryFileName(fileName: string, usedNames: Set<string>, index: number): string {
-  if (!usedNames.has(fileName)) {
-    usedNames.add(fileName);
-    return fileName;
-  }
-
-  const extension = extname(fileName);
-  const stem = extension ? fileName.slice(0, -extension.length) : fileName;
-  let candidate = `${stem}_${index + 1}${extension}`;
-  let counter = index + 1;
-  while (usedNames.has(candidate)) {
-    counter += 1;
-    candidate = `${stem}_${counter}${extension}`;
-  }
-  usedNames.add(candidate);
-  return candidate;
-}
-
-function resolveAudioInputConversionDirectory(workspaceId: WorkspaceId, inputPath: string, projectRoot?: string): string {
-  const inputRoot = resolveFallbackInputFolder(inputPath);
-  const name = sanitizeCacheFolderName(basename(inputRoot) || "input");
-  const key = createHash("sha1").update(inputRoot.replace(/\\/gu, "/").toLowerCase()).digest("hex").slice(0, 12);
-  return join(resolveAudioInputConversionRoot(workspaceId, inputPath, projectRoot), `${name}_${key}`);
-}
-
-function resolveAudioInputConversionRoot(workspaceId: WorkspaceId, inputPath: string, projectRoot?: string): string {
-  const inputRoot = resolveFallbackInputFolder(inputPath);
-  const projectConversionRoot = projectRoot?.trim()
-    ? join(projectRoot.trim(), AUDIO_INPUT_CONVERSION_FOLDER)
-    : join(inputRoot, LOCAL_AUDIO_INPUT_CONVERSION_FOLDER);
-  return join(projectConversionRoot, workspaceId);
-}
-
-function sanitizeCacheFolderName(value: string): string {
-  return value.replace(/[<>:"/\\|?*\x00-\x1f]+/gu, "_").replace(/\s+/gu, "_").replace(/^\.+/u, "").slice(0, 48) || "input";
-}
-
-function isSupportedAudioPath(path: string): boolean {
-  const extension = extname(path).toLowerCase();
-  return AUDIO_INPUT_EXTENSIONS.includes(extension as (typeof AUDIO_INPUT_EXTENSIONS)[number]);
-}
-
-function isWavAudioPath(path: string): boolean {
-  const extension = extname(path).toLowerCase();
-  return WAV_AUDIO_EXTENSIONS.includes(extension as (typeof WAV_AUDIO_EXTENSIONS)[number]);
-}
-
-function findFirstInputAudio(inputPath: string): string {
-  if (!inputPath || !existsSync(inputPath)) {
-    return "";
-  }
-  try {
-    const stats = statSync(inputPath);
-    if (stats.isFile() && isSupportedAudioPath(inputPath)) {
-      return inputPath;
-    }
-    if (!stats.isDirectory()) {
-      return "";
-    }
-    const stack = [inputPath];
-    while (stack.length > 0) {
-      const folder = stack.shift();
-      if (!folder) {
-        continue;
-      }
-      for (const entry of readdirSync(folder, { withFileTypes: true })) {
-        const path = join(folder, entry.name);
-        if (entry.isFile() && isSupportedAudioPath(path)) {
-          return path;
-        }
-        if (entry.isDirectory()) {
-          stack.push(path);
-        }
-      }
-    }
-  } catch {
-    return "";
-  }
-  return "";
-}
-
-
-function restoreOriginalAudioSources(workspaceId: WorkspaceId, table: DataTable, mappings: AudioSourceMapping[] | undefined): DataTable {
-  if (!mappings || mappings.length === 0) {
-    return table;
-  }
-
-  return {
-    ...table,
-    rows: table.rows.map((row) => restoreOriginalAudioSourceRow(workspaceId, row, mappings)),
-  };
-}
-
-function restoreOriginalAudioSourceRow(workspaceId: WorkspaceId, row: DataTable["rows"][number], mappings: AudioSourceMapping[]): DataTable["rows"][number] {
-  const raw = { ...(row.raw ?? {}) };
-  const cells = { ...row.cells };
-  const mapping = findAudioSourceMapping(row, mappings);
-  if (!mapping) {
-    return row;
-  }
-
-  const cachedFileName = basename(mapping.cachedPath);
-  const sourceFileName = basename(mapping.sourcePath);
-  const restoredRaw = replaceCachedSourceValues(raw, mapping.cachedPath, mapping.sourcePath);
-  const sourceKey = workspaceId === "overview" ? "absolute_path" : "originalPath";
-  restoredRaw[sourceKey] = mapping.sourcePath;
-  restoredRaw.cachedPath = mapping.cachedPath;
-  restoredRaw.cached_path = mapping.cachedPath;
-  if (restoredRaw.fileName === cachedFileName) {
-    restoredRaw.fileName = sourceFileName;
-  }
-  if (restoredRaw.file_name === cachedFileName) {
-    restoredRaw.file_name = sourceFileName;
-  }
-
-  for (const key of ["fileName", "file_name"] as const) {
-    if (cells[key] === cachedFileName) {
-      cells[key] = sourceFileName;
-    }
-  }
-
-  const sourcePath = isSameAudioPath(row.sourcePath, mapping.cachedPath) ? mapping.sourcePath : row.sourcePath;
-  return {
-    ...row,
-    id: isSameAudioPath(row.id, mapping.cachedPath) ? mapping.sourcePath : row.id,
-    sourcePath,
-    raw: restoredRaw,
-    cells,
-  };
-}
-
-function findAudioSourceMapping(row: DataTable["rows"][number], mappings: AudioSourceMapping[]): AudioSourceMapping | undefined {
-  const raw = row.raw ?? {};
-  const candidates = [
-    row.sourcePath,
-    raw.originalPath,
-    raw.original_path,
-    raw.absolute_path,
-    raw.inputPath,
-    raw.input_path,
-  ].filter((candidate): candidate is string => Boolean(candidate));
-
-  return mappings.find((mapping) => candidates.some((candidate) => isSameAudioPath(candidate, mapping.cachedPath)))
-    ?? mappings.find((mapping) => candidates.some((candidate) => basename(candidate) === basename(mapping.cachedPath)));
-}
-
-function replaceCachedSourceValues(raw: Record<string, string>, cachedPath: string, sourcePath: string): Record<string, string> {
-  return Object.fromEntries(Object.entries(raw).map(([key, value]) => [key, isSameAudioPath(value, cachedPath) ? sourcePath : value]));
-}
-
-function isSameAudioPath(left: string | undefined, right: string | undefined): boolean {
-  return normalizeAudioPathKey(left) === normalizeAudioPathKey(right);
-}
-
-function normalizeAudioPathKey(path: string | undefined): string {
-  return (path ?? "").replace(/\\/gu, "/").trim().toLowerCase();
-}
-
-function resolveOutputDirectory(inputPath: string, requestedOutputPath: string | undefined, expectedLeafName: string, projectRoot?: string, workspaceId?: WorkspaceId): string {
-  const candidate = requestedOutputPath?.trim();
-  if (!candidate) {
-    if (projectRoot?.trim() && workspaceId) {
-      return join(projectRoot.trim(), "outputs", workspaceId, expectedLeafName);
-    }
-
-    return join(resolveFallbackInputFolder(inputPath), expectedLeafName);
-  }
-
-  const trimmed = candidate.replace(/[\\/]+$/u, "");
-  return basename(trimmed).toLowerCase() === expectedLeafName.toLowerCase() ? trimmed : join(trimmed, expectedLeafName);
-}
-
-function resolveFallbackInputFolder(inputPath: string): string {
-  if (!inputPath) {
-    return process.cwd();
-  }
-
-  if (!existsSync(inputPath)) {
-    return process.cwd();
-  }
-
-  return extname(inputPath) ? dirname(inputPath) : inputPath;
 }
 
 async function assertInputDirectory(path: string, message: string): Promise<void> {
