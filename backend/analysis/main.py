@@ -23,7 +23,7 @@ else:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Batch WAV QC analyzer")
+    parser = argparse.ArgumentParser(description="Score WAV QC analyzer")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("analyze", help="Analyze a folder of WAV files")
@@ -68,7 +68,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
         transcription_language=args.language,
     ).normalize()
 
-    print_banner("Overview analysis")
+    print_banner("Score analysis")
     print_kv("Python", sys.executable)
     print_kv("Working directory", Path.cwd())
     print_kv("Model cache", model_cache_root())
@@ -101,7 +101,7 @@ def cmd_analyze(args: argparse.Namespace) -> int:
         print("[cancelled] Analysis was cancelled.")
         return 130
 
-    print_section("Overview analysis finished")
+    print_section("Score analysis finished")
     print_kv("Completed rows", len(rows))
     return 0
 

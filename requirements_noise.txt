@@ -1,4 +1,4 @@
-# Speaker-page dedicated environment (.venv_noise)
+# De-noise-page dedicated environment (.venv_noise)
 # Torch / torchvision / torchaudio are installed by setup_and_run.bat before this file.
 
 numpy==1.26.4
@@ -21,6 +21,6 @@ torchlibrosa==0.1.0
 progressbar==2.5
 
 # The two packages below are intentionally installed separately with --no-deps by setup_and_run.bat.
-# Keep them in this file so the speaker environment package list stays editable in one place.
+# Keep them in this file so the de-noise environment package list stays editable in one place.
 resemble-enhance==0.0.1
 https://github.com/haoheliu/voicefixer/archive/refs/heads/main.zip

@@ -18,7 +18,7 @@ else:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Speaker-page inference runner")
+    parser = argparse.ArgumentParser(description="De-noise-page inference runner")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("infer", help="Run VoiceFixer/Resemble/Sidon pipeline for a folder of WAV files")
@@ -73,7 +73,7 @@ def run_cli() -> int:
     except Exception:
         if not has_active_log_tee():
             try_install_log_tee_from_argv(sys.argv[1:], prepare_output=prepare_for_regular_output)
-        print("[FATAL] Speaker inference runner crashed before completion.")
+        print("[FATAL] De-noise inference runner crashed before completion.")
         traceback.print_exc()
         raise
     finally:

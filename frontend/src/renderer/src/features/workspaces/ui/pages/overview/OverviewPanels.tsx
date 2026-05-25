@@ -4,7 +4,7 @@ import type { WorkspaceRuntime } from "../../../state/use-workspace-runtime";
 import { NumberSetting, SelectSetting, SettingGroup } from "../../shared/workspace-panel-primitives";
 
 const overviewSettingHelp = {
-  modules: "RUN 시 활성화할 오버뷰 분석 작업입니다. 최소 1개 이상 켜져 있어야 백엔드 분석이 시작됩니다.",
+  modules: "RUN 시 활성화할 스코어 분석 작업입니다. 최소 1개 이상 켜져 있어야 백엔드 분석이 시작됩니다.",
   noise: "torchmetrics DNSMOS 노이즈 점수 계산에 전달되는 공식 인자와 기존 백엔드 기본값입니다.",
   analyzeNoise: "--noise 작업을 켭니다. 켜면 DNSMOS BAK/SIG/OVRL/P808 점수를 생성합니다.",
   noiseSampleRate: "DNSMOS 입력 리샘플링 주파수입니다. torchmetrics DNSMOS 기본 사용값인 16000을 기본으로 둡니다.",

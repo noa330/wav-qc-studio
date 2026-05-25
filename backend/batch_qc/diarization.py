@@ -70,7 +70,7 @@ class DiariZenBatchDiarizer:
                 from diarizen.pipelines.inference import DiariZenPipeline
         except Exception as exc:  # noqa: BLE001
             raise RuntimeError(
-                "DiariZen runtime is unavailable. Install DiariZen and pyannote.audio in .venv before running Batch QC speaker separation."
+                "DiariZen runtime is unavailable. Install DiariZen and pyannote.audio in .venv before running Script speaker separation."
             ) from exc
 
         print(f"[model] Loading DiariZen speaker diarization model: {self.model_id}")
@@ -105,7 +105,7 @@ def run_batch_speaker_diarization(
     input_folder = str(payload.get("inputFolder", "") or "")
     jobs = _load_jobs(payload)
     if not jobs:
-        raise ValueError("No Batch QC rows were provided for speaker separation.")
+        raise ValueError("No Script rows were provided for speaker separation.")
 
     _write_manifest(manifest_path, input_folder, jobs, "running")
     valid_jobs = _prepare_valid_jobs(jobs)

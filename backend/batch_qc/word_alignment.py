@@ -171,7 +171,7 @@ class Normalizer:
 
 
 class BatchWordAligner:
-    """PyTorch/torchaudio MMS_FA word timeline builder for Batch QC transcripts."""
+    """PyTorch/torchaudio MMS_FA word timeline builder for Script transcripts."""
 
     def __init__(self, cfg: dict[str, Any], progress: Progress = print) -> None:
         align_cfg = _read_alignment_config(cfg)

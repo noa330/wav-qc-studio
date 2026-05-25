@@ -5,12 +5,12 @@ import type { WorkspaceRuntime } from "../../../state/use-workspace-runtime";
 import { NumberSetting, SelectSetting, SettingGroup, TextSetting } from "../../shared/workspace-panel-primitives";
 
 const batchSettingHelp = {
-  export: "배치 QC 내보내기와 자동 전사 언어의 기본 설정입니다.",
+  export: "스크립트 내보내기와 자동 전사 언어의 기본 설정입니다.",
   whisper: "faster-whisper 자동 전사에 전달되는 설정입니다.",
   alignment: "자동 전사 뒤 PyTorch torchaudio MMS_FA WordAlign으로 단어 타임라인과 Align외 구간 후보를 계산합니다.",
-  speaker: "Batch QC 화자 검증/분리에서 DiariZen 전역 세션에 쓰는 설정입니다.",
+  speaker: "스크립트 화자 검증/분리에서 DiariZen 전역 세션에 쓰는 설정입니다.",
   exportFormat: "내보내기에서 backend/batch_qc/exporter.py로 전달되는 exportFormat 값입니다.",
-  transcriptionLanguage: "Batch QC RUN 시 --language로 전달됩니다. auto면 Whisper가 언어를 자동 판정합니다.",
+  transcriptionLanguage: "스크립트 RUN 시 --language로 전달됩니다. auto면 Whisper가 언어를 자동 판정합니다.",
   whisperAsrModel: "faster-whisper 모델 이름, Hugging Face repo ID, 또는 로컬 경로입니다. large-v3 같은 별칭은 백엔드가 Systran 모델로 해석합니다.",
   whisperBeamSize: "faster-whisper transcribe의 beam_size 값입니다.",
   whisperVadFilter: "faster-whisper transcribe의 vad_filter 값입니다.",

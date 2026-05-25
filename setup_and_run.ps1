@@ -446,24 +446,24 @@ try {
         Invoke-Native $NoiseVenvPy @("-m", "pip", "install", "pip", "setuptools<81", "wheel") "pip tool installation failed for .venv_noise."
 
         Detect-NoiseTorchIndex
-        Write-Host "Using speaker PyTorch wheel index: $script:NoiseTorchIndexUrl"
+        Write-Host "Using De-noise PyTorch wheel index: $script:NoiseTorchIndexUrl"
 
-        Write-Host "[14] Ensuring speaker torch stack in .venv_noise..."
+        Write-Host "[14] Ensuring De-noise torch stack in .venv_noise..."
         if (Test-PythonPackages -PythonExe $NoiseVenvPy -Packages @{ "torch" = "2.1.2"; "torchvision" = "0.16.2"; "torchaudio" = "2.1.2" }) {
-            Write-Host "Speaker torch stack already installed in .venv_noise; skipping."
+            Write-Host "De-noise torch stack already installed in .venv_noise; skipping."
         }
         else {
             Invoke-OptionalNative $NoiseVenvPy @("-m", "pip", "uninstall", "-y", "torch", "torchvision", "torchaudio")
-            Invoke-Native $NoiseVenvPy @("-m", "pip", "install", "--no-cache-dir", "--index-url", $script:NoiseTorchIndexUrl, "torch==2.1.2", "torchvision==0.16.2", "torchaudio==2.1.2") "Speaker torch stack installation failed for .venv_noise."
+            Invoke-Native $NoiseVenvPy @("-m", "pip", "install", "--no-cache-dir", "--index-url", $script:NoiseTorchIndexUrl, "torch==2.1.2", "torchvision==0.16.2", "torchaudio==2.1.2") "De-noise torch stack installation failed for .venv_noise."
         }
 
-        Write-Host "[15] Ensuring speaker/Sidon inference dependencies in .venv_noise..."
+        Write-Host "[15] Ensuring De-noise/Sidon inference dependencies in .venv_noise..."
         $noiseReq = Join-Path $Root "requirements_noise.txt"
         $noiseReqFiltered = Join-Path $env:TEMP ("wav_qc_noise_requirements_{0}.txt" -f ([guid]::NewGuid().ToString("N")))
         $noiseLines = Get-Content $noiseReq | Where-Object { $_ -notmatch "resemble-enhance" -and $_ -notmatch "haoheliu/voicefixer/archive/refs/heads/main.zip" }
         Set-Content -LiteralPath $noiseReqFiltered -Value $noiseLines -Encoding ASCII
         try {
-            Invoke-Native $NoiseVenvPy @("-m", "pip", "install", "--no-cache-dir", "--prefer-binary", "-r", $noiseReqFiltered) "Speaker dependency installation failed for .venv_noise."
+            Invoke-Native $NoiseVenvPy @("-m", "pip", "install", "--no-cache-dir", "--prefer-binary", "-r", $noiseReqFiltered) "De-noise dependency installation failed for .venv_noise."
             $resembleReq = Get-Content $noiseReq | Where-Object { $_ -match "^\s*resemble-enhance" } | Select-Object -First 1
             if ($resembleReq) {
                 Invoke-Native $NoiseVenvPy @("-m", "pip", "install", "--no-cache-dir", "--prefer-binary", "--no-deps", $resembleReq.Trim()) "resemble-enhance installation failed for .venv_noise."

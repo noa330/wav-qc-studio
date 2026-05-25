@@ -1,1 +1,1 @@
-"""Batch QC dataset exporter."""
+"""Script dataset exporter."""

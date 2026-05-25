@@ -512,7 +512,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         updateState(progress.workspaceId, {
           progressPercent: progress.progress.percent,
           progress: progress.progress,
-          statusText: progress.workspaceId === "batch" && state.isBatchSpeakerRunning ? "Speaker diarizing" : "Running",
+          statusText: progress.workspaceId === "batch" && state.isBatchSpeakerRunning ? "화자 분리 중" : "Running",
           browserPreferredSection: "input",
           ...(progress.inputTree ? { inputTree: progress.inputTree } : {}),
           ...(progress.terminal ? { terminal: createTerminalFromUpdate(progress.terminal, "running") } : {}),
@@ -546,7 +546,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       updateState(progress.workspaceId, {
         progressPercent: progress.progress.percent,
         progress: progress.progress,
-        statusText: progress.workspaceId === "batch" && state.isBatchSpeakerRunning ? "Speaker diarizing" : "Running",
+        statusText: progress.workspaceId === "batch" && state.isBatchSpeakerRunning ? "화자 분리 중" : "Running",
         browserPreferredSection: "input",
         ...(progress.inputTree ? { inputTree: progress.inputTree } : {}),
         ...(progress.terminal ? { terminal: createTerminalFromUpdate(progress.terminal, "running") } : {}),
@@ -954,7 +954,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
     }
 
     updateState(workspaceId, {
-      statusText: "Speaker stopping",
+      statusText: "화자 분리 중지 중",
     });
     try {
       await studioBackend.cancelWorkspace({ workspaceId, operation: "batchSpeaker" });
@@ -1345,7 +1345,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       },
       details: selectedRow ? state.table.columns.map((column) => ({ label: column.label, value: selectedRow.cells[column.key] || "" })) : state.details,
     });
-    updateState("batch", { statusText: "Speakers merged" });
+    updateState("batch", { statusText: "화자 병합 완료" });
     setSettings((current) => ({
       ...current,
       batch: {
@@ -1366,7 +1366,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
 
     updateState(workspaceId, {
       isBatchSpeakerRunning: true,
-      statusText: "Speaker diarizing",
+      statusText: "화자 분리 중",
       progressPercent: 0,
       progress: undefined,
       error: undefined,
@@ -1388,7 +1388,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       delete activeRunSessionRef.current[workspaceId];
       updateState(workspaceId, {
         isBatchSpeakerRunning: false,
-        statusText: "Speaker failed",
+        statusText: "화자 분리 실패",
         error: error instanceof Error ? error.message : String(error),
         terminal: {
           ...statesRef.current[workspaceId].terminal,
@@ -1406,7 +1406,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
     const selectionState = stateWithActiveSheet(latestState, latestSheet);
     const selection = buildTableSelectionPatch(workspaceId, result.table, selectionState, selectionState.selectedAudioPath || findFirstAudioPath(result.inputTree ?? latestState.inputTree));
     const nextBatchSpeakerChecks = Object.fromEntries(collectBatchSpeakers(result.table.rows).map((speaker) => [speaker, latestState.batchSpeakerChecks[speaker] !== false]));
-    const finalStatusText = result.cancelled ? "Stopped" : result.ok ? "Speaker completed" : "Speaker failed";
+    const finalStatusText = result.cancelled ? "Stopped" : result.ok ? "화자 분리 완료" : "화자 분리 실패";
     const finalError = result.cancelled || result.ok ? undefined : formatRunError(result);
     const finalProgressPercent = result.cancelled ? latestState.progressPercent : result.progress?.percent ?? (result.ok ? 100 : latestState.progressPercent);
 

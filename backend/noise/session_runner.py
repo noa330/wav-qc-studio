@@ -60,7 +60,7 @@ def run_inference_session(args: argparse.Namespace) -> int:
         model_cache_root,
     ) = import_runtime_modules()
 
-    print_banner("스피카 추론 실행")
+    print_banner("디노이즈 추론 실행")
     print_kv("Python", sys.executable)
     print_kv("작업 폴더", Path.cwd())
     print_kv("Model cache", model_cache_root())
@@ -247,7 +247,7 @@ def run_inference_session(args: argparse.Namespace) -> int:
     progress_line.finish(format_finished_line(len(files), failed=sum(1 for job in session.jobs if job.status == "failed")))
     session.session_status = "failed" if cancelled else "completed_with_errors" if any_failed else "completed"
     write_manifest(session)
-    print_section("스피카 추론 종료")
+    print_section("디노이즈 추론 종료")
     print_kv("전체 파일 수", len(files))
     print_kv("실패 포함 여부", "예" if any_failed else "아니오")
     print_kv("세션 상태", session.session_status)

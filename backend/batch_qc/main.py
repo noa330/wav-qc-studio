@@ -29,33 +29,33 @@ else:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Batch QC dataset exporter")
+    parser = argparse.ArgumentParser(description="Script dataset exporter")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("export", help="Export edited Batch QC rows as a training dataset")
-    p.add_argument("--request", required=True, help="Batch QC export request JSON")
+    p = sub.add_parser("export", help="Export edited Script rows as a training dataset")
+    p.add_argument("--request", required=True, help="Script export request JSON")
     p.add_argument("--output-dir", required=True, help="Output directory")
     p.add_argument("--manifest", required=True, help="Session manifest path")
     p.add_argument("--log", required=False, help="Log file path")
 
-    d = sub.add_parser("diarize", help="Separate Batch QC speakers with DiariZen")
-    d.add_argument("--request", required=True, help="Batch QC speaker diarization request JSON")
+    d = sub.add_parser("diarize", help="Separate Script speakers with DiariZen")
+    d.add_argument("--request", required=True, help="Script speaker diarization request JSON")
     d.add_argument("--manifest", required=True, help="Diarization manifest path")
     d.add_argument("--log", required=False, help="Log file path")
     d.add_argument("--cancel-file", required=False, default="", help="Cancel request file path")
     add_batch_model_override_args(d)
 
-    t = sub.add_parser("transcribe", help="Create Batch QC rows with Whisper transcription and PyTorch torchaudio MMS_FA word alignment")
+    t = sub.add_parser("transcribe", help="Create Script rows with Whisper transcription and PyTorch torchaudio MMS_FA word alignment")
     t.add_argument("--input", required=True, help="Input WAV folder")
-    t.add_argument("--manifest", required=True, help="Batch QC manifest path")
+    t.add_argument("--manifest", required=True, help="Script manifest path")
     t.add_argument("--log", required=False, help="Log file path")
     t.add_argument("--language", default="auto", help="Whisper transcription language code, or auto")
     t.add_argument("--cancel-file", required=False, default="", help="Cancel request file path")
     add_batch_model_override_args(t)
 
-    r = sub.add_parser("run", help="Create Batch QC rows with transcription and PyTorch torchaudio MMS_FA word alignment")
+    r = sub.add_parser("run", help="Create Script rows with transcription and PyTorch torchaudio MMS_FA word alignment")
     r.add_argument("--input", required=True, help="Input WAV folder")
-    r.add_argument("--manifest", required=True, help="Batch QC manifest path")
+    r.add_argument("--manifest", required=True, help="Script manifest path")
     r.add_argument("--log", required=False, help="Log file path")
     r.add_argument("--language", default="auto", help="Whisper transcription language code, or auto")
     r.add_argument("--cancel-file", required=False, default="", help="Cancel request file path")
@@ -98,7 +98,7 @@ def cmd_export(args: argparse.Namespace) -> int:
     output_root.mkdir(parents=True, exist_ok=True)
     input_folder, settings, jobs = load_request(request_path)
     if not jobs:
-        raise ValueError("No Batch QC rows were provided for export.")
+        raise ValueError("No Script rows were provided for export.")
 
     dataset_dir = output_root / f"{settings.export_format}_dataset_{datetime.now():%Y%m%d_%H%M%S}"
     dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -114,7 +114,7 @@ def cmd_export(args: argparse.Namespace) -> int:
     )
     write_manifest(session)
 
-    print_banner("배치 QC 데이터셋 내보내기 실행")
+    print_banner("스크립트 데이터셋 내보내기 실행")
     print_kv("Python", sys.executable)
     print_kv("작업 폴더", Path.cwd())
     print_kv("Model cache", model_cache_root())
@@ -155,7 +155,7 @@ def cmd_export(args: argparse.Namespace) -> int:
         session.session_status = "completed_with_errors" if any_failed else "completed"
         write_manifest(session)
 
-    print_section("배치 QC 데이터셋 내보내기 종료")
+    print_section("스크립트 데이터셋 내보내기 종료")
     print_kv("전체 파일 수", len(jobs))
     print_kv("실패 포함 여부", "예" if any_failed else "아니오")
     print_kv("세션 상태", session.session_status)
@@ -175,7 +175,7 @@ def cmd_diarize(args: argparse.Namespace) -> int:
     request_path = Path(args.request).resolve()
     cancel_file = Path(args.cancel_file).resolve() if args.cancel_file else None
 
-    print_banner("Batch QC DiariZen speaker separation")
+    print_banner("Script DiariZen speaker separation")
     print_kv("Python", sys.executable)
     print_kv("Working directory", Path.cwd())
     print_kv("Model cache", model_cache_root())
@@ -185,7 +185,7 @@ def cmd_diarize(args: argparse.Namespace) -> int:
     print_kv("Log file", log_path)
 
     result = run_batch_speaker_diarization(request_path, manifest_path, cancel_file, config_overrides=batch_model_config_overrides(args))
-    print_section("Batch QC DiariZen speaker separation finished")
+    print_section("Script DiariZen speaker separation finished")
     print_kv("Exit code", result)
     return result
 
@@ -202,7 +202,7 @@ def cmd_transcribe(args: argparse.Namespace) -> int:
     input_dir = Path(args.input).resolve()
     cancel_file = Path(args.cancel_file).resolve() if args.cancel_file else None
 
-    print_banner("Batch QC transcription and word alignment")
+    print_banner("Script transcription and word alignment")
     print_kv("Python", sys.executable)
     print_kv("Working directory", Path.cwd())
     print_kv("Model cache", model_cache_root())
@@ -215,7 +215,7 @@ def cmd_transcribe(args: argparse.Namespace) -> int:
     print_section("모델 추론")
     print_kv("Runtime input folder", input_dir)
     result = run_batch_transcription(input_dir, manifest_path, args.language, cancel_file, config_overrides=batch_model_config_overrides(args))
-    print_section("Batch QC transcription finished")
+    print_section("Script transcription finished")
     print_kv("Exit code", result)
     return result
 
@@ -232,7 +232,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     input_dir = Path(args.input).resolve()
     cancel_file = Path(args.cancel_file).resolve() if args.cancel_file else None
 
-    print_banner("Batch QC transcription and word alignment")
+    print_banner("Script transcription and word alignment")
     print_kv("Python", sys.executable)
     print_kv("Working directory", Path.cwd())
     print_kv("Model cache", model_cache_root())
@@ -245,7 +245,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     print_section("모델 추론")
     print_kv("Runtime input folder", input_dir)
     result = run_batch_transcription(input_dir, manifest_path, args.language, cancel_file, config_overrides=batch_model_config_overrides(args))
-    print_section("Batch QC run finished")
+    print_section("Script run finished")
     print_kv("Exit code", result)
     return result
 

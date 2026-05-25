@@ -19,7 +19,7 @@ export async function exportBatchWorkspace(request: WorkspaceExportRequest, expe
   const initialDetails = await readWorkspaceDetails(request.workspaceId, request.table);
 
   if (jobs.length === 0) {
-    throw new Error("Batch QC export has no checked rows.");
+    throw new Error("Script export has no checked rows.");
   }
 
   await mkdir(outputRoot, { recursive: true });
@@ -80,7 +80,7 @@ export async function exportBatchWorkspace(request: WorkspaceExportRequest, expe
   return {
     ok,
     workspaceId: request.workspaceId,
-    error: ok || cancelled ? undefined : outcome.stderr || "Batch QC export failed. Check the log file.",
+    error: ok || cancelled ? undefined : outcome.stderr || "Script export failed. Check the log file.",
     cancelled,
     outputPath: datasetDir,
     logPath,

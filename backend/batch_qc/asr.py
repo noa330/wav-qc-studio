@@ -12,7 +12,7 @@ DEFAULT_INITIAL_PROMPT = ""
 
 
 class BatchAsrTranscriber:
-    """Batch QC automatic transcription backed by faster-whisper."""
+    """Script automatic transcription backed by faster-whisper."""
 
     def __init__(self, cfg: dict[str, Any], language: str | None = None) -> None:
         self.cfg = _read_asr_config(cfg)
@@ -26,12 +26,12 @@ class BatchAsrTranscriber:
         from faster_whisper import WhisperModel
 
         asr_model = str(self.cfg.get("asr_model", "large-v3") or "large-v3")
-        print(f"[model loading] Batch QC ASR readying - {asr_model} - device={self.device_str}")
+        print(f"[model loading] Script ASR readying - {asr_model} - device={self.device_str}")
         model_path = self._resolve_faster_whisper_model(asr_model)
         with suppress_external_console():
             self.asr = WhisperModel(model_path, device=self.device_str, compute_type=self.compute_type)
         self._numeral_suppress_tokens = _decimal_number_token_ids(self.asr.hf_tokenizer) if self.suppress_numerals else []
-        print("[model loading complete] Batch QC ASR ready")
+        print("[model loading complete] Script ASR ready")
 
     def transcribe(self, wav_path: str | Path) -> dict[str, Any]:
         transcribe_kwargs: dict[str, Any] = {
@@ -80,7 +80,7 @@ class BatchAsrTranscriber:
             "large": "Systran/faster-whisper-large-v3",
         }.get(model_name.strip().lower(), model_name)
         local_dir = hf_repo_dir(repo_id, namespace="faster_whisper")
-        return hf_snapshot_download(repo_id, local_dir=local_dir, log=print, label="Batch QC faster-whisper ASR")
+        return hf_snapshot_download(repo_id, local_dir=local_dir, log=print, label="Script faster-whisper ASR")
 
     @staticmethod
     def _normalize_language(value: Any) -> str | None:

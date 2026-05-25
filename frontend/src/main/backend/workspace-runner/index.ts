@@ -498,7 +498,7 @@ async function createOverviewPlan(request: WorkspaceRunRequest): Promise<PythonR
   ].filter((candidate): candidate is string => Boolean(candidate));
 
   if (selectedTasks.length === 0) {
-    throw new Error("오버뷰 분석 모듈에서 최소 1개 이상 선택하세요.");
+    throw new Error("스코어 분석 모듈에서 최소 1개 이상 선택하세요.");
   }
 
   const args = [
@@ -539,7 +539,7 @@ async function createOverviewPlan(request: WorkspaceRunRequest): Promise<PythonR
 }
 
 async function createBatchPlan(request: WorkspaceRunRequest): Promise<PythonRunPlan> {
-  await assertInputDirectory(request.paths.inputPath, "Batch QC 입력 오디오 폴더를 선택하세요.");
+  await assertInputDirectory(request.paths.inputPath, "스크립트 입력 오디오 폴더를 선택하세요.");
   const layout = createBackendLayout({ markerScript: "batch_qc_main.py", venvFolder: ".venv" });
   const runStamp = timestamp();
   const outputPath = resolveOutputDirectory(request.paths.inputPath, request.paths.outputPath, BATCH_OUTPUT_FOLDER, request.paths.projectRoot, request.workspaceId);
@@ -851,7 +851,7 @@ function pushOptionalArg(args: string[], flag: string, value: string | undefined
 }
 
 async function createBatchSpeakerDiarizationPlan(request: WorkspaceBatchSpeakerDiarizationRequest): Promise<PythonRunPlan> {
-  await assertInputDirectory(request.paths.inputPath, "Batch QC 입력 오디오 폴더를 선택하세요.");
+  await assertInputDirectory(request.paths.inputPath, "스크립트 입력 오디오 폴더를 선택하세요.");
   const layout = createBackendLayout({ markerScript: "batch_qc_main.py", venvFolder: ".venv" });
   const runStamp = timestamp();
   const outputPath = resolveOutputDirectory(request.paths.inputPath, request.paths.outputPath, BATCH_OUTPUT_FOLDER, request.paths.projectRoot, request.workspaceId);

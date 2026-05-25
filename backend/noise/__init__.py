@@ -1,1 +1,1 @@
-"""Speaker-page noise inference backend."""
+"""De-noise-page noise inference backend."""
