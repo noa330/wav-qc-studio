@@ -3,7 +3,7 @@ import { WorkspaceEditableAudioPane } from "../../shared/WorkspaceEditableAudioP
 
 export function SpeakerAudioComparisonPanel({ row, originalPath, resultPath, audioEditScopeId }: { row?: DataTableRow; originalPath?: string; resultPath?: string; audioEditScopeId?: string }) {
   return (
-    <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_16px_minmax(0,1fr)] grid-rows-[auto_6px_minmax(0,1fr)]">
+    <div className="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_16px_minmax(0,1fr)] grid-rows-[auto_6px_minmax(0,1fr)]" data-app-tour-target="speaker-audio-compare-panes">
       <div className="flex items-start">
         <p className="text-[13px] font-normal text-[var(--secondary-text)]">원본 오디오</p>
       </div>

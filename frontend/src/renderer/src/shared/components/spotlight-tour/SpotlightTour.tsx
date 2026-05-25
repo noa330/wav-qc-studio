@@ -114,6 +114,7 @@ export function SpotlightTour({ open, steps, ariaLabel, onClose, onStepChange }:
   const paddedRect = rect ? buildSpotlightRect(rect) : null;
   const scrims = buildSpotlightScrims(paddedRect);
   const stepGroupProgress = getStepGroupProgress(steps, stepIndex);
+  const progressDots = getProgressDots(stepGroupProgress.steps.length, stepGroupProgress.index);
 
   return createPortal(
     <div className="fixed inset-0 z-[3000]" role="dialog" aria-modal="true" aria-label={ariaLabel}>
@@ -176,7 +177,7 @@ export function SpotlightTour({ open, steps, ariaLabel, onClose, onStepChange }:
           <ul className="mt-3 space-y-1.5 text-[13px] leading-[18px] text-[var(--secondary-text)]">
             {currentStep.bullets.map((bullet) => (
               <li key={bullet} className="grid grid-cols-[10px_minmax(0,1fr)] gap-2">
-                <span className="mt-[7px] size-1.5 rounded-full bg-[var(--accent-blue)]" aria-hidden="true" />
+                <span className="mt-[7px] size-1.5 rounded-full bg-current" aria-hidden="true" />
                 <span>{bullet}</span>
               </li>
             ))}
@@ -188,11 +189,11 @@ export function SpotlightTour({ open, steps, ariaLabel, onClose, onStepChange }:
           </p>
         ) : null}
         <div className="mt-4 flex items-center justify-between gap-3 border-t border-[var(--panel-stroke)] pt-3">
-          <div className="flex min-w-0 items-center gap-1.5 overflow-hidden" aria-hidden="true">
-            {stepGroupProgress.steps.map((step, index) => (
+          <div className="flex max-h-5 min-w-0 flex-1 flex-wrap content-center items-center gap-x-1.5 gap-y-1 overflow-hidden" aria-hidden="true">
+            {progressDots.map((dot) => (
               <span
-                key={step.id}
-                className={cn("size-1.5 shrink-0 rounded-full", index === stepGroupProgress.index ? "bg-[var(--accent-blue)]" : "bg-[var(--slider-rail)]")}
+                key={dot.key}
+                className={cn("size-1.5 shrink-0 rounded-full", dot.active ? "bg-[var(--accent-blue)]" : "bg-[var(--slider-rail)]")}
               />
             ))}
           </div>
@@ -228,6 +229,13 @@ export function SpotlightTour({ open, steps, ariaLabel, onClose, onStepChange }:
     </div>,
     document.body,
   );
+}
+
+function getProgressDots(totalSteps: number, activeIndex: number): Array<{ key: string; active: boolean }> {
+  return Array.from({ length: Math.max(0, totalSteps) }, (_, index) => ({
+    key: `dot-${index}`,
+    active: index === activeIndex,
+  }));
 }
 
 function getStepGroupProgress(

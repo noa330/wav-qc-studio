@@ -37,7 +37,7 @@ export type SliceEditorViewContext = {
 
 export function SliceEditorHeaderControls({ view, actions, disabled = false }: { view: SliceEditorViewState; actions: SliceEditorViewActions; disabled?: boolean }) {
   return (
-    <>
+    <span className="flex min-w-max shrink-0 items-center gap-2" data-app-tour-target="slice-editor-header-controls">
       <ToggleSwitch checked={view.loopPreview} onChange={actions.setLoopPreview} disabled={disabled} />
       <span className={cn("text-sm text-[var(--primary-text)]", disabled && "opacity-45")}>루프 미리보기</span>
       <div className={cn("ml-2 flex h-[38px] overflow-hidden rounded-[5px] border border-[var(--neutral-button-stroke)] bg-[var(--table-header-bg)]", disabled && "opacity-45")}>
@@ -48,7 +48,7 @@ export function SliceEditorHeaderControls({ view, actions, disabled = false }: {
           <ZoomIn className="size-[18px]" strokeWidth={1.4} />
         </motion.button>
       </div>
-    </>
+    </span>
   );
 }
 
@@ -226,7 +226,7 @@ export function SliceEditorBody({
 
   return (
     <div className={cn("grid h-full min-h-0", hasAudio ? "grid-rows-[minmax(50px,1fr)_10px_20px_18px_auto_12px_auto]" : "grid-rows-[minmax(50px,1fr)_12px_auto_12px_auto]")}>
-      <div className="min-h-[50px] overflow-hidden rounded-[5px] border border-transparent bg-transparent">
+      <div className="min-h-[50px] overflow-hidden rounded-[5px] border border-transparent bg-transparent" data-app-tour-target="slice-editor-waveform">
         <AnimatePresence mode="wait" initial={false}>
           {hasAudio ? (
             <motion.div key="waveform" {...fadeSlideUpMotion} className="relative h-full min-h-0">
@@ -310,7 +310,7 @@ export function SliceEditorBody({
       {hasAudio ? (
         <>
           <div />
-          <div className="overflow-hidden rounded-[3px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] opacity-90">
+          <div className="overflow-hidden rounded-[3px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] opacity-90" data-app-tour-target="slice-editor-minimap">
           <WaveformSurface
             audioPath={audioPath}
             bucketCount={260}
@@ -337,7 +337,7 @@ export function SliceEditorBody({
         <div ref={transportControlsRef} className="shrink-0">
           <TransportButtons transport={transport} disabled={!controlsEnabled} />
         </div>
-        <div ref={actionControlsRef} className={cn("flex min-w-0 items-center gap-2 overflow-hidden", controlsCompact ? "col-span-3 col-start-1 row-start-2 w-full" : "shrink")}>
+        <div ref={actionControlsRef} data-app-tour-target="slice-editor-actions" className={cn("flex min-w-0 items-center gap-2 overflow-hidden", controlsCompact ? "col-span-3 col-start-1 row-start-2 w-full" : "shrink")}>
           <motion.button type="button" disabled={!controlsEnabled || !row} onClick={() => {
             if (!row) {
               return;
@@ -373,7 +373,7 @@ export function SliceEditorBody({
         <span ref={timeControlsRef} className={cn("flex h-[38px] shrink-0 items-center whitespace-nowrap text-sm text-[var(--secondary-text)]", controlsCompact ? "col-start-3 row-start-1" : "ml-auto")}>{formatTime(transport.currentTime)} / {formatTime(transport.duration || totalSec)}</span>
       </div>
       <div />
-      <div className={cn("rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-4", !controlsEnabled && "opacity-55")}>
+      <div className={cn("rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-4", !controlsEnabled && "opacity-55")} data-app-tour-target="slice-editor-time-grid">
         <SliceTimeGrid
           disabled={!controlsEnabled}
           startValue={formatTime(hasSegments ? startSec : 0)}
@@ -419,4 +419,3 @@ export function SliceEditorBody({
     </div>
   );
 }
-

@@ -94,7 +94,7 @@ export function InferenceBrowserHeaderControls({ runtime }: { runtime: Workspace
   };
 
   return (
-    <div className="mt-3 flex h-8 min-w-0 items-center gap-2">
+    <div className="mt-3 flex h-8 min-w-0 items-center gap-2" data-app-tour-target="inference-browser-run-mode">
       {showBatchSelector ? (
         <div className="flex min-w-0 shrink items-center gap-2 text-sm font-normal text-[var(--secondary-text)]">
           <HeaderCheckButton
@@ -173,6 +173,7 @@ export function InferenceReferenceHeaderControl({ runtime }: { runtime: Workspac
       aria-pressed={state.inferenceMultiReferenceOpen}
       whileTap={softPressTap}
       onClick={() => runtime.setInferenceMultiReferenceOpen(!state.inferenceMultiReferenceOpen)}
+      data-app-tour-target="inference-multi-reference-button"
       className="wpf-button flex h-8 items-center gap-2 px-3 text-[13px]"
     >
       {state.inferenceMultiReferenceOpen ? "다중 참고 오디오 닫기" : "다중 참고 오디오 넣기"}
@@ -277,7 +278,7 @@ function AudioTranscriptCard({
   field?: ReactNode;
 }) {
   return (
-    <div className="grid h-full min-h-0 min-w-0 grid-rows-[calc(50%+12.5px)_auto_minmax(0,calc(50%-37.5px))]">
+    <div className="grid h-full min-h-0 min-w-0 grid-rows-[calc(50%+12.5px)_auto_minmax(0,calc(50%-37.5px))]" data-app-tour-target={`inference-transcript-card-${label === "레퍼런스 대사" ? "reference" : "output"}`}>
       <div className="min-h-0 min-w-0 overflow-hidden">
         <WorkspaceAudioPlaybackPanel row={row} audioPath={audioPath} emptyText={emptyText} syncKey={`inference:${label}`} />
       </div>

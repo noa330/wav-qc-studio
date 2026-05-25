@@ -139,14 +139,14 @@ type BatchTimelineEvent = {
 export function BatchAudioHeaderControls({ runtime, disabled = false }: { runtime: WorkspaceRuntime; disabled?: boolean }) {
   const checked = runtime.settings.batch.playTranscriptOutside;
   return (
-    <>
+    <span className="flex min-w-max shrink-0 items-center gap-2" data-app-tour-target="batch-audio-header-controls">
       <ToggleSwitch
         checked={checked}
         onChange={(value) => runtime.setSettings((current) => ({ ...current, batch: { ...current.batch, playTranscriptOutside: value } }))}
         disabled={disabled}
       />
       <span className={cn("text-sm text-[var(--primary-text)]", disabled && "opacity-45")}>Align외 구간 재생</span>
-    </>
+    </span>
   );
 }
 

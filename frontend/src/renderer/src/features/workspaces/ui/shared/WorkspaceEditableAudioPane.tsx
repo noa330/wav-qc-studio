@@ -250,7 +250,7 @@ export function WorkspaceEditableAudioPane({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
-      <div className="min-h-[50px] flex-1 overflow-hidden rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--field-bg)]">
+      <div className="min-h-[50px] flex-1 overflow-hidden rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--field-bg)]" data-app-tour-target="audio-edit-pane">
         <AnimatePresence mode="wait" initial={false}>
           {active ? (
             <motion.div key="waveform" {...fadeSlideUpMotion} className="h-full min-h-0">
@@ -283,7 +283,7 @@ export function WorkspaceEditableAudioPane({
           )}
         </AnimatePresence>
       </div>
-      <div className="mt-3 flex shrink-0 flex-wrap items-center gap-2 overflow-hidden">
+      <div className="mt-3 flex shrink-0 flex-wrap items-center gap-2 overflow-hidden" data-app-tour-target="audio-transport-controls">
         <TransportButtons transport={transport} disabled={!active || !effectiveAudioPath} />
         {editable && editEntry.error ? <p className="min-w-0 shrink truncate text-[12px] text-[#ff8c96]">{editEntry.error}</p> : null}
         <p className="ml-auto min-w-0 shrink text-right text-sm text-[var(--secondary-text)]">

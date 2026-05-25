@@ -268,6 +268,7 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
                 });
               }}
               whileTap={softPressTap}
+              data-app-tour-target="workspace-console-button"
               className="wpf-button ml-[18px] flex h-8 items-center gap-2 px-3 text-[13px]"
             >
               <Terminal className="size-3.5" strokeWidth={1.8} />

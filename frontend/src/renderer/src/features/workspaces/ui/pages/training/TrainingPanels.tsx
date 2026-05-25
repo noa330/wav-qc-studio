@@ -204,7 +204,7 @@ export function TrainingPlanHeaderControl({ runtime }: { runtime: WorkspaceRunti
   };
 
   return (
-    <div className="h-[38px] w-[144px] min-w-0 font-normal [&_button]:font-normal [&_button]:leading-5 [&_span]:font-normal">
+    <div className="h-[38px] w-[144px] min-w-0 font-normal [&_button]:font-normal [&_button]:leading-5 [&_span]:font-normal" data-app-tour-target="training-version-control">
       <SelectField value={settings.gptVersion} options={[...gptVersionOptions]} onChange={(value) => updateGptVersion(value)} ariaLabel="GPT-SoVITS 버전" />
     </div>
   );

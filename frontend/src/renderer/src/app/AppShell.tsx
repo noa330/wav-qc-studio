@@ -67,9 +67,11 @@ function AppShellContent() {
   const [appTourOpen, setAppTourOpen] = useState(false);
   const [appTourStepIndex, setAppTourStepIndex] = useState(0);
   const [sidebarCollapsedByUser, setSidebarCollapsedByUser] = useState(initialShellStateRef.current.sidebarCollapsedByUser);
+  const [guideAutoShown, setGuideAutoShown] = useState(initialShellStateRef.current.guideAutoShown);
   const [autoSidebarCollapsed, setAutoSidebarCollapsed] = useState(false);
   const [workspaceTransition, setWorkspaceTransition] = useState<WorkspaceTransitionState | null>(null);
   const workspaceTransitionIdRef = useRef(0);
+  const initialGuideHandledRef = useRef(false);
   const runtime = useWorkspaceRuntime();
   const activeTourStep = appTourOpen ? appTourSteps[appTourStepIndex] : undefined;
   const visibleWorkspaceId = activeTourStep?.workspaceId ?? selectedWorkspaceId;
@@ -101,8 +103,23 @@ function AppShellContent() {
     persistence.recordShellSnapshot({
       selectedWorkspaceId,
       sidebarCollapsedByUser,
+      guideAutoShown,
     });
-  }, [persistence, selectedWorkspaceId, sidebarCollapsedByUser]);
+  }, [guideAutoShown, persistence, selectedWorkspaceId, sidebarCollapsedByUser]);
+
+  useEffect(() => {
+    if (initialShellStateRef.current.guideAutoShown || initialGuideHandledRef.current) {
+      return undefined;
+    }
+
+    initialGuideHandledRef.current = true;
+    setGuideAutoShown(true);
+    const timer = window.setTimeout(() => {
+      setAppTourStepIndex(0);
+      setAppTourOpen(true);
+    }, 360);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const selectWorkspace = (workspaceId: WorkspaceId) => {
     if (appTourOpen) {

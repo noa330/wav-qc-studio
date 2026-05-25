@@ -25,6 +25,11 @@ export function WorkspaceDataGrid({ workspaceId, runtime, table, suspendWidthTra
   const [trainingTensorBoardOpen, setTrainingTensorBoardOpen] = useState(() => workspaceId === "training" && initialWorkspaceUiRef.current.dialogs.trainingTensorBoardOpen);
   const [visibleGridRows, setVisibleGridRows] = useState<DataTableRow[]>([]);
   const state = runtime.getState(workspaceId);
+  const guideStepId = runtime.guideMode?.activeStepId;
+  const forceOverviewEditorOpen = guideStepId === "overview-filter-dialog";
+  const forceBatchReplaceOpen = guideStepId === "batch-replace-dialog";
+  const forceTaggingScoreCutOpen = guideStepId === "tagging-score-dialog";
+  const forceTrainingTensorBoardOpen = guideStepId === "training-tensorboard-dialog";
   const batchAudioSync = useWorkspaceAudioSync(workspaceId === "batch" ? "batch" : undefined);
   const batchAudioActive = workspaceId === "batch" && sameAudioPath(batchAudioSync.audioPath, state.selectedAudioPath);
   const recordGridViewState = useCallback((grid: DataGridViewState) => {
@@ -68,15 +73,15 @@ export function WorkspaceDataGrid({ workspaceId, runtime, table, suspendWidthTra
         onToggleRowsCheck={(checked, rowIds) => runtime.setRowsExportChecks(workspaceId, checked, rowIds)}
         sheetToolbar={
           workspaceId === "overview" ? (
-            <TableFilterButton ariaLabel="커스텀 필터" onClick={() => setOverviewEditorOpen(true)} />
+            <TableFilterButton ariaLabel="커스텀 필터" tourTarget="table-toolbar-overview" onClick={() => setOverviewEditorOpen(true)} />
           ) : workspaceId === "batch" ? (
-            <TableFilterButton ariaLabel="내용 검색 및 바꾸기" onClick={() => setBatchReplaceOpen(true)} />
+            <TableFilterButton ariaLabel="내용 검색 및 바꾸기" tourTarget="table-toolbar-batch" onClick={() => setBatchReplaceOpen(true)} />
           ) : workspaceId === "tagging" ? (
-            <TableFilterButton ariaLabel="태그 디코딩 설정" onClick={() => setTaggingScoreCutOpen(true)}>
+            <TableFilterButton ariaLabel="태그 디코딩 설정" tourTarget="table-toolbar-tagging" onClick={() => setTaggingScoreCutOpen(true)}>
               <ListChecks className="size-4" strokeWidth={2} />
             </TableFilterButton>
           ) : workspaceId === "training" ? (
-            <TableFilterButton ariaLabel="TensorBoard 그래프" onClick={() => setTrainingTensorBoardOpen(true)}>
+            <TableFilterButton ariaLabel="TensorBoard 그래프" tourTarget="table-toolbar-training" onClick={() => setTrainingTensorBoardOpen(true)}>
               <ChartNoAxesColumnIncreasing className="size-4" strokeWidth={2} />
             </TableFilterButton>
           ) : null
@@ -104,13 +109,21 @@ export function WorkspaceDataGrid({ workspaceId, runtime, table, suspendWidthTra
         suspendWidthTracking={suspendWidthTracking}
       />
       <AnimatePresence initial={false}>
-        {taggingScoreCutOpen ? <TaggingScoreCutDialog key="tagging-score-cut-dialog" runtime={runtime} onClose={() => setTaggingScoreCutOpen(false)} /> : null}
+        {taggingScoreCutOpen || forceTaggingScoreCutOpen ? <TaggingScoreCutDialog key="tagging-score-cut-dialog" runtime={runtime} onClose={() => {
+          if (!forceTaggingScoreCutOpen) {
+            setTaggingScoreCutOpen(false);
+          }
+        }} /> : null}
       </AnimatePresence>
       <AnimatePresence initial={false}>
-        {overviewEditorOpen ? <FilterChipEditorDialog key="overview-filter-editor" filter={runtime.overviewFilter} onApply={runtime.setOverviewFilter} onClose={() => setOverviewEditorOpen(false)} /> : null}
+        {overviewEditorOpen || forceOverviewEditorOpen ? <FilterChipEditorDialog key="overview-filter-editor" filter={runtime.overviewFilter} onApply={runtime.setOverviewFilter} onClose={() => {
+          if (!forceOverviewEditorOpen) {
+            setOverviewEditorOpen(false);
+          }
+        }} /> : null}
       </AnimatePresence>
       <AnimatePresence initial={false}>
-        {batchReplaceOpen ? (
+        {batchReplaceOpen || forceBatchReplaceOpen ? (
           <BatchTranscriptReplaceDialog
             key="batch-replace-dialog"
             allRows={state.table.rows}
@@ -122,18 +135,27 @@ export function WorkspaceDataGrid({ workspaceId, runtime, table, suspendWidthTra
             defaultTimelineScoreThreshold={runtime.settings.batch.wordAlignmentLowScoreThreshold}
             onSelectSheet={(sheetId) => runtime.selectSheet("batch", sheetId)}
             onApply={(rowId, value) => runtime.editBatchCell(rowId, "editedTranscript", value)}
-            onClose={() => setBatchReplaceOpen(false)}
+            onClose={() => {
+              if (!forceBatchReplaceOpen) {
+                setBatchReplaceOpen(false);
+              }
+            }}
             initialState={initialWorkspaceUiRef.current.batchReplace}
             onStateChange={recordBatchReplaceState}
           />
         ) : null}
       </AnimatePresence>
       <AnimatePresence initial={false}>
-        {trainingTensorBoardOpen ? (
+        {trainingTensorBoardOpen || forceTrainingTensorBoardOpen ? (
           <VoiceTensorBoardDialog
             key="training-tensorboard-dialog"
             settings={runtime.settings.training}
-            onClose={() => setTrainingTensorBoardOpen(false)}
+            autoStart={!runtime.guideMode}
+            onClose={() => {
+              if (!forceTrainingTensorBoardOpen) {
+                setTrainingTensorBoardOpen(false);
+              }
+            }}
           />
         ) : null}
       </AnimatePresence>
@@ -200,13 +222,14 @@ function readSearchState(workspaceId: WorkspaceId, runtime: WorkspaceRuntime): {
   return { query: state.tableSearchQuery, columns: state.tableSearchColumns };
 }
 
-function TableFilterButton({ ariaLabel, onClick, children }: { ariaLabel: string; onClick: (event: ReactMouseEvent<HTMLButtonElement>) => void; children?: ReactNode }) {
+function TableFilterButton({ ariaLabel, tourTarget, onClick, children }: { ariaLabel: string; tourTarget: string; onClick: (event: ReactMouseEvent<HTMLButtonElement>) => void; children?: ReactNode }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="flex size-8 items-center justify-center rounded-[5px] border border-[var(--neutral-button-stroke)] bg-[var(--table-header-bg)] text-[var(--primary-text)] hover:bg-[var(--soft-selection-hover)]"
       aria-label={ariaLabel}
+      data-app-tour-target={tourTarget}
     >
       {children ?? <Filter className="size-4" strokeWidth={2} />}
     </button>

@@ -234,7 +234,7 @@ function BrowserSection({
 
   return (
     <section className={cn("flex min-h-10 flex-col overflow-hidden", fill ? "flex-1" : "flex-none")}>
-      <div className="grid h-10 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
+      <div className="grid h-10 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2" data-app-tour-target="file-browser-section-header">
         <motion.button type="button" onClick={onToggle} whileTap={softPressTap} className="grid min-w-0 grid-cols-[18px_24px_minmax(0,1fr)] items-center px-1 text-left">
           <ChevronGlyph direction={expanded ? "down" : "right"} className="col-start-1" />
           {expanded ? <FolderOpen className="col-start-2 size-[18px] text-[var(--icon-brush)]" strokeWidth={1.55} /> : <Folder className="col-start-2 size-[18px] text-[var(--icon-brush)]" strokeWidth={1.55} />}
@@ -242,18 +242,18 @@ function BrowserSection({
             {compactPath(title)}
           </span>
         </motion.button>
-        <motion.button type="button" onClick={onAction} whileTap={softPressTap} className="whitespace-nowrap text-[13px] font-normal text-[var(--secondary-text)] underline underline-offset-2">
+        <motion.button type="button" onClick={onAction} whileTap={softPressTap} data-app-tour-target="file-browser-folder-action" className="whitespace-nowrap text-[13px] font-normal text-[var(--secondary-text)] underline underline-offset-2">
           {action}
         </motion.button>
         {secondaryAction && onSecondaryAction ? (
-          <motion.button type="button" onClick={onSecondaryAction} whileTap={softPressTap} className="whitespace-nowrap text-[13px] font-normal text-[var(--secondary-text)] underline underline-offset-2">
+          <motion.button type="button" onClick={onSecondaryAction} whileTap={softPressTap} data-app-tour-target="file-browser-folder-action" className="whitespace-nowrap text-[13px] font-normal text-[var(--secondary-text)] underline underline-offset-2">
             {secondaryAction}
           </motion.button>
         ) : null}
       </div>
       <AnimatePresence initial={false}>
         {expanded ? (
-          <motion.div ref={scrollRef} onScroll={handleScroll} {...fadeSlideUpMotion} className="scroll-window-viewport mt-0 min-h-0 flex-1 overflow-auto pb-3 pr-1">
+          <motion.div ref={scrollRef} onScroll={handleScroll} {...fadeSlideUpMotion} data-app-tour-target="file-browser-list" className="scroll-window-viewport mt-0 min-h-0 flex-1 overflow-auto pb-3 pr-1">
             {nodes.length === 0 ? (
               <p className="m-[10px] text-sm text-[var(--secondary-text)]">선택한 경로에 표시할 항목이 없습니다.</p>
             ) : (

@@ -31,6 +31,7 @@ export type PersistedRuntimeSnapshot = {
 export type PersistedShellState = {
   selectedWorkspaceId: WorkspaceId;
   sidebarCollapsedByUser: boolean;
+  guideAutoShown: boolean;
 };
 
 export type PersistedDataGridState = {
@@ -110,6 +111,7 @@ export function createDefaultShellState(): PersistedShellState {
   return {
     selectedWorkspaceId: defaultWorkspaceId,
     sidebarCollapsedByUser: false,
+    guideAutoShown: false,
   };
 }
 

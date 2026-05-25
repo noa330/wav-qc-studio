@@ -54,6 +54,7 @@ export function PanelResizeHandle({ orientation, onMouseDown }: { orientation: "
       <button
         type="button"
         aria-label={orientation === "vertical" ? "?⑤꼸 ??議곗젅" : "?⑤꼸 ?믪씠 議곗젅"}
+        data-app-tour-target="workspace-resize-handle"
         onMouseEnter={() => setActive(true)}
         onMouseLeave={() => setActive(false)}
         onFocus={() => setActive(true)}

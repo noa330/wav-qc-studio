@@ -105,7 +105,11 @@ export function DataGridTable({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[5px] border border-[var(--panel-stroke)] bg-transparent">
       {showSheetTabs ? (
-        <div className="flex h-12 shrink-0 items-end justify-between gap-3 border-b border-[var(--table-header-bg)] bg-transparent px-4" onContextMenu={(event) => openMenu(event, [])}>
+        <div
+          className="flex h-12 shrink-0 items-end justify-between gap-3 border-b border-[var(--table-header-bg)] bg-transparent px-4"
+          data-app-tour-target="data-grid-sheets"
+          onContextMenu={(event) => openMenu(event, [])}
+        >
           <div className="flex min-w-0 items-end gap-5">
             {displaySheets.map((sheet) => {
               const active = sheet.id === displayActiveSheetId;
@@ -135,6 +139,7 @@ export function DataGridTable({
       <div
         ref={viewportRef}
         className="scroll-window-viewport relative min-h-0 flex-1 overflow-auto"
+        data-app-tour-target="data-grid-body"
         onContextMenu={(event) => openMenu(event, selectedRowIds)}
         onScroll={handleRowWindowScroll}
       >

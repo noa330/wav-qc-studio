@@ -807,6 +807,7 @@ function normalizeShellState(raw: unknown, defaults: PersistedShellState): Persi
   return {
     selectedWorkspaceId: isWorkspaceId(raw.selectedWorkspaceId) ? raw.selectedWorkspaceId : defaults.selectedWorkspaceId,
     sidebarCollapsedByUser: typeof raw.sidebarCollapsedByUser === "boolean" ? raw.sidebarCollapsedByUser : defaults.sidebarCollapsedByUser,
+    guideAutoShown: typeof raw.guideAutoShown === "boolean" ? raw.guideAutoShown : defaults.guideAutoShown,
   };
 }
 
