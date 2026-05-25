@@ -4,13 +4,14 @@ import { EllipsisVertical } from "lucide-react";
 import type { WorkspaceId } from "@shared/ipc";
 import { useAppPersistence } from "@/app/app-persistence";
 import { cn } from "@/lib/utils";
-import { FileBrowser } from "@/shared/components/file-browser";
+import { FileBrowser, type FileBrowserNodeChecks } from "@/shared/components/file-browser";
 import { WpfCard } from "@/shared/components/wpf-card";
 import { workspaceCardSpring } from "@/shared/motion";
 import { getPanelBodyLayoutMode, getPanelBodyMinSize, resolveMeasuredPanelCollapseMode, useElementBoxSize, useElementResizeCollapseMode } from "../layout/workspace-card-overflow";
 import { type PanelAutoCollapseSuppression, type PanelCollapseMode, type WorkspaceResizeAxis } from "../layout/workspace-layout-types";
 import { useWorkspaceLayoutResizeState } from "../layout/workspace-splitters";
 import type { WorkspacePanel } from "../../model/workspace-config";
+import { toggleInferenceReferencePath } from "../../model/inference-reference-selection";
 import { resolveBrowserTree } from "../../model/workspace-browser-tree";
 import type { WorkspaceRuntime } from "../../state/use-workspace-runtime";
 import { BatchAudioHeaderControls, BatchAudioPlaybackPanel, BatchModelSettingsBody, BatchSpeakerSelectionBody, BatchTimelineBody } from "../pages/batch/BatchPanels";
@@ -22,7 +23,7 @@ import { SpeakerModelBody, SpeakerSettingsBody } from "../pages/speaker/SpeakerP
 import { TaggingSchemaBody } from "../pages/tagging/TaggingPanels";
 import { TaggingSettingsBody } from "../pages/tagging/TaggingSettingsPanel";
 import { TrainingModelBody, TrainingPlanBody, TrainingPlanHeaderControl, TrainingSettingsBody } from "../pages/training/TrainingPanels";
-import { InferenceModelBody, InferenceOutputBody, InferenceReferenceBody, InferenceSettingsBody } from "../pages/inference/InferencePanels";
+import { InferenceBrowserHeaderControls, InferenceModelBody, InferenceOutputBody, InferenceReferenceBody, InferenceReferenceHeaderControl, InferenceSettingsBody } from "../pages/inference/InferencePanels";
 import { WorkspaceAudioPlaybackPanel } from "../shared/WorkspaceAudioPlaybackPanel";
 import { BackendStatusBody, DetailFieldList } from "../shared/workspace-panel-primitives";
 import { findSelectedRow } from "../shared/workspace-ui-utils";
@@ -123,6 +124,8 @@ export function PanelCard({
   const resizeCollapseMode = useElementResizeCollapseMode(cardRef, layoutResizing, collapseMode, activeAutoCollapseSuppression);
   const isSliceEditor = workspaceId === "slice" && panel.kind === "waveform";
   const isBatchAudioPanel = workspaceId === "batch" && panel.id === "batch-audio";
+  const isInferenceBrowserPanel = workspaceId === "inference" && panel.id === "inference-browser";
+  const isInferenceReferencePanel = workspaceId === "inference" && panel.id === "inference-reference";
   const persistence = useAppPersistence();
   const initialWorkspaceUiRef = useRef(persistence.getWorkspaceUiSnapshot(workspaceId));
   const [sliceEditorState, setSliceEditorState] = useState<SliceEditorViewState>(() => initialWorkspaceUiRef.current.sliceEditor);
@@ -211,6 +214,7 @@ export function PanelCard({
             {expanded && isTablePanel ? <TableHeaderSearch workspaceId={workspaceId} runtime={runtime} /> : null}
             {expanded && isSliceEditor ? <SliceEditorHeaderControls view={sliceEditorContext.state} actions={sliceEditorContext.actions} disabled={!sliceEditorEnabled} /> : null}
             {expanded && isBatchAudioPanel ? <BatchAudioHeaderControls runtime={runtime} disabled={!workspaceState.selectedAudioPath} /> : null}
+            {expanded && isInferenceReferencePanel ? <InferenceReferenceHeaderControl runtime={runtime} /> : null}
             <span
               className="flex size-6 shrink-0 items-center justify-center"
               data-app-tour-panel-tools="true"
@@ -219,6 +223,7 @@ export function PanelCard({
             </span>
           </div>
         </div>
+        {expanded && isInferenceBrowserPanel ? <InferenceBrowserHeaderControls runtime={runtime} /> : null}
         <div aria-hidden={!expanded} className={cn("grid min-h-0 min-w-0", !expanded && "pointer-events-none", bodyGridRowsClass)}>
           <div className="min-h-0 min-w-0 overflow-hidden">
             <div className={cn("workspace-panel-body-scroll app-scrollbar min-h-0 min-w-0 overflow-auto", expanded ? "opacity-100" : "opacity-0", bodyScrollFillsAvailableSpace ? "h-full" : "max-h-full")}>
@@ -247,6 +252,23 @@ function renderPanelBody(workspaceId: WorkspaceId, panel: WorkspacePanel, runtim
   if (panel.kind === "browser") {
     const inputTree = resolveBrowserTree(workspaceId, "input", state.inputTree, table, state.inputPath);
     const outputTree = resolveBrowserTree(workspaceId, "output", state.outputTree, table, state.outputPath);
+    const inferenceInputNodeChecks: FileBrowserNodeChecks | undefined = workspaceId === "inference" && runtime.settings.inference.inferenceRunMode === "batch"
+      ? {
+          checkedPaths: runtime.settings.inference.batchReferenceAudioPaths,
+          onToggleNode: (node) => {
+            if (!state.inferenceMultiReferenceOpen) {
+              runtime.selectFileNode("inference", node);
+            }
+            runtime.setSettings((current) => ({
+              ...current,
+              inference: {
+                ...current.inference,
+                batchReferenceAudioPaths: toggleInferenceReferencePath(current.inference.batchReferenceAudioPaths, node.path),
+              },
+            }));
+          },
+        }
+      : undefined;
 
     return (
       <FileBrowser
@@ -257,12 +279,15 @@ function renderPanelBody(workspaceId: WorkspaceId, panel: WorkspacePanel, runtim
         outputTree={outputTree}
         selectedPath={state.selectedFilePath}
         rowChecks={state.rowExportChecks}
+        inputNodeChecks={inferenceInputNodeChecks}
         preferredSection={state.browserPreferredSection}
         sectionRequestId={state.browserSectionRequestId}
         revealRequestId={state.browserRevealRequestId}
         onSelectInputFolder={() => runtime.selectInputFolder(workspaceId)}
         onSelectOutputFolder={() => runtime.selectOutputFolder(workspaceId)}
-        inputActionLabel={workspaceId === "training" ? "데이터셋 파일" : undefined}
+        inputActionLabel={workspaceId === "training" ? "데이터셋 파일" : workspaceId === "inference" ? "입력 폴더" : undefined}
+        inputSecondaryActionLabel={workspaceId === "inference" ? "데이터셋 파일" : undefined}
+        onSelectInputSecondary={workspaceId === "inference" ? runtime.selectInferenceDatasetFile : undefined}
         outputActionLabel={workspaceId === "training" ? "체크포인트 폴더" : undefined}
         onRequestWindow={(purpose, direction, metrics, targetPath) => runtime.loadFileBrowserWindow(workspaceId, purpose, direction, metrics, targetPath)}
         onSelectNode={(node) => runtime.selectFileNode(workspaceId, node)}

@@ -159,6 +159,9 @@ export type WorkspaceRuntime = {
   clearError: (workspaceId: WorkspaceId) => void;
   clearTerminal: (workspaceId: WorkspaceId) => void;
   selectInputFolder: (workspaceId: WorkspaceId) => Promise<void>;
+  selectInferenceDatasetFile: () => Promise<void>;
+  setInferenceMultiReferenceOpen: (open: boolean) => void;
+  removeInferenceAuxReferenceAudio: (path: string) => void;
   selectOutputFolder: (workspaceId: WorkspaceId) => Promise<void>;
   loadFileBrowserWindow: (workspaceId: WorkspaceId, purpose: "input" | "output", direction: "reveal" | "sync" | "up" | "down", metrics?: ScrollWindowMetrics, targetPath?: string) => Promise<void>;
   selectFileNode: (workspaceId: WorkspaceId, node: FileTreeNode) => void;
@@ -508,12 +511,37 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         return;
       }
 
+      if (progress.workspaceId === "inference" && progress.activeAudioPath) {
+        const activeAudioPath = progress.activeAudioPath;
+        setSettings((current) => {
+          const referenceText = progress.referenceText ?? current.inference.referenceText;
+          const outputText = progress.outputText ?? current.inference.outputText;
+          return {
+            ...current,
+            inference: {
+              ...current.inference,
+              referenceAudioPath: activeAudioPath,
+              referenceText,
+              outputText,
+              referenceTextsByAudioPath: referenceText.trim()
+                ? { ...current.inference.referenceTextsByAudioPath, [activeAudioPath]: referenceText }
+                : current.inference.referenceTextsByAudioPath,
+            },
+          };
+        });
+      }
+
       if (progress.table.rows.length === 0 && !runSession?.baseTable?.rows.length) {
+        const activePatch = inferenceActiveSelectionPatch(progress, state);
+        if (activePatch) {
+          updateSheetState(progress.workspaceId, activePatch);
+        }
         updateState(progress.workspaceId, {
           progressPercent: progress.progress.percent,
           progress: progress.progress,
           statusText: progress.workspaceId === "batch" && state.isBatchSpeakerRunning ? "화자 분리 중" : "Running",
           browserPreferredSection: "input",
+          ...activePatch,
           ...(progress.inputTree ? { inputTree: progress.inputTree } : {}),
           ...(progress.terminal ? { terminal: createTerminalFromUpdate(progress.terminal, "running") } : {}),
         });
@@ -529,6 +557,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       const targetSheet = targetSheetId ? state.sheets.find((sheet) => sheet.id === targetSheetId) : activeSheet(state);
       const selectionState = targetSheet ? stateWithActiveSheet(state, targetSheet) : state;
       const selection = buildTableSelectionPatch(progress.workspaceId, table, selectionState, selectionState.selectedAudioPath || findFirstAudioPath(selectionState.inputTree));
+      const activePatch = inferenceActiveSelectionPatch(progress, selectionState);
       const patch = {
         table,
         details: selection.details.length > 0 ? selection.details : progress.details,
@@ -537,6 +566,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         selectedFilePath: selection.selectedFilePath,
         selectedAudioPath: selection.selectedAudioPath,
         selectedResultAudioPath: selection.selectedResultAudioPath,
+        ...activePatch,
       };
       if (targetSheetId) {
         updateSheetByIdState(progress.workspaceId, targetSheetId, patch);
@@ -548,11 +578,12 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         progress: progress.progress,
         statusText: progress.workspaceId === "batch" && state.isBatchSpeakerRunning ? "화자 분리 중" : "Running",
         browserPreferredSection: "input",
+        ...activePatch,
         ...(progress.inputTree ? { inputTree: progress.inputTree } : {}),
         ...(progress.terminal ? { terminal: createTerminalFromUpdate(progress.terminal, "running") } : {}),
       });
     },
-    [updateSheetByIdState, updateSheetState, updateState],
+    [setSettings, updateSheetByIdState, updateSheetState, updateState],
   );
 
   const applyExportProgress = useCallback(
@@ -703,6 +734,24 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
             },
           }));
         }
+        if (workspaceId === "inference") {
+          const datasetReferenceTexts = collectDatasetReferenceTexts(loaded.inputTree);
+          setSettings((current) => ({
+            ...current,
+            inference: {
+              ...current.inference,
+              referenceAudioPath: fallbackAudioPath || current.inference.referenceAudioPath,
+              referenceText: fallbackAudioPath
+                ? datasetReferenceTexts[fallbackAudioPath] || current.inference.referenceTextsByAudioPath[fallbackAudioPath] || current.inference.referenceText
+                : current.inference.referenceText,
+              referenceTextsByAudioPath: {
+                ...current.inference.referenceTextsByAudioPath,
+                ...datasetReferenceTexts,
+              },
+              batchReferenceAudioPaths: current.inference.inferenceRunMode === "batch" && fallbackAudioPath ? [fallbackAudioPath] : [],
+            },
+          }));
+        }
       } catch (error) {
         if (inputLoadTokenRef.current[workspaceId] !== loadToken) {
           return;
@@ -734,6 +783,16 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         return;
       }
 
+      if (workspaceId === "inference") {
+        const selected = await studioBackend.selectFolder();
+        if (selected.canceled || !selected.path) {
+          return;
+        }
+
+        await loadWorkspace(workspaceId, selected.path, statesRef.current[workspaceId].outputPath);
+        return;
+      }
+
       const selected = await studioBackend.selectFolder();
       if (selected.canceled || !selected.path) {
         return;
@@ -742,6 +801,37 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       await loadWorkspace(workspaceId, selected.path, statesRef.current[workspaceId].outputPath);
     },
     [loadWorkspace],
+  );
+
+  const selectInferenceDatasetFile = useCallback(
+    async () => {
+      const selected = await studioBackend.selectFile({
+        title: "추론 데이터셋 선택",
+        filters: [{ name: "추론 데이터셋", extensions: ["list", "jsonl", "json"] }],
+      });
+      if (selected.canceled || !selected.path) {
+        return;
+      }
+
+      await loadWorkspace("inference", selected.path, statesRef.current.inference.outputPath);
+    },
+    [loadWorkspace],
+  );
+
+  const setInferenceMultiReferenceOpen = useCallback(
+    (open: boolean) => {
+      updateSheetState("inference", { inferenceMultiReferenceOpen: open });
+    },
+    [updateSheetState],
+  );
+
+  const removeInferenceAuxReferenceAudio = useCallback(
+    (path: string) => {
+      updateSheetState("inference", {
+        inferenceAuxReferenceAudioPaths: removePath(statesRef.current.inference.inferenceAuxReferenceAudioPaths, path),
+      });
+    },
+    [updateSheetState],
   );
 
   const clearError = useCallback(
@@ -1075,6 +1165,12 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       const state = statesRef.current[workspaceId];
       const matchingRow = node.kind === "file" ? findRowForPath(state.table.rows, node.path) : undefined;
       const audioSelection = resolveAudioSelection(workspaceId, matchingRow, isAudioPath(node.path) ? node.path : undefined);
+      if (workspaceId === "inference" && state.inferenceMultiReferenceOpen && settingsRef.current.inference.selectedModel === "gpt-sovits" && audioSelection.selectedAudioPath) {
+        updateSheetState("inference", {
+          inferenceAuxReferenceAudioPaths: addPath(state.inferenceAuxReferenceAudioPaths, audioSelection.selectedAudioPath),
+        });
+        return;
+      }
 
       updateSheetState(workspaceId, {
         selectedFilePath: audioSelection.selectedFilePath ?? node.path,
@@ -1085,8 +1181,27 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         tableRevealRequestId: matchingRow ? state.tableRevealRequestId + 1 : state.tableRevealRequestId,
         details: matchingRow ? state.table.columns.map((column) => ({ label: column.label, value: matchingRow.cells[column.key] || "" })) : state.details,
       });
+      if (workspaceId === "inference" && audioSelection.selectedAudioPath) {
+        const audioPath = audioSelection.selectedAudioPath;
+        const datasetText = datasetTextForNode(node) || findDatasetReferenceText(state.inputTree, audioPath);
+        setSettings((current) => {
+          const savedText = current.inference.referenceTextsByAudioPath[audioPath] ?? "";
+          const referenceText = datasetText || savedText;
+          return {
+            ...current,
+            inference: {
+              ...current.inference,
+              referenceAudioPath: audioPath,
+              referenceText,
+              referenceTextsByAudioPath: referenceText
+                ? { ...current.inference.referenceTextsByAudioPath, [audioPath]: referenceText }
+                : current.inference.referenceTextsByAudioPath,
+            },
+          };
+        });
+      }
     },
-    [updateSheetState],
+    [setSettings, updateSheetState],
   );
 
   const selectRow = useCallback(
@@ -1473,10 +1588,14 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         return;
       }
 
+      const inferenceRunAudioPaths = workspaceId === "inference" ? resolveInferenceRunAudioPaths(settings.inference, state) : [];
+      const inferenceAuxReferenceAudioPaths = workspaceId === "inference" && settings.inference.selectedModel === "gpt-sovits"
+        ? state.inferenceAuxReferenceAudioPaths
+        : [];
       const emptyTable = workspaceId === "training"
         ? createTrainingTableForModel(settings.training.selectedModel)
         : createEmptyWorkspaceTable(workspaceId);
-      const fallbackAudioPath = workspaceId === "inference" ? state.selectedAudioPath || findFirstAudioPath(state.inputTree) : findFirstAudioPath(state.inputTree);
+      const fallbackAudioPath = workspaceId === "inference" ? inferenceRunAudioPaths[0] || state.selectedAudioPath || findFirstAudioPath(state.inputTree) : findFirstAudioPath(state.inputTree);
       const currentSheet = activeSheet(state);
       const trainingIdentity = workspaceId === "training" ? trainingIdentityFromSettings(settings.training) : undefined;
       const matchingTrainingSheet = trainingIdentity ? findTrainingSheetByIdentity(state.sheets, trainingIdentity) : undefined;
@@ -1508,6 +1627,8 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         details: runBaseTable.rows.length > 0 ? buildTableSelectionPatch(workspaceId, runBaseTable, stateWithActiveSheet(state, targetSheet ?? currentSheet ?? state.sheets[0])).details : emptyTable.columns.map((column) => ({ label: column.label, value: "-" })),
         selectedFilePath: fallbackAudioPath,
         selectedAudioPath: fallbackAudioPath,
+        inferenceMultiReferenceOpen: false,
+        inferenceAuxReferenceAudioPaths,
         browserPreferredSection: "input",
         browserSectionRequestId,
         trainingIdentity,
@@ -1536,7 +1657,14 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
             ...settings,
             inference: {
               ...settings.inference,
-              referenceAudioPath: state.selectedAudioPath || settings.inference.referenceAudioPath,
+              referenceAudioPath: inferenceRunAudioPaths[0] || state.selectedAudioPath || settings.inference.referenceAudioPath,
+              referenceText: inferenceRunAudioPaths[0]
+                ? settings.inference.referenceTextsByAudioPath[inferenceRunAudioPaths[0]] ?? settings.inference.referenceText
+                : settings.inference.referenceText,
+              gptAuxReferenceAudioPaths: inferenceAuxReferenceAudioPaths,
+              batchReferenceAudioPaths: settings.inference.inferenceRunMode === "batch"
+                ? inferenceRunAudioPaths
+                : settings.inference.batchReferenceAudioPaths,
             },
           }
         : settings;
@@ -1828,6 +1956,9 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       clearError,
       clearTerminal,
       selectInputFolder,
+      selectInferenceDatasetFile,
+      setInferenceMultiReferenceOpen,
+      removeInferenceAuxReferenceAudio,
       selectOutputFolder,
       loadFileBrowserWindow,
       selectFileNode,
@@ -1896,6 +2027,9 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       selectAdjacentRow,
       selectFileNode,
       selectInputFolder,
+      selectInferenceDatasetFile,
+      setInferenceMultiReferenceOpen,
+      removeInferenceAuxReferenceAudio,
       selectOutputFolder,
       selectRow,
       selectRows,
@@ -1916,4 +2050,95 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       voiceModelRuntimeStatuses,
     ],
   );
+}
+
+function collectDatasetReferenceTexts(tree: FileTreeResult | undefined): Record<string, string> {
+  const entries: Array<[string, string]> = [];
+  const visit = (nodes: FileTreeNode[]) => {
+    for (const node of nodes) {
+      const text = datasetTextForNode(node);
+      if (node.kind === "file" && text) {
+        entries.push([node.path, text]);
+      }
+      if (node.children) {
+        visit(node.children);
+      }
+    }
+  };
+  visit(tree?.nodes ?? []);
+  return Object.fromEntries(entries);
+}
+
+function inferenceActiveSelectionPatch(progress: WorkspaceRunProgressEvent, state: Pick<WorkspaceRuntimeState, "selectedAudioPath" | "browserRevealRequestId">): Partial<WorkspaceRuntimeState> | undefined {
+  if (progress.workspaceId !== "inference" || !progress.activeAudioPath) {
+    return undefined;
+  }
+
+  const changed = normalizeReferenceAudioPath(progress.activeAudioPath) !== normalizeReferenceAudioPath(state.selectedAudioPath);
+  return {
+    selectedFilePath: progress.activeAudioPath,
+    selectedAudioPath: progress.activeAudioPath,
+    browserPreferredSection: "input",
+    browserRevealRequestId: changed ? state.browserRevealRequestId + 1 : state.browserRevealRequestId,
+  };
+}
+
+function resolveInferenceRunAudioPaths(settings: WorkspaceSettings["inference"], state: WorkspaceRuntimeState): string[] {
+  const requestedPaths = settings.inferenceRunMode === "batch" && settings.batchReferenceAudioPaths.length > 0
+    ? settings.batchReferenceAudioPaths
+    : [state.selectedAudioPath || settings.referenceAudioPath || findFirstAudioPath(state.inputTree)];
+  const seen = new Set<string>();
+  const paths: string[] = [];
+  for (const path of requestedPaths) {
+    const normalized = path.trim();
+    const key = normalizeReferenceAudioPath(normalized);
+    if (!normalized || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    paths.push(normalized);
+  }
+  return paths;
+}
+
+function addPath(paths: string[], path: string): string[] {
+  const normalizedPath = normalizeReferenceAudioPath(path);
+  if (!normalizedPath || paths.some((item) => normalizeReferenceAudioPath(item) === normalizedPath)) {
+    return paths;
+  }
+  return [...paths, path];
+}
+
+function removePath(paths: string[], path: string): string[] {
+  const normalizedPath = normalizeReferenceAudioPath(path);
+  return paths.filter((item) => normalizeReferenceAudioPath(item) !== normalizedPath);
+}
+
+function findDatasetReferenceText(tree: FileTreeResult | undefined, audioPath: string): string {
+  const target = normalizeReferenceAudioPath(audioPath);
+  let found = "";
+  const visit = (nodes: FileTreeNode[]) => {
+    for (const node of nodes) {
+      if (found) {
+        return;
+      }
+      if (normalizeReferenceAudioPath(node.path) === target) {
+        found = datasetTextForNode(node);
+        return;
+      }
+      if (node.children) {
+        visit(node.children);
+      }
+    }
+  };
+  visit(tree?.nodes ?? []);
+  return found;
+}
+
+function datasetTextForNode(node: FileTreeNode): string {
+  return node.dataset?.text?.trim() ?? "";
+}
+
+function normalizeReferenceAudioPath(path: string | undefined): string {
+  return (path ?? "").replace(/\\/gu, "/").toLowerCase();
 }

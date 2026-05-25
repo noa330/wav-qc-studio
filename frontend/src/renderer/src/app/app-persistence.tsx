@@ -913,6 +913,8 @@ type RepairableAudioSelectionState = {
   selectedFilePath?: string;
   selectedAudioPath?: string;
   selectedResultAudioPath?: string;
+  inferenceMultiReferenceOpen?: boolean;
+  inferenceAuxReferenceAudioPaths?: string[];
 };
 
 function repairWorkspaceAudioSelection<T extends RepairableAudioSelectionState>(workspaceId: WorkspaceId, state: T): T {
@@ -930,7 +932,24 @@ function repairWorkspaceAudioSelection<T extends RepairableAudioSelectionState>(
     selectedFilePath: audioSelection.selectedFilePath ?? state.selectedFilePath,
     selectedAudioPath: audioSelection.selectedAudioPath ?? state.selectedAudioPath,
     selectedResultAudioPath: audioSelection.selectedResultAudioPath ?? state.selectedResultAudioPath,
+    inferenceMultiReferenceOpen: Boolean(state.inferenceMultiReferenceOpen),
+    inferenceAuxReferenceAudioPaths: normalizePathList(state.inferenceAuxReferenceAudioPaths),
   };
+}
+
+function normalizePathList(value: unknown): string[] {
+  const seen = new Set<string>();
+  const paths: string[] = [];
+  for (const item of Array.isArray(value) ? value : []) {
+    const path = String(item ?? "").trim();
+    const key = path.replace(/\\/gu, "/").toLowerCase();
+    if (!path || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    paths.push(path);
+  }
+  return paths;
 }
 
 function repairWorkspaceInputTree<T extends RepairableAudioSelectionState>(state: T): T["inputTree"] {

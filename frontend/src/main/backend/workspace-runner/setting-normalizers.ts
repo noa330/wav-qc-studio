@@ -203,7 +203,11 @@ export function normalizeInferenceSettings(settings: WorkspaceSettings["inferenc
     selectedModel,
     toolRoot: resolveProjectRelativePath(projectRoot, settings.toolRoot.trim() || "training"),
     modelName: sanitizeModelName(settings.modelName) || (selectedModel === "gpt-sovits" ? "gpt_sovits_infer" : "omnivoice_infer"),
+    inferenceRunMode: settings.inferenceRunMode === "batch" ? "batch" : "single",
     referenceAudioPath: resolveOptionalProjectRelativePath(projectRoot, settings.referenceAudioPath),
+    batchReferenceAudioPaths: normalizePathList(projectRoot, settings.batchReferenceAudioPaths),
+    gptAuxReferenceAudioPaths: selectedModel === "gpt-sovits" ? normalizePathList(projectRoot, settings.gptAuxReferenceAudioPaths) : [],
+    referenceTextsByAudioPath: normalizePathTextMap(projectRoot, settings.referenceTextsByAudioPath),
     outputAudioPath: resolveOptionalProjectRelativePath(projectRoot, settings.outputAudioPath),
     gpu: settings.gpu.trim() || "0",
     idleTimeoutSec: clampInt(settings.idleTimeoutSec, 60, 7200),
@@ -277,6 +281,33 @@ export function round(value: number, digits: number): number {
 function resolveOptionalProjectRelativePath(projectRoot: string, value: string): string {
   const trimmed = value.trim();
   return trimmed ? resolveProjectRelativePath(projectRoot, trimmed) : "";
+}
+
+function normalizePathList(projectRoot: string, values: string[] | undefined): string[] {
+  const seen = new Set<string>();
+  const paths: string[] = [];
+  for (const value of Array.isArray(values) ? values : []) {
+    const resolved = resolveOptionalProjectRelativePath(projectRoot, value);
+    const key = resolved.replace(/\\/gu, "/").toLowerCase();
+    if (!resolved || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    paths.push(resolved);
+  }
+  return paths;
+}
+
+function normalizePathTextMap(projectRoot: string, value: Record<string, string> | undefined): Record<string, string> {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([path, text]) => [resolveOptionalProjectRelativePath(projectRoot, path), String(text ?? "").trim()] as const)
+      .filter(([path, text]) => Boolean(path && text)),
+  );
 }
 
 function resolveProjectRelativePath(projectRoot: string, value: string): string {

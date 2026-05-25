@@ -16,6 +16,8 @@ export type WorkspaceResultSheet = {
   selectedFilePath?: string;
   selectedAudioPath?: string;
   selectedResultAudioPath?: string;
+  inferenceMultiReferenceOpen: boolean;
+  inferenceAuxReferenceAudioPaths: string[];
   browserPreferredSection: "input" | "output";
   browserSectionRequestId: number;
   browserRevealRequestId: number;
@@ -47,6 +49,8 @@ export type WorkspaceRuntimeState = {
   selectedFilePath?: string;
   selectedAudioPath?: string;
   selectedResultAudioPath?: string;
+  inferenceMultiReferenceOpen: boolean;
+  inferenceAuxReferenceAudioPaths: string[];
   browserPreferredSection: "input" | "output";
   browserSectionRequestId: number;
   browserRevealRequestId: number;
@@ -118,6 +122,8 @@ export function createInitialRuntimeState(workspaceId: WorkspaceId): WorkspaceRu
     selectedFilePath: sheet.selectedFilePath,
     selectedAudioPath: sheet.selectedAudioPath,
     selectedResultAudioPath: sheet.selectedResultAudioPath,
+    inferenceMultiReferenceOpen: sheet.inferenceMultiReferenceOpen,
+    inferenceAuxReferenceAudioPaths: sheet.inferenceAuxReferenceAudioPaths,
     browserPreferredSection: sheet.browserPreferredSection,
     browserSectionRequestId: sheet.browserSectionRequestId,
     browserRevealRequestId: sheet.browserRevealRequestId,
@@ -200,6 +206,8 @@ export function createWorkspaceResultSheet(
     selectedFilePath: seed.selectedFilePath,
     selectedAudioPath: seed.selectedAudioPath,
     selectedResultAudioPath: seed.selectedResultAudioPath,
+    inferenceMultiReferenceOpen: seed.inferenceMultiReferenceOpen ?? false,
+    inferenceAuxReferenceAudioPaths: seed.inferenceAuxReferenceAudioPaths ?? [],
     browserPreferredSection: seed.browserPreferredSection ?? "input",
     browserSectionRequestId: seed.browserSectionRequestId ?? 0,
     browserRevealRequestId: seed.browserRevealRequestId ?? 0,
@@ -243,6 +251,8 @@ export function stateWithActiveSheet(state: WorkspaceRuntimeState, sheet: Worksp
     selectedFilePath: sheet.selectedFilePath,
     selectedAudioPath: sheet.selectedAudioPath,
     selectedResultAudioPath: sheet.selectedResultAudioPath,
+    inferenceMultiReferenceOpen: sheet.inferenceMultiReferenceOpen,
+    inferenceAuxReferenceAudioPaths: sheet.inferenceAuxReferenceAudioPaths,
     browserPreferredSection: sheet.browserPreferredSection,
     browserSectionRequestId: sheet.browserSectionRequestId,
     browserRevealRequestId: sheet.browserRevealRequestId,

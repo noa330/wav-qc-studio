@@ -20,7 +20,7 @@ import { scanFileTree } from "../files/file-tree";
 import { formatCommand, resolveHostLogPath, type PythonRunPlan, runPythonPlan } from "../process/python-runner";
 import { readRawTerminalSnapshot } from "../process/terminal-log";
 import { createBackendLayout } from "../project/layout";
-import { assertTrainingDatasetExtension, loadTrainingDatasetPreview } from "../voice/training-dataset";
+import { assertTrainingDatasetExtension, isVoiceDatasetPath, loadInferenceDatasetPreview, loadTrainingDatasetPreview, readVoiceDatasetItems } from "../voice/training-dataset";
 import { readWorkspaceDetails, readWorkspaceTable } from "../workspace-results/readers";
 import { recordActiveAudioConversionCache, resolveAudioInputConversionDirectory } from "./audio-conversion-cache";
 import { findFirstInputAudio, isSupportedAudioPath, isWavAudioPath } from "./audio-paths";
@@ -94,7 +94,11 @@ async function executeWorkspacePlan(
   const details = await readWorkspaceDetails(workspaceId, table);
   const progress = await readWorkspaceProgress(plan, table);
   const inputTreePath = plan.displayInputPath ?? plan.inputPath;
-  const inputTree = existsSync(inputTreePath) ? await scanFileTree(inputTreePath, { workspaceId, purpose: "input" }) : undefined;
+  const inputTree = existsSync(inputTreePath)
+    ? workspaceId === "inference" && isVoiceDatasetPath(inputTreePath)
+      ? (await loadInferenceDatasetPreview(inputTreePath)).inputTree
+      : await scanFileTree(inputTreePath, { workspaceId, purpose: "input" })
+    : undefined;
 
   return {
     ok: outcome.exitCode === 0,
@@ -137,9 +141,11 @@ function startRunProgressPolling(workspaceId: WorkspaceId, plan: PythonRunPlan, 
       const nextSignature = tableSignature(table);
       const progress = await readWorkspaceProgress(plan, table);
       const terminal = await readRunTerminalSnapshot(plan);
+      const activeInference = workspaceId === "inference" ? await readActiveInferenceProgress(plan.manifestPath) : undefined;
       const progressSignature = `${progress.completed}/${progress.total}/${progress.failed}/${progress.percent}`;
       const terminalSignature = `${terminal?.text.length ?? 0}/${terminal?.text.slice(-240) ?? ""}`;
-      const signature = `${nextSignature}|${progressSignature}|${terminalSignature}`;
+      const activeSignature = activeInference ? `${activeInference.activeAudioPath}|${activeInference.referenceText}|${activeInference.outputText}` : "";
+      const signature = `${nextSignature}|${progressSignature}|${terminalSignature}|${activeSignature}`;
       if (signature === lastSignature) {
         return;
       }
@@ -150,6 +156,7 @@ function startRunProgressPolling(workspaceId: WorkspaceId, plan: PythonRunPlan, 
         table,
         details: await readWorkspaceDetails(workspaceId, table),
         progress,
+        ...activeInference,
         terminal,
       });
     } catch {
@@ -209,6 +216,30 @@ async function readManifestProgress(manifestPath: string): Promise<WorkspaceProg
   });
 }
 
+async function readActiveInferenceProgress(manifestPath: string | undefined): Promise<Pick<WorkspaceRunProgressEvent, "activeAudioPath" | "referenceText" | "outputText"> | undefined> {
+  if (!manifestPath || !existsSync(manifestPath)) {
+    return undefined;
+  }
+
+  const parsed = JSON.parse(await readFile(manifestPath, "utf8")) as unknown;
+  if (!isRecord(parsed)) {
+    return undefined;
+  }
+
+  const jobs = Array.isArray(parsed.jobs) ? parsed.jobs.filter(isRecord) : [];
+  const activeJob = [...jobs].reverse().find((job) => stringValue(job.status) === "running") ?? jobs[jobs.length - 1];
+  const activeAudioPath = stringValue(activeJob?.referenceAudioPath);
+  if (!activeAudioPath) {
+    return undefined;
+  }
+
+  return {
+    activeAudioPath,
+    referenceText: stringValue(activeJob?.referenceText),
+    outputText: stringValue(activeJob?.outputText),
+  };
+}
+
 function normalizeProgress(progress: { total: number; completed: number; failed: number; percent?: number }): WorkspaceProgress {
   const total = Math.max(0, Math.trunc(progress.total));
   const completed = Math.max(0, Math.trunc(progress.completed));
@@ -255,6 +286,18 @@ export async function loadWorkspaceFromPath(workspaceId: WorkspaceId, inputPath:
 }> {
   if (workspaceId === "training") {
     const preview = await loadTrainingDatasetPreview(inputPath, settings);
+    const table = createEmptyWorkspaceTable(workspaceId);
+    return {
+      table,
+      details: preview.details,
+      inputPath: preview.inputPath,
+      originalInputPath: inputPath,
+      inputTree: preview.inputTree,
+    };
+  }
+
+  if (workspaceId === "inference" && isVoiceDatasetPath(inputPath)) {
+    const preview = await loadInferenceDatasetPreview(inputPath);
     const table = createEmptyWorkspaceTable(workspaceId);
     return {
       table,
@@ -717,9 +760,18 @@ async function createTrainingPlan(request: WorkspaceRunRequest): Promise<PythonR
 async function createInferencePlan(request: WorkspaceRunRequest): Promise<PythonRunPlan> {
   const layout = createBackendLayout({ markerScript: "voice_infer_main.py", venvFolder: ".venv" });
   const settings = normalizeInferenceSettings(request.settings.inference, layout.projectRoot);
-  const referenceAudioPath = settings.referenceAudioPath || findFirstInputAudio(request.paths.inputPath);
-  await assertInputPath(referenceAudioPath, "Select a reference audio file before running inference.");
-  if (!settings.outputText.trim()) {
+  const referenceItems = await resolveInferenceReferenceItems(settings, request.paths.inputPath);
+  if (referenceItems.length === 0) {
+    throw new Error("Select a reference audio file before running inference.");
+  }
+  for (const item of referenceItems) {
+    await assertInputPath(item.audioPath, "Select a reference audio file before running inference.");
+    for (const auxPath of item.auxReferenceAudioPaths) {
+      await assertInputPath(auxPath, "Select valid GPT-SoVITS auxiliary reference audio files before running inference.");
+    }
+  }
+  const outputTexts = expandInferenceOutputTexts(settings.outputText);
+  if (outputTexts.length === 0) {
     throw new Error("Enter output transcript text before running inference.");
   }
 
@@ -728,6 +780,20 @@ async function createInferencePlan(request: WorkspaceRunRequest): Promise<Python
   await mkdir(outputPath, { recursive: true });
   const manifestPath = join(outputPath, `inference_${runStamp}.json`);
   const logPath = join(outputPath, `inference_${runStamp}.log`);
+  const requestPath = join(outputPath, `inference_request_${runStamp}.json`);
+  await writeFile(
+    requestPath,
+    JSON.stringify(
+      {
+        references: referenceItems,
+        outputTexts,
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+  const batch = normalizeBatchSettings(request.settings.batch);
   const args = [
     layout.scriptPath,
     "infer",
@@ -735,12 +801,12 @@ async function createInferencePlan(request: WorkspaceRunRequest): Promise<Python
     settings.selectedModel,
     "--tool-root",
     settings.toolRoot,
-    "--reference-audio",
-    referenceAudioPath,
+    "--request",
+    requestPath,
     "--reference-text",
     settings.referenceText,
     "--text",
-    settings.outputText,
+    outputTexts[0],
     "--output-dir",
     outputPath,
     "--manifest",
@@ -817,7 +883,25 @@ async function createInferencePlan(request: WorkspaceRunRequest): Promise<Python
     String(settings.omniPositionTemperature),
     "--omni-class-temperature",
     String(settings.omniClassTemperature),
+    "--whisper-language",
+    batch.transcriptionLanguage,
+    "--whisper-asr-model",
+    batch.whisperAsrModel,
+    "--whisper-beam-size",
+    String(batch.whisperBeamSize),
+    "--whisper-vad-filter",
+    boolArg(batch.whisperVadFilter),
+    "--whisper-compute-type-cpu",
+    batch.whisperComputeTypeCpu,
+    "--whisper-compute-type-cuda",
+    batch.whisperComputeTypeCuda,
+    "--whisper-suppress-numerals",
+    boolArg(batch.whisperSuppressNumerals),
   ];
+  pushOptionalArg(args, "--whisper-initial-prompt", batch.whisperInitialPrompt);
+  for (const item of referenceItems) {
+    args.push("--reference-audio", item.audioPath);
+  }
   if (settings.gptMode === "checkpoint") {
     pushOptionalArg(args, "--gpt-sovits-path", settings.gptCheckpointSovitsPath);
     pushOptionalArg(args, "--gpt-gpt-path", settings.gptCheckpointGptPath);
@@ -839,6 +923,95 @@ async function createInferencePlan(request: WorkspaceRunRequest): Promise<Python
     logPath,
     args,
   };
+}
+
+type InferenceReferenceItem = {
+  audioPath: string;
+  referenceText: string;
+  auxReferenceAudioPaths: string[];
+};
+
+async function resolveInferenceReferenceItems(settings: WorkspaceSettings["inference"], inputPath: string): Promise<InferenceReferenceItem[]> {
+  const datasetTexts = isVoiceDatasetPath(inputPath)
+    ? await readInferenceDatasetTextMap(inputPath)
+    : new Map<string, InferenceReferenceItem>();
+  const requestedPaths = settings.inferenceRunMode === "batch" && settings.batchReferenceAudioPaths.length > 0
+    ? settings.batchReferenceAudioPaths
+    : [settings.referenceAudioPath || findFirstInputAudio(inputPath)];
+  const seen = new Set<string>();
+  const items: InferenceReferenceItem[] = [];
+  for (const path of requestedPaths) {
+    const normalized = path.trim();
+    const key = normalized.replace(/\\/gu, "/").toLowerCase();
+    if (!normalized || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    const savedText = settings.referenceTextsByAudioPath[normalized] ?? settings.referenceTextsByAudioPath[path] ?? "";
+    items.push({
+      audioPath: normalized,
+      referenceText: savedText || datasetTexts.get(key)?.referenceText || (settings.inferenceRunMode === "single" ? settings.referenceText : ""),
+      auxReferenceAudioPaths: settings.selectedModel === "gpt-sovits" ? normalizeAuxReferenceAudioPaths(settings.gptAuxReferenceAudioPaths, normalized) : [],
+    });
+  }
+  if (items.length === 0 && datasetTexts.size > 0) {
+    const fallback = [...datasetTexts.values()][0];
+    return [{
+      ...fallback,
+      auxReferenceAudioPaths: settings.selectedModel === "gpt-sovits" ? normalizeAuxReferenceAudioPaths(settings.gptAuxReferenceAudioPaths, fallback.audioPath) : [],
+    }];
+  }
+  return items;
+}
+
+async function readInferenceDatasetTextMap(inputPath: string): Promise<Map<string, InferenceReferenceItem>> {
+  const items = await readVoiceDatasetItems(inputPath);
+  const entries = items.map((item) => [item.audioPath.replace(/\\/gu, "/").toLowerCase(), { audioPath: item.audioPath, referenceText: item.text.trim(), auxReferenceAudioPaths: [] as string[] }] as const);
+  return new Map(entries);
+}
+
+function normalizeAuxReferenceAudioPaths(paths: string[], mainAudioPath: string): string[] {
+  const mainKey = mainAudioPath.replace(/\\/gu, "/").toLowerCase();
+  const seen = new Set<string>();
+  const normalizedPaths: string[] = [];
+  for (const path of paths) {
+    const trimmed = path.trim();
+    const key = trimmed.replace(/\\/gu, "/").toLowerCase();
+    if (!trimmed || key === mainKey || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    normalizedPaths.push(trimmed);
+  }
+  return normalizedPaths;
+}
+
+function expandInferenceOutputTexts(text: string): string[] {
+  const expanded = expandWildcardText(text.trim());
+  const seen = new Set<string>();
+  return expanded.filter((item) => {
+    const normalized = item.trim();
+    if (!normalized || seen.has(normalized)) {
+      return false;
+    }
+    seen.add(normalized);
+    return true;
+  });
+}
+
+function expandWildcardText(text: string): string[] {
+  const match = /\[([^\]]+)\]/u.exec(text);
+  if (!match) {
+    return text ? [text] : [];
+  }
+
+  const [token, rawOptions] = match;
+  const options = rawOptions.split(",").map((option) => option.trim()).filter(Boolean);
+  if (options.length === 0) {
+    return expandWildcardText(text.replace(token, ""));
+  }
+
+  return options.flatMap((option) => expandWildcardText(text.replace(token, option)));
 }
 
 function pushOptionalArg(args: string[], flag: string, value: string | undefined): void {

@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { basename, dirname, extname, join } from "node:path";
+import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path";
 import type { DetailField, FileTreeNode, FileTreeResult, VoiceTrainingModel, WorkspaceSettings } from "@shared/ipc";
 
 export type TrainingDatasetPreview = {
@@ -9,7 +9,7 @@ export type TrainingDatasetPreview = {
   details: DetailField[];
 };
 
-type TrainingDatasetItem = {
+export type VoiceDatasetItem = {
   audioPath: string;
   speaker: string;
   language: string;
@@ -19,13 +19,11 @@ type TrainingDatasetItem = {
 export async function loadTrainingDatasetPreview(inputPath: string, settings?: WorkspaceSettings): Promise<TrainingDatasetPreview> {
   const selectedModel = settings?.training?.selectedModel ?? "gpt-sovits";
   assertTrainingDatasetExtension(inputPath, selectedModel);
-  const items = selectedModel === "gpt-sovits"
-    ? await readGptSoVitsList(inputPath)
-    : await readOmniVoiceJson(inputPath);
+  const items = await readVoiceDatasetItems(inputPath, selectedModel);
 
   return {
     inputPath,
-    inputTree: buildAudioInputTree(inputPath, items),
+    inputTree: buildAudioInputTree(inputPath, items, "training"),
     details: [
       { label: "데이터셋", value: basename(inputPath) },
       { label: "모델", value: selectedModel === "gpt-sovits" ? "GPT-SoVITS" : "OmniVoice" },
@@ -33,6 +31,43 @@ export async function loadTrainingDatasetPreview(inputPath: string, settings?: W
       { label: "오디오 폴더", value: commonAudioFolder(items) || "-" },
     ],
   };
+}
+
+export async function loadInferenceDatasetPreview(inputPath: string): Promise<TrainingDatasetPreview> {
+  const items = await readVoiceDatasetItems(inputPath);
+  return {
+    inputPath,
+    inputTree: buildAudioInputTree(inputPath, items, "inference"),
+    details: [
+      { label: "데이터셋", value: basename(inputPath) },
+      { label: "형식", value: datasetFormatLabel(inputPath) },
+      { label: "행 수", value: `${items.length}` },
+      { label: "오디오 폴더", value: commonAudioFolder(items) || "-" },
+    ],
+  };
+}
+
+export async function readVoiceDatasetItems(inputPath: string, selectedModel?: VoiceTrainingModel): Promise<VoiceDatasetItem[]> {
+  if (selectedModel) {
+    assertTrainingDatasetExtension(inputPath, selectedModel);
+    return selectedModel === "gpt-sovits"
+      ? readGptSoVitsList(inputPath)
+      : readOmniVoiceJson(inputPath);
+  }
+
+  const extension = extname(inputPath).toLowerCase();
+  if (extension === ".list") {
+    return readGptSoVitsList(inputPath);
+  }
+  if (extension === ".jsonl" || extension === ".json") {
+    return readOmniVoiceJson(inputPath);
+  }
+  throw new Error("추론 데이터셋 입력은 .list, .jsonl, .json 파일이어야 합니다.");
+}
+
+export function isVoiceDatasetPath(inputPath: string): boolean {
+  const extension = extname(inputPath).toLowerCase();
+  return extension === ".list" || extension === ".jsonl" || extension === ".json";
 }
 
 export function assertTrainingDatasetExtension(inputPath: string, selectedModel: VoiceTrainingModel): void {
@@ -46,9 +81,9 @@ export function assertTrainingDatasetExtension(inputPath: string, selectedModel:
   }
 }
 
-async function readGptSoVitsList(inputPath: string): Promise<TrainingDatasetItem[]> {
+async function readGptSoVitsList(inputPath: string): Promise<VoiceDatasetItem[]> {
   const text = await readText(inputPath);
-  const items: TrainingDatasetItem[] = [];
+  const items: VoiceDatasetItem[] = [];
   for (const [index, rawLine] of text.split(/\r?\n/u).entries()) {
     const line = rawLine.trim();
     if (!line) {
@@ -60,9 +95,10 @@ async function readGptSoVitsList(inputPath: string): Promise<TrainingDatasetItem
       throw new Error(`GPT-SoVITS 리스트 ${index + 1}번째 줄 형식이 올바르지 않습니다. wav_path|speaker|language|text 형식이어야 합니다.`);
     }
 
-    const [audioPath, speaker, language, ...textParts] = parts;
+    const [rawAudioPath, speaker, language, ...textParts] = parts;
+    const audioPath = resolveDatasetAudioPath(rawAudioPath, inputPath);
     if (!existsSync(audioPath)) {
-      throw new Error(`${index + 1}번째 줄의 오디오 파일을 찾을 수 없습니다: ${audioPath}`);
+      throw new Error(`${index + 1}번째 줄의 오디오 파일을 찾을 수 없습니다: ${rawAudioPath}`);
     }
 
     items.push({
@@ -80,14 +116,14 @@ async function readGptSoVitsList(inputPath: string): Promise<TrainingDatasetItem
   return items;
 }
 
-async function readOmniVoiceJson(inputPath: string): Promise<TrainingDatasetItem[]> {
+async function readOmniVoiceJson(inputPath: string): Promise<VoiceDatasetItem[]> {
   const text = await readText(inputPath);
   const records = inputPath.toLowerCase().endsWith(".jsonl")
     ? text.split(/\r?\n/u).filter((line) => line.trim()).map((line, index) => parseJsonLine(line, index + 1))
     : parseJsonRecords(text);
 
   const wavDir = join(dirname(dirname(inputPath)), "wavs");
-  const items = records.map((record, index) => normalizeOmniRecord(record, index, wavDir));
+  const items = records.map((record, index) => normalizeOmniRecord(record, index, wavDir, inputPath));
   if (items.length === 0) {
     throw new Error(`사용할 수 있는 행이 없습니다: ${inputPath}`);
   }
@@ -136,10 +172,10 @@ function parseJsonRecords(text: string): Record<string, unknown>[] {
   return [];
 }
 
-function normalizeOmniRecord(record: Record<string, unknown>, index: number, wavDir: string): TrainingDatasetItem {
+function normalizeOmniRecord(record: Record<string, unknown>, index: number, wavDir: string, inputPath: string): VoiceDatasetItem {
   const id = stringValue(record.id) || `${index + 1}`;
   const candidateAudioPath = stringValue(record.audio_path) || stringValue(record.audioPath) || stringValue(record.wav_path);
-  const audioPath = resolveOmniAudioPath(candidateAudioPath, id, index, wavDir);
+  const audioPath = resolveOmniAudioPath(candidateAudioPath, id, index, wavDir, inputPath);
   if (!audioPath) {
     throw new Error(`OmniVoice ${index + 1}번째 행의 오디오 경로가 비어 있습니다.`);
   }
@@ -152,9 +188,12 @@ function normalizeOmniRecord(record: Record<string, unknown>, index: number, wav
   };
 }
 
-function resolveOmniAudioPath(candidate: string, id: string, index: number, wavDir: string): string {
-  if (candidate && existsSync(candidate)) {
-    return candidate;
+function resolveOmniAudioPath(candidate: string, id: string, index: number, wavDir: string, inputPath: string): string {
+  if (candidate) {
+    const resolvedCandidate = resolveDatasetAudioPath(candidate, inputPath);
+    if (existsSync(resolvedCandidate)) {
+      return resolvedCandidate;
+    }
   }
 
   const numeric = id.replace(/\D/gu, "");
@@ -169,25 +208,25 @@ function resolveOmniAudioPath(candidate: string, id: string, index: number, wavD
     }
   }
 
-  return candidate;
+  return candidate ? resolveDatasetAudioPath(candidate, inputPath) : "";
 }
 
-function buildAudioInputTree(datasetPath: string, items: TrainingDatasetItem[]): FileTreeResult {
-  const groups = new Map<string, TrainingDatasetItem[]>();
+function buildAudioInputTree(datasetPath: string, items: VoiceDatasetItem[], idPrefix: "training" | "inference"): FileTreeResult {
+  const groups = new Map<string, VoiceDatasetItem[]>();
   for (const item of items) {
     groups.set(dirname(item.audioPath), [...(groups.get(dirname(item.audioPath)) ?? []), item]);
   }
 
   const nodes = groups.size <= 1
-    ? buildAudioNodes(items)
+    ? buildAudioNodes(items, idPrefix)
     : Array.from(groups.entries())
         .sort(([left], [right]) => basename(left).localeCompare(basename(right), "ko"))
         .map<FileTreeNode>(([folderPath, groupItems]) => ({
-          id: `training-folder:${folderPath}`,
+          id: `${idPrefix}-folder:${folderPath}`,
           name: basename(folderPath),
           path: folderPath,
           kind: "directory",
-          children: buildAudioNodes(groupItems),
+          children: buildAudioNodes(groupItems, idPrefix),
         }));
 
   return {
@@ -196,19 +235,40 @@ function buildAudioInputTree(datasetPath: string, items: TrainingDatasetItem[]):
   };
 }
 
-function buildAudioNodes(items: TrainingDatasetItem[]): FileTreeNode[] {
+function buildAudioNodes(items: VoiceDatasetItem[], idPrefix: "training" | "inference"): FileTreeNode[] {
   return items.map((item, index) => ({
-    id: `training-audio:${index}:${item.audioPath}`,
+    id: `${idPrefix}-audio:${index}:${item.audioPath}`,
     name: basename(item.audioPath),
     path: item.audioPath,
     kind: "file",
-    meta: [item.speaker, item.language, item.text].filter(Boolean).join(" | "),
+    meta: formatDatasetMeta(item),
+    dataset: {
+      speaker: item.speaker,
+      language: item.language,
+      text: item.text,
+    },
   }));
 }
 
-function commonAudioFolder(items: TrainingDatasetItem[]): string {
+function commonAudioFolder(items: VoiceDatasetItem[]): string {
   const folders = new Set(items.map((item) => dirname(item.audioPath)));
   return folders.size === 1 ? [...folders][0] : "";
+}
+
+function formatDatasetMeta(item: VoiceDatasetItem): string {
+  return [item.language, item.text].filter(Boolean).join(" | ");
+}
+
+function datasetFormatLabel(inputPath: string): string {
+  return extname(inputPath).toLowerCase() === ".list" ? "GPT-SoVITS list" : "OmniVoice JSON";
+}
+
+function resolveDatasetAudioPath(audioPath: string, datasetPath: string): string {
+  const trimmed = audioPath.trim();
+  if (!trimmed) {
+    return "";
+  }
+  return isAbsolute(trimmed) ? trimmed : resolve(dirname(datasetPath), trimmed);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

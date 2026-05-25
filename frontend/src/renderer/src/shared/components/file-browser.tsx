@@ -1,13 +1,19 @@
-﻿import { File, FileAudio, Folder, FolderOpen } from "lucide-react";
+﻿import { Check, File, FileAudio, Folder, FolderOpen } from "lucide-react";
 import { useEffect, useRef, useState, type UIEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { FileTreeNode, FileTreeResult, WorkspaceId } from "@shared/ipc";
 import { SCROLL_WINDOW_BUFFER_SCREENS, resolveScrollWindowMetrics, type ScrollWindowMetrics } from "@shared/scroll-window";
 import { cn } from "@/lib/utils";
 import { ChevronGlyph } from "./controls";
-import { fadeSlideUpMotion, loadingSpinnerTransition, softPressTap, subtleSpring } from "@/shared/motion";
+import { checkPopMotion, fadeSlideUpMotion, loadingSpinnerTransition, softPressTap, subtleSpring, tightPressTap } from "@/shared/motion";
 
 const fileBrowserRowExtent = 54;
+
+export type FileBrowserNodeChecks = {
+  checkedPaths: string[];
+  onToggleNode: (node: FileTreeNode) => void;
+  isCheckable?: (node: FileTreeNode) => boolean;
+};
 
 export function FileBrowser({
   workspaceId,
@@ -17,6 +23,7 @@ export function FileBrowser({
   outputTree,
   selectedPath,
   rowChecks,
+  inputNodeChecks,
   preferredSection,
   sectionRequestId,
   revealRequestId,
@@ -26,6 +33,8 @@ export function FileBrowser({
   outputActionLabel = "출력 폴더",
   onRequestWindow,
   onSelectNode,
+  inputSecondaryActionLabel,
+  onSelectInputSecondary,
 }: {
   workspaceId: WorkspaceId;
   inputPath: string;
@@ -34,6 +43,7 @@ export function FileBrowser({
   outputTree?: FileTreeResult;
   selectedPath?: string;
   rowChecks?: Record<string, boolean>;
+  inputNodeChecks?: FileBrowserNodeChecks;
   preferredSection?: "input" | "output";
   sectionRequestId?: number;
   revealRequestId?: number;
@@ -41,6 +51,8 @@ export function FileBrowser({
   onSelectOutputFolder: () => void;
   inputActionLabel?: string;
   outputActionLabel?: string;
+  inputSecondaryActionLabel?: string;
+  onSelectInputSecondary?: () => void;
   onRequestWindow?: (purpose: "input" | "output", direction: "reveal" | "sync" | "up" | "down", metrics: ScrollWindowMetrics, targetPath?: string) => Promise<void> | void;
   onSelectNode: (node: FileTreeNode) => void;
 }) {
@@ -69,10 +81,13 @@ export function FileBrowser({
         title={inputTitle}
         action={inputAction}
         onAction={onSelectInputFolder}
+        secondaryAction={inputSecondaryActionLabel}
+        onSecondaryAction={onSelectInputSecondary}
         nodes={inputTree?.nodes ?? []}
         windowState={inputTree?.window}
         selectedPath={selectedPath}
         rowChecks={rowChecks}
+        nodeChecks={inputNodeChecks}
         revealRequestId={revealRequestId}
         onSelectNode={onSelectNode}
         onRequestWindow={(direction, metrics, targetPath) => onRequestWindow?.("input", direction, metrics, targetPath)}
@@ -85,10 +100,13 @@ export function FileBrowser({
         title={outputPath || "output"}
         action={outputActionLabel}
         onAction={onSelectOutputFolder}
+        secondaryAction={undefined}
+        onSecondaryAction={undefined}
         nodes={outputTree?.nodes ?? []}
         windowState={outputTree?.window}
         selectedPath={selectedPath}
         rowChecks={rowChecks}
+        nodeChecks={undefined}
         revealRequestId={revealRequestId}
         onSelectNode={onSelectNode}
         onRequestWindow={(direction, metrics, targetPath) => onRequestWindow?.("output", direction, metrics, targetPath)}
@@ -105,10 +123,13 @@ function BrowserSection({
   title,
   action,
   onAction,
+  secondaryAction,
+  onSecondaryAction,
   nodes,
   windowState,
   selectedPath,
   rowChecks,
+  nodeChecks,
   revealRequestId,
   onSelectNode,
   onRequestWindow,
@@ -120,10 +141,13 @@ function BrowserSection({
   title: string;
   action: string;
   onAction: () => void;
+  secondaryAction?: string;
+  onSecondaryAction?: () => void;
   nodes: FileTreeNode[];
   windowState?: FileTreeResult["window"];
   selectedPath?: string;
   rowChecks?: Record<string, boolean>;
+  nodeChecks?: FileBrowserNodeChecks;
   revealRequestId?: number;
   onSelectNode: (node: FileTreeNode) => void;
   onRequestWindow?: (direction: "reveal" | "sync" | "up" | "down", metrics: ScrollWindowMetrics, targetPath?: string) => Promise<void> | void;
@@ -135,6 +159,7 @@ function BrowserSection({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const loadingWindowRef = useRef(false);
   const handledRevealRequestRef = useRef<number | undefined>(undefined);
+  const checkedPathSet = nodeChecks ? new Set(nodeChecks.checkedPaths.map(normalizePath)) : undefined;
   const resolveWindowMetrics = (element: HTMLDivElement | null) =>
     resolveScrollWindowMetrics({
       viewportExtent: element?.clientHeight ?? fileBrowserRowExtent,
@@ -209,7 +234,7 @@ function BrowserSection({
 
   return (
     <section className={cn("flex min-h-10 flex-col overflow-hidden", fill ? "flex-1" : "flex-none")}>
-      <div className="grid h-10 grid-cols-[1fr_auto_auto] items-center gap-2">
+      <div className="grid h-10 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
         <motion.button type="button" onClick={onToggle} whileTap={softPressTap} className="grid min-w-0 grid-cols-[18px_24px_minmax(0,1fr)] items-center px-1 text-left">
           <ChevronGlyph direction={expanded ? "down" : "right"} className="col-start-1" />
           {expanded ? <FolderOpen className="col-start-2 size-[18px] text-[var(--icon-brush)]" strokeWidth={1.55} /> : <Folder className="col-start-2 size-[18px] text-[var(--icon-brush)]" strokeWidth={1.55} />}
@@ -217,11 +242,15 @@ function BrowserSection({
             {compactPath(title)}
           </span>
         </motion.button>
-        <motion.button type="button" onClick={onAction} whileTap={softPressTap} className="text-[13px] font-normal text-[var(--secondary-text)] underline underline-offset-2">
+        <motion.button type="button" onClick={onAction} whileTap={softPressTap} className="whitespace-nowrap text-[13px] font-normal text-[var(--secondary-text)] underline underline-offset-2">
           {action}
         </motion.button>
+        {secondaryAction && onSecondaryAction ? (
+          <motion.button type="button" onClick={onSecondaryAction} whileTap={softPressTap} className="whitespace-nowrap text-[13px] font-normal text-[var(--secondary-text)] underline underline-offset-2">
+            {secondaryAction}
+          </motion.button>
+        ) : null}
       </div>
-
       <AnimatePresence initial={false}>
         {expanded ? (
           <motion.div ref={scrollRef} onScroll={handleScroll} {...fadeSlideUpMotion} className="scroll-window-viewport mt-0 min-h-0 flex-1 overflow-auto pb-3 pr-1">
@@ -234,6 +263,8 @@ function BrowserSection({
                   node={node}
                   selectedPath={selectedPath}
                   rowChecks={rowChecks}
+                  nodeChecks={nodeChecks}
+                  checkedPathSet={checkedPathSet}
                   revealRequestId={revealRequestId !== handledRevealRequestRef.current ? revealRequestId : undefined}
                   onRevealHandled={(requestId) => {
                     handledRevealRequestRef.current = requestId;
@@ -254,6 +285,8 @@ function BrowserNodeRow({
   node,
   selectedPath,
   rowChecks,
+  nodeChecks,
+  checkedPathSet,
   revealRequestId,
   onRevealHandled,
   onSelectNode,
@@ -263,6 +296,8 @@ function BrowserNodeRow({
   node: FileTreeNode;
   selectedPath?: string;
   rowChecks?: Record<string, boolean>;
+  nodeChecks?: FileBrowserNodeChecks;
+  checkedPathSet?: Set<string>;
   revealRequestId?: number;
   onRevealHandled?: (requestId: number) => void;
   onSelectNode: (node: FileTreeNode) => void;
@@ -276,14 +311,20 @@ function BrowserNodeRow({
   const conversionStatus = node.kind === "file" ? readConversionStatus(node.meta) : undefined;
   const selected = normalizePath(selectedPath) === normalizePath(node.path);
   const unchecked = Boolean(node.exportRowId && rowChecks?.[node.exportRowId] === false);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const checkable = Boolean(nodeChecks && isNodeCheckable(node, nodeChecks));
+  const checked = checkable && Boolean(checkedPathSet?.has(normalizePath(node.path)));
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const chevronColumnClass = nodeChecks ? "col-start-2" : "col-start-1";
+  const iconColumnClass = nodeChecks ? "col-start-3" : "col-start-2";
+  const textColumnClass = nodeChecks ? "col-start-4" : "col-start-3";
+  const gridClass = nodeChecks ? "grid-cols-[24px_18px_24px_minmax(0,1fr)]" : "grid-cols-[18px_24px_minmax(0,1fr)]";
 
   useEffect(() => {
     if (!selected || revealRequestId === undefined) {
       return;
     }
 
-    const element = buttonRef.current;
+    const element = rowRef.current;
     const scrollRoot = element?.closest(".scroll-window-viewport");
     if (!element || !(scrollRoot instanceof HTMLElement)) {
       return;
@@ -300,9 +341,10 @@ function BrowserNodeRow({
 
   return (
     <div>
-      <button
-        ref={buttonRef}
-        type="button"
+      <div
+        ref={rowRef}
+        role="button"
+        tabIndex={0}
         onClick={() => {
           if (node.kind === "file") {
             onSelectNode(node);
@@ -311,18 +353,36 @@ function BrowserNodeRow({
             setExpanded((current) => !current);
           }
         }}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" && event.key !== " ") {
+            return;
+          }
+          event.preventDefault();
+          event.currentTarget.click();
+        }}
         className={cn("relative my-0.5 block w-full overflow-hidden rounded-[5px] px-1 py-2 text-left text-sm font-normal hover:bg-[var(--soft-selection-hover)]", selected && "hover:bg-transparent")}
       >
         {selected ? <motion.span layoutId={selectionLayoutId} transition={subtleSpring} className="absolute inset-0 rounded-[5px] bg-[var(--nav-selected-bg)]" /> : null}
-        <div className="relative z-10 grid min-w-0 grid-cols-[18px_24px_minmax(0,1fr)] items-center" style={{ marginLeft: `${level * 14}px` }}>
-          {hasChildren ? <ChevronGlyph direction={expanded ? "down" : "right"} className="col-start-1" /> : <span className="col-start-1" />}
-          {conversionStatus ? <ConversionStatusIcon status={conversionStatus} /> : <Icon className="col-start-2 size-[18px] text-[var(--icon-brush)]" strokeWidth={1.55} />}
-          <div className="col-start-3 min-w-0">
+        <div className={cn("relative z-10 grid min-w-0 items-center", gridClass)} style={{ marginLeft: `${level * 14}px` }}>
+          {nodeChecks ? (
+            <span className="col-start-1 flex size-[18px] items-center justify-center">
+              {checkable ? (
+                <NodeCheckButton
+                  checked={checked}
+                  ariaLabel={`${node.name} 선택`}
+                  onToggle={() => nodeChecks?.onToggleNode(node)}
+                />
+              ) : null}
+            </span>
+          ) : null}
+          {hasChildren ? <ChevronGlyph direction={expanded ? "down" : "right"} className={chevronColumnClass} /> : <span className={chevronColumnClass} />}
+          {conversionStatus ? <ConversionStatusIcon status={conversionStatus} className={iconColumnClass} /> : <Icon className={cn(iconColumnClass, "size-[18px] text-[var(--icon-brush)]")} strokeWidth={1.55} />}
+          <div className={cn(textColumnClass, "min-w-0")}>
             <p className={cn("truncate text-sm font-normal text-[var(--primary-text)]", unchecked && "line-through decoration-[var(--primary-text)]")}>{node.name}</p>
             {node.meta ? <p className={cn("mt-0.5 truncate text-[13px] text-[var(--secondary-text)]", unchecked && "line-through decoration-[var(--secondary-text)]")}>{node.meta}</p> : null}
           </div>
         </div>
-      </button>
+      </div>
       <AnimatePresence initial={false}>
         {expanded ? node.children?.map((child) => (
           <BrowserNodeRow
@@ -330,6 +390,8 @@ function BrowserNodeRow({
             node={child}
             selectedPath={selectedPath}
             rowChecks={rowChecks}
+            nodeChecks={nodeChecks}
+            checkedPathSet={checkedPathSet}
             revealRequestId={revealRequestId}
             onRevealHandled={onRevealHandled}
             onSelectNode={onSelectNode}
@@ -342,12 +404,42 @@ function BrowserNodeRow({
   );
 }
 
-function ConversionStatusIcon({ status }: { status: "pending" | "running" }) {
+function NodeCheckButton({ checked, disabled = false, ariaLabel, onToggle }: { checked: boolean; disabled?: boolean; ariaLabel: string; onToggle: () => void }) {
+  return (
+    <motion.button
+      type="button"
+      aria-label={ariaLabel}
+      aria-pressed={checked}
+      disabled={disabled}
+      whileTap={disabled ? undefined : tightPressTap}
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
+      className={cn(
+        "flex size-[18px] shrink-0 items-center justify-center rounded-[3px] border border-[var(--secondary-text)]",
+        checked && "border-[var(--accent-blue)] bg-[var(--accent-blue)]",
+        disabled && "opacity-45",
+      )}
+    >
+      <AnimatePresence initial={false}>
+        {checked ? (
+          <motion.span {...checkPopMotion}>
+            <Check className="size-3 text-[var(--primary-text)]" strokeWidth={1.9} />
+          </motion.span>
+        ) : null}
+      </AnimatePresence>
+    </motion.button>
+  );
+}
+
+function ConversionStatusIcon({ status, className }: { status: "pending" | "running"; className?: string }) {
   return (
     <motion.span
       aria-hidden="true"
       className={cn(
-        "col-start-2 block size-[18px] rounded-full border-2 border-current text-[var(--icon-brush)]",
+        className,
+        "block size-[18px] rounded-full border-2 border-current text-[var(--icon-brush)]",
         status === "running" && "border-t-transparent",
       )}
       animate={status === "running" ? { rotate: 360 } : { rotate: 0 }}
@@ -393,6 +485,10 @@ function treeContainsPath(nodes: FileTreeNode[], targetPath: string): boolean {
     }
     return node.children ? treeContainsPath(node.children, targetPath) : false;
   });
+}
+
+function isNodeCheckable(node: FileTreeNode, nodeChecks: FileBrowserNodeChecks): boolean {
+  return node.kind === "file" && (nodeChecks.isCheckable?.(node) ?? isAudioFile(node.path));
 }
 
 function normalizePath(path: string | undefined): string {

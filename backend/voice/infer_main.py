@@ -8,6 +8,7 @@ import sys
 import tempfile
 import textwrap
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
@@ -25,13 +26,23 @@ try:
 except Exception:
     pass
 
+
+@dataclass
+class InferenceReference:
+    audio_path: Path
+    reference_text: str
+    aux_audio_paths: list[Path]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="WAV QC Studio voice inference bridge")
     sub = parser.add_subparsers(dest="command", required=True)
     infer = sub.add_parser("infer")
     infer.add_argument("--model", choices=["gpt-sovits", "omnivoice"], required=True)
     infer.add_argument("--tool-root", default=str(DEFAULT_TOOL_ROOT))
-    infer.add_argument("--reference-audio", required=True)
+    infer.add_argument("--request", default="")
+    infer.add_argument("--reference-audio", action="append", default=[])
+    infer.add_argument("--aux-reference-audio", action="append", default=[])
     infer.add_argument("--reference-text", default="")
     infer.add_argument("--text", required=True)
     infer.add_argument("--output-dir", required=True)
@@ -80,6 +91,15 @@ def main(argv: list[str] | None = None) -> int:
     infer.add_argument("--omni-position-temperature", type=float, default=5.0)
     infer.add_argument("--omni-class-temperature", type=float, default=0.0)
 
+    infer.add_argument("--whisper-language", default="auto")
+    infer.add_argument("--whisper-asr-model", default="large-v3")
+    infer.add_argument("--whisper-beam-size", type=int, default=5)
+    infer.add_argument("--whisper-vad-filter", default="true")
+    infer.add_argument("--whisper-compute-type-cpu", default="int8")
+    infer.add_argument("--whisper-compute-type-cuda", default="float16")
+    infer.add_argument("--whisper-suppress-numerals", default="true")
+    infer.add_argument("--whisper-initial-prompt", default="")
+
     args = parser.parse_args(argv)
     return run_inference(args)
 
@@ -89,6 +109,8 @@ def run_inference(args: argparse.Namespace) -> int:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8", buffering=1) as log_file:
         console = VoiceConsole(log_file)
+        references, output_texts = collect_inference_request(args)
+        total_units = len(references) * len(output_texts)
 
         manifest = InferenceManifestWriter(
             Path(args.manifest),
@@ -97,10 +119,11 @@ def run_inference(args: argparse.Namespace) -> int:
                 model=args.model,
                 model_name=args.model_name,
                 mode=infer_mode(args),
-                reference_audio=Path(args.reference_audio),
-                reference_text=args.reference_text,
-                output_text=args.text,
+                reference_audio=references[0].audio_path,
+                reference_text=references[0].reference_text,
+                output_text=output_texts[0],
             ),
+            total_units=total_units,
         )
         try:
             console.banner("Voice inference")
@@ -108,7 +131,10 @@ def run_inference(args: argparse.Namespace) -> int:
             console.kv("Working directory", Path.cwd())
             console.kv("Model", args.model)
             console.kv("Mode", infer_mode(args))
-            console.kv("Reference audio", Path(args.reference_audio))
+            console.kv("Reference count", len(references))
+            console.kv("Output text variants", len(output_texts))
+            if len(references) == 1:
+                console.kv("Reference audio", references[0].audio_path)
             console.kv("Output folder", Path(args.output_dir))
             console.kv("Manifest", Path(args.manifest))
             console.kv("Log file", log_path)
@@ -117,22 +143,271 @@ def run_inference(args: argparse.Namespace) -> int:
             check_cancel(args.cancel_file)
             output_dir = Path(args.output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
-            output_audio = output_dir / f"{safe_name(args.model_name)}_{int(time.time())}.wav"
-            manifest.emit("prepare", "running", "Preparing official inference command")
-            if args.model == "gpt-sovits":
-                run_gpt_sovits(args, output_audio, console)
-            else:
-                run_omnivoice(args, output_audio, console)
-            manifest.emit("infer", "completed", "Inference completed", output_audio=output_audio)
+            completed_count = 0
+            failed_count = 0
+            transcriber: Any | None = None
+            for reference_index, reference in enumerate(references, 1):
+                check_cancel(args.cancel_file)
+                reference_text = reference.reference_text.strip()
+                console.section(f"Reference {reference_index}/{len(references)}")
+                console.kv("Reference audio", reference.audio_path)
+                if reference.aux_audio_paths:
+                    console.kv("Aux reference audio", len(reference.aux_audio_paths))
+                if not reference_text:
+                    try:
+                        manifest.emit(
+                            "transcribe",
+                            "running",
+                            "Transcribing reference audio with Script Whisper",
+                            reference_audio=reference.audio_path,
+                            reference_text="",
+                            output_text=output_texts[0],
+                            reference_index=reference_index,
+                        )
+                        if transcriber is None:
+                            transcriber = create_script_transcriber(args, console)
+                        reference_text = transcribe_reference_audio(transcriber, reference.audio_path, console)
+                        manifest.emit(
+                            "transcribe",
+                            "completed",
+                            "Reference transcript filled by Script Whisper",
+                            reference_audio=reference.audio_path,
+                            reference_text=reference_text,
+                            output_text=output_texts[0],
+                            reference_index=reference_index,
+                        )
+                    except Exception as exc:
+                        failed_count += len(output_texts)
+                        console.error(exc)
+                        for output_variant_index, output_text in enumerate(output_texts, 1):
+                            manifest.emit(
+                                "infer",
+                                "failed",
+                                str(exc),
+                                failed=True,
+                                reference_audio=reference.audio_path,
+                                reference_text="",
+                                output_text=output_text,
+                                reference_index=reference_index,
+                                output_variant_index=output_variant_index,
+                                output_variant_count=len(output_texts),
+                            )
+                        continue
+                else:
+                    console.kv("Reference transcript", "provided")
+
+                for output_variant_index, output_text in enumerate(output_texts, 1):
+                    check_cancel(args.cancel_file)
+                    run_args = argparse.Namespace(
+                        **{
+                            **vars(args),
+                            "reference_audio": str(reference.audio_path),
+                            "aux_reference_audio": [str(path) for path in reference.aux_audio_paths],
+                            "reference_text": reference_text,
+                            "text": output_text,
+                        }
+                    )
+                    output_audio = output_dir / output_audio_name(
+                        args.model_name,
+                        reference.audio_path,
+                        reference_index,
+                        len(references),
+                        output_variant_index,
+                        len(output_texts),
+                    )
+                    console.section(f"Inference {completed_count + failed_count + 1}/{total_units}")
+                    console.kv("Reference audio", reference.audio_path)
+                    console.kv("Output variant", f"{output_variant_index}/{len(output_texts)}")
+                    console.kv("Output audio", output_audio)
+                    manifest.emit(
+                        "prepare",
+                        "running",
+                        "Preparing official inference command",
+                        reference_audio=reference.audio_path,
+                        reference_text=reference_text,
+                        output_text=output_text,
+                        reference_index=reference_index,
+                        output_variant_index=output_variant_index,
+                        output_variant_count=len(output_texts),
+                    )
+                    try:
+                        if args.model == "gpt-sovits":
+                            run_gpt_sovits(run_args, output_audio, console)
+                        else:
+                            run_omnivoice(run_args, output_audio, console)
+                        completed_count += 1
+                        manifest.emit(
+                            "infer",
+                            "completed",
+                            "Inference completed",
+                            output_audio=output_audio,
+                            reference_audio=reference.audio_path,
+                            reference_text=reference_text,
+                            output_text=output_text,
+                            reference_index=reference_index,
+                            output_variant_index=output_variant_index,
+                            output_variant_count=len(output_texts),
+                            complete_unit=True,
+                        )
+                    except Exception as exc:
+                        failed_count += 1
+                        console.error(exc)
+                        manifest.emit(
+                            "infer",
+                            "failed",
+                            str(exc),
+                            failed=True,
+                            reference_audio=reference.audio_path,
+                            reference_text=reference_text,
+                            output_text=output_text,
+                            reference_index=reference_index,
+                            output_variant_index=output_variant_index,
+                            output_variant_count=len(output_texts),
+                        )
             console.section("Inference finished")
-            console.kv("Output audio", output_audio)
-            console.kv("Exit code", 0)
-            console.status("completed", "Inference command completed")
-            return 0
+            console.kv("Completed", f"{completed_count}/{total_units}")
+            console.kv("Failed", failed_count)
+            exit_code = 0 if failed_count == 0 else 1
+            console.kv("Exit code", exit_code)
+            console.status("completed" if exit_code == 0 else "failed", "Inference command completed" if exit_code == 0 else "Inference completed with errors")
+            return exit_code
         except Exception as exc:
             console.error(exc)
             manifest.emit("infer", "failed", str(exc), failed=True)
             return 1
+
+
+def collect_inference_request(args: argparse.Namespace) -> tuple[list[InferenceReference], list[str]]:
+    if args.request:
+        payload = json.loads(Path(args.request).read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise RuntimeError("Inference request JSON must be an object.")
+        references = [
+            InferenceReference(
+                audio_path=Path(str(item.get("audioPath", "") or item.get("referenceAudio", "") or "")).expanduser(),
+                reference_text=str(item.get("referenceText", "") or "").strip(),
+                aux_audio_paths=[
+                    Path(str(path)).expanduser()
+                    for path in item.get("auxReferenceAudioPaths", [])
+                    if str(path).strip()
+                ] if isinstance(item.get("auxReferenceAudioPaths", []), list) else [],
+            )
+            for item in payload.get("references", [])
+            if isinstance(item, dict)
+        ]
+        output_texts = [str(item).strip() for item in payload.get("outputTexts", []) if str(item).strip()]
+    else:
+        references = [
+            InferenceReference(audio_path=path, reference_text=args.reference_text.strip(), aux_audio_paths=collect_aux_reference_audios(args, path))
+            for path in collect_reference_audios(args)
+        ]
+        output_texts = [args.text.strip()] if args.text.strip() else []
+
+    seen_references: set[str] = set()
+    unique_references: list[InferenceReference] = []
+    for reference in references:
+        key = str(reference.audio_path.resolve() if reference.audio_path.exists() else reference.audio_path).replace("\\", "/").lower()
+        if not str(reference.audio_path).strip() or key in seen_references:
+            continue
+        seen_references.add(key)
+        unique_references.append(
+            InferenceReference(
+                audio_path=reference.audio_path,
+                reference_text=reference.reference_text,
+                aux_audio_paths=dedupe_aux_reference_audios(reference.aux_audio_paths, reference.audio_path),
+            )
+        )
+
+    seen_texts: set[str] = set()
+    unique_output_texts: list[str] = []
+    for text in output_texts:
+        if text in seen_texts:
+            continue
+        seen_texts.add(text)
+        unique_output_texts.append(text)
+
+    if not unique_references:
+        raise RuntimeError("No reference audio files were provided.")
+    if not unique_output_texts:
+        raise RuntimeError("No output text was provided.")
+    return unique_references, unique_output_texts
+
+
+def collect_reference_audios(args: argparse.Namespace) -> list[Path]:
+    values = args.reference_audio if isinstance(args.reference_audio, list) else [args.reference_audio]
+    seen: set[str] = set()
+    references: list[Path] = []
+    for value in values:
+        path = Path(str(value)).expanduser()
+        key = str(path.resolve() if path.exists() else path).replace("\\", "/").lower()
+        if not str(path).strip() or key in seen:
+            continue
+        seen.add(key)
+        references.append(path)
+    if not references:
+        raise RuntimeError("No reference audio files were provided.")
+    return references
+
+
+def collect_aux_reference_audios(args: argparse.Namespace, main_audio_path: Path) -> list[Path]:
+    values = args.aux_reference_audio if isinstance(args.aux_reference_audio, list) else [args.aux_reference_audio]
+    return dedupe_aux_reference_audios([Path(str(value)).expanduser() for value in values if str(value).strip()], main_audio_path)
+
+
+def dedupe_aux_reference_audios(values: list[Path], main_audio_path: Path) -> list[Path]:
+    main_key = reference_audio_key(main_audio_path)
+    seen: set[str] = set()
+    paths: list[Path] = []
+    for path in values:
+        key = reference_audio_key(path)
+        if not str(path).strip() or key == main_key or key in seen:
+            continue
+        seen.add(key)
+        paths.append(path)
+    return paths
+
+
+def reference_audio_key(path: Path) -> str:
+    return str(path.resolve() if path.exists() else path).replace("\\", "/").lower()
+
+
+def create_script_transcriber(args: argparse.Namespace, console: VoiceConsole) -> Any:
+    from backend.batch_qc.asr import BatchAsrTranscriber
+
+    console.section("Script Whisper setup")
+    console.kv("Whisper model", args.whisper_asr_model)
+    console.kv("Whisper language", args.whisper_language)
+    cfg = {
+        "batch_transcription": {
+            "asr_model": args.whisper_asr_model,
+            "beam_size": args.whisper_beam_size,
+            "vad_filter": bool_arg(args.whisper_vad_filter),
+            "compute_type_cpu": args.whisper_compute_type_cpu,
+            "compute_type_cuda": args.whisper_compute_type_cuda,
+            "suppress_numerals": bool_arg(args.whisper_suppress_numerals),
+            "initial_prompt": args.whisper_initial_prompt,
+        }
+    }
+    return BatchAsrTranscriber(cfg, language=args.whisper_language)
+
+
+def transcribe_reference_audio(transcriber: Any, reference_audio: Path, console: VoiceConsole) -> str:
+    console.section("Reference transcription")
+    console.kv("Reference audio", reference_audio)
+    result = transcriber.transcribe(reference_audio)
+    transcript = str(result.get("transcript", "") or "").strip()
+    if not transcript:
+        raise RuntimeError(f"Script Whisper returned an empty transcript: {reference_audio}")
+    console.kv("Detected language", str(result.get("language", "") or "-"))
+    console.kv("Reference transcript", transcript)
+    return transcript
+
+
+def output_audio_name(model_name: str, reference_audio: Path, index: int, total: int, variant_index: int = 1, variant_total: int = 1) -> str:
+    prefix = safe_name(model_name)
+    reference_suffix = f"_{index:03d}_{safe_name(reference_audio.stem)}" if total > 1 else ""
+    variant_suffix = f"_v{variant_index:02d}" if variant_total > 1 else ""
+    return f"{prefix}{reference_suffix}{variant_suffix}_{int(time.time() * 1000)}.wav"
 
 
 def run_gpt_sovits(args: argparse.Namespace, output_audio: Path, console: VoiceConsole) -> None:
@@ -205,6 +480,7 @@ def run_gpt_sovits(args: argparse.Namespace, output_audio: Path, console: VoiceC
                 "text": args.text,
                 "text_lang": args.gpt_text_language,
                 "ref_audio_path": str(Path(args.reference_audio).resolve()),
+                "aux_ref_audio_paths": [str(Path(path).resolve()) for path in getattr(args, "aux_reference_audio", [])],
                 "prompt_text": args.reference_text,
                 "prompt_lang": args.gpt_prompt_language,
                 "top_k": args.gpt_top_k,

@@ -149,6 +149,11 @@ export type FileTreeNode = {
   path: string;
   kind: "file" | "directory";
   meta?: string;
+  dataset?: {
+    speaker?: string;
+    language?: string;
+    text?: string;
+  };
   exportRowId?: string;
   children?: FileTreeNode[];
 };
@@ -389,13 +394,18 @@ export type VoiceTrainingSettings = {
 };
 
 export type VoiceInferenceModel = VoiceTrainingModel;
+export type VoiceInferenceRunMode = "single" | "batch";
 
 export type VoiceInferenceSettings = {
   selectedModel: VoiceInferenceModel;
   toolRoot: string;
   modelName: string;
+  inferenceRunMode: VoiceInferenceRunMode;
   referenceAudioPath: string;
+  batchReferenceAudioPaths: string[];
+  gptAuxReferenceAudioPaths: string[];
   referenceText: string;
+  referenceTextsByAudioPath: Record<string, string>;
   outputText: string;
   outputAudioPath: string;
   gpu: string;
@@ -650,6 +660,9 @@ export type WorkspaceRunProgressEvent = {
   table: DataTable;
   details: DetailField[];
   progress: WorkspaceProgress;
+  activeAudioPath?: string;
+  referenceText?: string;
+  outputText?: string;
   inputTree?: FileTreeResult;
   terminal?: WorkspaceTerminalUpdate;
 };
