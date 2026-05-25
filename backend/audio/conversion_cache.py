@@ -6,28 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Sequence
 
-try:
-    from backend.audio_conversion_manifest import (
-        _source_audio_mapping,
-        _write_audio_conversion_manifest,
-        _write_audio_source_map,
-    )
-except ModuleNotFoundError:
-    from audio_conversion_manifest import (  # type: ignore[no-redef]
-        _source_audio_mapping,
-        _write_audio_conversion_manifest,
-        _write_audio_source_map,
-    )
-
-try:
-    from backend.audio_conversion_decode import _convert_audio_to_wav, _read_any_audio
-except ModuleNotFoundError:
-    from audio_conversion_decode import _convert_audio_to_wav, _read_any_audio  # type: ignore[no-redef]
-
-try:
-    from backend.audio_discovery import AUDIO_INPUT_EXTS, WAV_AUDIO_EXTS, discover_input_audio_files
-except ModuleNotFoundError:
-    from audio_discovery import AUDIO_INPUT_EXTS, WAV_AUDIO_EXTS, discover_input_audio_files  # type: ignore[no-redef]
+from .conversion_decode import _convert_audio_to_wav, _read_any_audio
+from .conversion_manifest import _source_audio_mapping, _write_audio_conversion_manifest, _write_audio_source_map
+from .discovery import AUDIO_INPUT_EXTS, WAV_AUDIO_EXTS, discover_input_audio_files
 
 
 AUDIO_CONVERTING_STAGE = "audio-converting"
@@ -152,7 +133,7 @@ def prepare_selected_audio_input_cache(
     format_progress_line = None
     format_finished_line = None
     try:
-        from .console_ui import LiveConsoleLine, format_finished_line as _format_finished_line, format_progress_line as _format_progress_line
+        from ..console_ui import LiveConsoleLine, format_finished_line as _format_finished_line, format_progress_line as _format_progress_line
     except Exception:  # noqa: BLE001
         try:
             from backend.console_ui import LiveConsoleLine, format_finished_line as _format_finished_line, format_progress_line as _format_progress_line  # type: ignore

@@ -2,10 +2,10 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { WorkspaceExportRequest, WorkspaceExportResult, WorkspaceProgress } from "@shared/ipc";
-import { scanFileTree } from "../file-tree";
-import { createBackendLayout } from "../project-layout";
-import { runPythonPlan } from "../python-runner";
-import { readWorkspaceDetails, readWorkspaceTable } from "../result-readers";
+import { scanFileTree } from "../files/file-tree";
+import { runPythonPlan } from "../process/python-runner";
+import { createBackendLayout } from "../project/layout";
+import { readWorkspaceDetails, readWorkspaceTable } from "../workspace-results/readers";
 import { fileName, resolveEditedExportPath, resolveOutputDirectory, resolveRowAudioPath, timestamp } from "./export-paths";
 import type { WorkspaceExportProgressHandler } from "./types";
 

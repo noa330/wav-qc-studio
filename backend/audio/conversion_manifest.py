@@ -101,7 +101,7 @@ def _write_audio_conversion_manifest(
 
 def _atomic_write_json(path: Path, payload: dict[str, object]) -> None:
     try:
-        from .manifest_io import atomic_write_json
+        from ..manifest_io import atomic_write_json
     except Exception:  # noqa: BLE001
         try:
             from backend.manifest_io import atomic_write_json  # type: ignore

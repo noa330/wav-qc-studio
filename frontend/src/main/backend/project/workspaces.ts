@@ -3,7 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { userInfo } from "node:os";
 import { join } from "node:path";
 import type { CreateProjectRequest, CreateProjectResult } from "@shared/ipc";
-import { resolveProjectRoot } from "./project-layout";
+import { resolveProjectRoot } from "./layout";
 
 export const managedProjectsFolderName = "projects";
 const managedProjectUsersFolderName = "users";

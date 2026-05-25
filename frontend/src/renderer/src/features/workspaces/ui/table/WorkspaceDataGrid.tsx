@@ -6,13 +6,13 @@ import { useAppPersistence, type PersistedBatchReplaceState } from "@/app/app-pe
 import { ColumnSearchField } from "@/shared/components/column-search-field";
 import { DataGrid, type DataGridViewState } from "@/shared/components/data-grid";
 import { DropdownMenuHeader, DropdownMenuOption, DropdownMenuSeparator } from "@/shared/components/dropdown-menu";
-import { overviewMetricColumns, type OverviewMetricColumn, type OxFilterState } from "../model/overview-filter";
-import type { WorkspaceRuntime } from "../state/use-workspace-runtime";
-import { BatchTranscriptReplaceDialog } from "./pages/batch/BatchTranscriptReplaceDialog";
-import { FilterChipEditorDialog } from "./pages/overview/widgets/overview-filter/FilterChipEditorDialog";
-import { TaggingScoreCutDialog } from "./pages/tagging/TaggingPanels";
-import { VoiceTensorBoardDialog } from "./pages/training/VoiceTensorBoardPanel";
-import { useWorkspaceAudioSync } from "./shared/workspace-audio-sync";
+import { overviewMetricColumns, type OverviewMetricColumn, type OxFilterState } from "../../model/overview-filter";
+import type { WorkspaceRuntime } from "../../state/use-workspace-runtime";
+import { BatchTranscriptReplaceDialog } from "../pages/batch/BatchTranscriptReplaceDialog";
+import { FilterChipEditorDialog } from "../pages/overview/widgets/overview-filter/FilterChipEditorDialog";
+import { TaggingScoreCutDialog } from "../pages/tagging/TaggingPanels";
+import { VoiceTensorBoardDialog } from "../pages/training/VoiceTensorBoardPanel";
+import { useWorkspaceAudioSync } from "../shared/workspace-audio-sync";
 import { BatchEditableCell, TaggingResultCell } from "./WorkspaceTableCells";
 
 

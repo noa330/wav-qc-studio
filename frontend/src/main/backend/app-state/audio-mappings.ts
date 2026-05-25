@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync, statSync, type Dirent } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
-import { isRecord, pathExists, pathIsDirectory, stringValue } from "./app-state-store-utils";
+import { isRecord, pathExists, pathIsDirectory, stringValue } from "./store-utils";
 
 export type AudioSourceMapping = {
   sourcePath: string;

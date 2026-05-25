@@ -22,7 +22,8 @@ except Exception:
 LogFn = Callable[[str], None]
 
 
-BACKEND_DIR = Path(__file__).resolve().parent
+VOICE_DIR = Path(__file__).resolve().parent
+BACKEND_DIR = VOICE_DIR.parent
 APP_ROOT = BACKEND_DIR.parent
 PROJECT_ROOT = APP_ROOT / "training"
 VENDOR_DIR = PROJECT_ROOT / "vendor"
@@ -1502,7 +1503,7 @@ def train_omnivoice(
                 "1",
                 "--mixed_precision",
                 mixed_precision,
-                str(BACKEND_DIR / "voice_omnivoice_train_entry.py"),
+                str(VOICE_DIR / "omnivoice_train_entry.py"),
                 "--train_config",
                 str(train_cfg),
                 "--data_config",
@@ -1514,7 +1515,7 @@ def train_omnivoice(
             log=log,
             env=project_env({
                 "CUDA_VISIBLE_DEVICES": gpu,
-                "PYTHONPATH": str(BACKEND_DIR) + os.pathsep + str(PROJECT_ROOT) + os.pathsep + project_env().get("PYTHONPATH", ""),
+                "PYTHONPATH": str(VOICE_DIR) + os.pathsep + str(BACKEND_DIR) + os.pathsep + str(PROJECT_ROOT) + os.pathsep + project_env().get("PYTHONPATH", ""),
                 "OMNIVOICE_MODEL_ONLY_CHECKPOINT": "1" if model_only_checkpoint else "0",
             }),
             idle_timeout=idle_timeout,

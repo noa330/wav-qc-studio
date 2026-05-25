@@ -16,15 +16,15 @@ import type {
   WorkspaceSettings,
 } from "@shared/ipc";
 import { createEmptyWorkspaceTable } from "@shared/table-schemas";
-import { scanFileTree } from "./file-tree";
-import { createBackendLayout } from "./project-layout";
-import { formatCommand, resolveHostLogPath, type PythonRunPlan, runPythonPlan } from "./python-runner";
-import { readWorkspaceDetails, readWorkspaceTable } from "./result-readers";
-import { readRawTerminalSnapshot } from "./terminal-log";
-import { assertTrainingDatasetExtension, loadTrainingDatasetPreview } from "./voice-training-dataset";
-import { recordActiveAudioConversionCache, resolveAudioInputConversionDirectory } from "./workspace-runner/audio-conversion-cache";
-import { findFirstInputAudio, isSupportedAudioPath, isWavAudioPath } from "./workspace-runner/audio-paths";
-import { resolveRunInputPath, restoreOriginalAudioSources } from "./workspace-runner/run-input-sources";
+import { scanFileTree } from "../files/file-tree";
+import { formatCommand, resolveHostLogPath, type PythonRunPlan, runPythonPlan } from "../process/python-runner";
+import { readRawTerminalSnapshot } from "../process/terminal-log";
+import { createBackendLayout } from "../project/layout";
+import { assertTrainingDatasetExtension, loadTrainingDatasetPreview } from "../voice/training-dataset";
+import { readWorkspaceDetails, readWorkspaceTable } from "../workspace-results/readers";
+import { recordActiveAudioConversionCache, resolveAudioInputConversionDirectory } from "./audio-conversion-cache";
+import { findFirstInputAudio, isSupportedAudioPath, isWavAudioPath } from "./audio-paths";
+import { resolveRunInputPath, restoreOriginalAudioSources } from "./run-input-sources";
 import {
   boolArg,
   msToFireRedFrame,
@@ -37,7 +37,7 @@ import {
   normalizeTrainingSettings,
   round,
   timestamp,
-} from "./workspace-runner/setting-normalizers";
+} from "./setting-normalizers";
 import {
   BATCH_OUTPUT_FOLDER,
   INFERENCE_OUTPUT_FOLDER,
@@ -48,10 +48,10 @@ import {
   TRAINING_OUTPUT_FOLDER,
   resolveFallbackInputFolder,
   resolveOutputDirectory,
-} from "./workspace-runner/workspace-paths";
+} from "./workspace-paths";
 
-export { resolveWorkspaceOutputPath } from "./workspace-runner/workspace-paths";
-export { cleanupInactiveAudioConversionCaches } from "./workspace-runner/audio-conversion-cache";
+export { resolveWorkspaceOutputPath } from "./workspace-paths";
+export { cleanupInactiveAudioConversionCaches } from "./audio-conversion-cache";
 
 const workspaceRunCachePaths = new Set<string>();
 type WorkspaceRunProgressHandler = (progress: WorkspaceRunProgressEvent) => void;

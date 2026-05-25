@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { basename, extname, isAbsolute, join, resolve } from "node:path";
 import type { TrainingCheckpointSummary, TrainingModelListRequest, TrainingModelListResult, TrainingModelSummary, VoiceTrainingModel, VoiceTrainingSettings } from "@shared/ipc";
-import { createBackendLayout } from "./project-layout";
+import { createBackendLayout } from "../project/layout";
 
 type ModelDraft = {
   name: string;

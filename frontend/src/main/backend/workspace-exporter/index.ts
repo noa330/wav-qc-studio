@@ -2,13 +2,13 @@ import { existsSync } from "node:fs";
 import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { DetailField, WorkspaceExportRequest, WorkspaceExportResult, WorkspaceId } from "@shared/ipc";
-import { cropWaveFileToPath } from "./audio-crop";
-import { readWorkspaceDetails } from "./result-readers";
-import { exportBatchWorkspace } from "./workspace-exporter/batch-exporter";
-import { buildCsv, buildLog } from "./workspace-exporter/export-formatters";
-import { createExportFileName, hasSliceRange, readRowSeconds, resolveEditedExportPath, resolveOutputDirectory, resolveRowAudioPath, timestamp } from "./workspace-exporter/export-paths";
-import { buildExportProgress, buildExportTree } from "./workspace-exporter/export-progress";
-import type { ExportRowOutcome, WorkspaceExportProgressHandler } from "./workspace-exporter/types";
+import { cropWaveFileToPath } from "../audio/audio-crop";
+import { readWorkspaceDetails } from "../workspace-results/readers";
+import { exportBatchWorkspace } from "./batch-exporter";
+import { buildCsv, buildLog } from "./export-formatters";
+import { createExportFileName, hasSliceRange, readRowSeconds, resolveEditedExportPath, resolveOutputDirectory, resolveRowAudioPath, timestamp } from "./export-paths";
+import { buildExportProgress, buildExportTree } from "./export-progress";
+import type { ExportRowOutcome, WorkspaceExportProgressHandler } from "./types";
 
 const OUTPUT_FOLDERS: Record<WorkspaceId, string> = {
   slice: "_slicer_results",

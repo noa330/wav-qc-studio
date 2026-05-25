@@ -11,10 +11,10 @@ import type {
   WorkspaceSettings,
   WorkspaceTerminalUpdate,
 } from "@shared/ipc";
-import { createBackendEnvironment, formatCommand } from "./python-runner";
-import { runPtyCommand } from "./pty-runner";
-import { createBackendLayout } from "./project-layout";
-import { readRawTerminalSnapshot, readTextIfExists } from "./terminal-log";
+import { createBackendEnvironment, formatCommand } from "../process/python-runner";
+import { runPtyCommand } from "../process/pty-runner";
+import { readRawTerminalSnapshot, readTextIfExists } from "../process/terminal-log";
+import { createBackendLayout } from "../project/layout";
 import { resolveTrainingToolRoot } from "./training-models";
 
 type VoiceModelRuntimeProgressHandler = (terminal: WorkspaceTerminalUpdate) => void;

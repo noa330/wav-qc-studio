@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 
-from voice_omnivoice_worker_patch import sample_length
+from omnivoice_worker_patch import sample_length
 
 
 _SAVED_MODEL_STEPS: set[int] = set()

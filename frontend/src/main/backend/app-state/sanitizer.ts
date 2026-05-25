@@ -1,6 +1,6 @@
 import { basename } from "node:path";
-import { fileSizeMeta, findAudioSourceMapping, isRealPathCandidate, isVirtualPath, readProjectAudioSourceMappings, resolveMappedAudioPath, resolveSanitizedTreeRoot, type AudioSourceMapping } from "./app-state-audio-mappings";
-import { isRecord, pathExists, stringValue } from "./app-state-store-utils";
+import { fileSizeMeta, findAudioSourceMapping, isRealPathCandidate, isVirtualPath, readProjectAudioSourceMappings, resolveMappedAudioPath, resolveSanitizedTreeRoot, type AudioSourceMapping } from "./audio-mappings";
+import { isRecord, pathExists, stringValue } from "./store-utils";
 
 const virtualPathPrefix = "wqcs://";
 

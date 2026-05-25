@@ -10,9 +10,9 @@ if __package__ is None or __package__ == "":
 def main() -> int:
     if len(sys.argv) > 1 and sys.argv[1] == "prepare-audio":
         if __package__ is None or __package__ == "":
-            from backend.audio_utils import run_audio_converting_cli
+            from backend.audio.conversion_cli import run_audio_converting_cli
         else:
-            from .audio_utils import run_audio_converting_cli
+            from .audio.conversion_cli import run_audio_converting_cli
         return run_audio_converting_cli(sys.argv[2:])
 
     if __package__ is None or __package__ == "":

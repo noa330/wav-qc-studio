@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import type { WorkspaceId } from "@shared/ipc";
-import { resolveManagedProjectsRoot } from "../project-workspaces";
+import { resolveManagedProjectsRoot } from "../project/workspaces";
 import { resolveFallbackInputFolder } from "./workspace-paths";
 
 const AUDIO_INPUT_CONVERSION_FOLDER = "converted-audio";

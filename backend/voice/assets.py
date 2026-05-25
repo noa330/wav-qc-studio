@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from backend import voice_training_core as training_core
+from backend.voice import training_core
 
 
 LogFn = Callable[[str], None]
-DEFAULT_TOOL_ROOT = Path(__file__).resolve().parents[1] / "training"
+DEFAULT_TOOL_ROOT = Path(__file__).resolve().parents[2] / "training"
 
 
 @dataclass(frozen=True)

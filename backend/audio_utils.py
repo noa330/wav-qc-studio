@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 try:
-    from backend.audio_conversion_cache import (
+    from backend.audio.conversion_cache import (
         AUDIO_CONVERT_STAGE,
         AUDIO_CONVERTING_PROGRESS_LABEL,
         AUDIO_CONVERTING_STAGE,
@@ -25,8 +25,10 @@ try:
         prepare_runtime_audio_input,
         prepare_selected_audio_input_cache,
     )
-except ModuleNotFoundError:
-    from audio_conversion_cache import (  # type: ignore[no-redef]
+except ModuleNotFoundError as exc:
+    if exc.name != "backend":
+        raise
+    from audio.conversion_cache import (  # type: ignore[no-redef]
         AUDIO_CONVERT_STAGE,
         AUDIO_CONVERTING_PROGRESS_LABEL,
         AUDIO_CONVERTING_STAGE,
@@ -52,12 +54,14 @@ except ModuleNotFoundError:
     )
 
 try:
-    from backend.audio_conversion_cli import run_audio_converting_cli
-except ModuleNotFoundError:
-    from audio_conversion_cli import run_audio_converting_cli  # type: ignore[no-redef]
+    from backend.audio.conversion_cli import run_audio_converting_cli
+except ModuleNotFoundError as exc:
+    if exc.name != "backend":
+        raise
+    from audio.conversion_cli import run_audio_converting_cli  # type: ignore[no-redef]
 
 try:
-    from backend.audio_discovery import (
+    from backend.audio.discovery import (
         AUDIO_EXTS,
         AUDIO_INPUT_EXTS,
         AUDIO_SOURCE_MAP_FILE,
@@ -69,8 +73,10 @@ try:
         discover_audio_files,
         discover_input_audio_files,
     )
-except ModuleNotFoundError:
-    from audio_discovery import (  # type: ignore[no-redef]
+except ModuleNotFoundError as exc:
+    if exc.name != "backend":
+        raise
+    from audio.discovery import (  # type: ignore[no-redef]
         AUDIO_EXTS,
         AUDIO_INPUT_EXTS,
         AUDIO_SOURCE_MAP_FILE,
@@ -84,6 +90,8 @@ except ModuleNotFoundError:
     )
 
 try:
-    from backend.audio_reading import audio_info, concat_segments, iter_fixed_windows, read_audio, read_audio_native
-except ModuleNotFoundError:
-    from audio_reading import audio_info, concat_segments, iter_fixed_windows, read_audio, read_audio_native  # type: ignore[no-redef]
+    from backend.audio.reading import audio_info, concat_segments, iter_fixed_windows, read_audio, read_audio_native
+except ModuleNotFoundError as exc:
+    if exc.name != "backend":
+        raise
+    from audio.reading import audio_info, concat_segments, iter_fixed_windows, read_audio, read_audio_native  # type: ignore[no-redef]

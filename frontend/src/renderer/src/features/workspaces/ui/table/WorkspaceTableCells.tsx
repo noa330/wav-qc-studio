@@ -6,9 +6,9 @@ import { ChevronGlyph } from "@/shared/components/controls";
 import type { CellRenderContext } from "@/shared/components/data-grid";
 import { DropdownMenuHeader, DropdownMenuOption, DropdownMenuSurface } from "@/shared/components/dropdown-menu";
 import { tightPressTap } from "@/shared/motion";
-import { collectBatchSpeakers } from "../model/batch-filter";
-import type { WorkspaceRuntime } from "../state/use-workspace-runtime";
-import { BatchAutoTranscriptCell } from "./pages/batch/BatchPanels";
+import { collectBatchSpeakers } from "../../model/batch-filter";
+import type { WorkspaceRuntime } from "../../state/use-workspace-runtime";
+import { BatchAutoTranscriptCell } from "../pages/batch/BatchPanels";
 
 
 export function TaggingResultCell({ context }: { context: CellRenderContext }) {

@@ -2,10 +2,10 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { motion } from "motion/react";
 import type { VoiceModelRuntimeStatus, WorkspaceRuntimeEnvironmentStatus } from "@shared/ipc";
 import { menuMotion, progressSpring, softPressTap } from "@/shared/motion";
-import type { WorkspaceRuntimeState, WorkspaceTerminalState } from "../state/workspace-runtime-store";
-import { ProjectSelector } from "./shared/WorkspaceProjectSelector";
-import { WorkspaceRuntimeInstallDock, WorkspaceVoiceModelInstallDock } from "./shared/WorkspaceRuntimeInstallDocks";
-import { WorkspaceTerminalDock } from "./shared/WorkspaceTerminalDock";
+import type { WorkspaceRuntimeState, WorkspaceTerminalState } from "../../state/workspace-runtime-store";
+import { ProjectSelector } from "../shared/WorkspaceProjectSelector";
+import { WorkspaceRuntimeInstallDock, WorkspaceVoiceModelInstallDock } from "../shared/WorkspaceRuntimeInstallDocks";
+import { WorkspaceTerminalDock } from "../shared/WorkspaceTerminalDock";
 
 
 export function useCompactWorkspaceHeader(): boolean {

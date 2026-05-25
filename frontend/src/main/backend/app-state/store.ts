@@ -3,9 +3,9 @@ import { mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promi
 import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AppStateLoadResult, AppStateSaveRequest, AppStateSaveResult, AppStateSnapshot, ProjectStateLoadRequest, ProjectStateLoadResult } from "@shared/ipc";
-import { sanitizePersistedAppState, sanitizeProjectRecord } from "./app-state-sanitizer";
-import { isNotFoundError, isRecord, pathIsDirectory, stringValue, toJsonValue } from "./app-state-store-utils";
-import { defaultManagedProjectName, resolveManagedProjectsRoot } from "./project-workspaces";
+import { defaultManagedProjectName, resolveManagedProjectsRoot } from "../project/workspaces";
+import { sanitizePersistedAppState, sanitizeProjectRecord } from "./sanitizer";
+import { isNotFoundError, isRecord, pathIsDirectory, stringValue, toJsonValue } from "./store-utils";
 
 const activeProjectFileName = "active-project.json";
 const projectStateFileName = "project-state.json";

@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { createServer, Socket } from "node:net";
 import { join } from "node:path";
 import type { TensorBoardSessionRequest, TensorBoardSessionResult, VoiceTrainingModel, VoiceTrainingSettings } from "@shared/ipc";
-import { createBackendLayout } from "./project-layout";
+import { createBackendLayout } from "../project/layout";
 import { resolveTrainingTensorBoardLogDir, resolveTrainingToolRoot } from "./training-models";
 
 type TensorBoardTarget = {

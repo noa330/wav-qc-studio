@@ -3,9 +3,12 @@ from __future__ import annotations
 from typing import TextIO
 
 try:
-    from console_ui import print_banner, print_kv, print_section, print_status
+    from backend.console_ui import print_banner, print_kv, print_section, print_status
 except ImportError:
-    from .console_ui import print_banner, print_kv, print_section, print_status
+    try:
+        from ..console_ui import print_banner, print_kv, print_section, print_status
+    except ImportError:
+        from console_ui import print_banner, print_kv, print_section, print_status  # type: ignore[no-redef]
 
 
 class VoiceConsole:

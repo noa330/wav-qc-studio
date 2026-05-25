@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { pressTap, quickEase, tightPressTap, uiSpring } from "@/shared/motion";
 import { defaultWorkspaceId, workspaces, type WorkspaceDefinition } from "@/features/workspaces/model/workspace-config";
 import { useWorkspaceRuntime } from "@/features/workspaces/state/use-workspace-runtime";
-import { WorkspaceFrame } from "@/features/workspaces/ui/WorkspaceFrame";
+import { WorkspaceFrame } from "@/features/workspaces/ui/frame/WorkspaceFrame";
 import type { WorkspaceId } from "@shared/ipc";
 
 type WorkspaceTransitionRect = {
