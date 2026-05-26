@@ -217,6 +217,7 @@ export function DataGridTable({
               return (
                 <tr
                   key={row.id}
+                  data-app-tour-target={offset === 0 ? "data-grid-guide-context-row" : undefined}
                   ref={(element) => {
                     rowRefs.current[row.id] = element;
                   }}
@@ -284,11 +285,16 @@ export function DataGridTable({
                       />
                     </td>
                   ) : null}
-                  {table.columns.map((column) => {
+                  {table.columns.map((column, columnIndex) => {
                     const value = row.cells[column.key] || "";
                     const customCell = renderCell?.({ row, column, value, rowLineClamp, selected: selectedRowSet.has(row.id), selectRow: () => onSelectRow?.(row, false) });
                     return (
-                      <td key={column.key} className="relative border-b border-r border-[var(--table-header-bg)] px-2 align-middle" style={{ height: rowHeight }}>
+                      <td
+                        key={column.key}
+                        className="relative border-b border-r border-[var(--table-header-bg)] px-2 align-middle"
+                        style={{ height: rowHeight }}
+                        data-app-tour-target={offset === 0 && columnIndex === 0 ? "data-grid-resize-cell" : undefined}
+                      >
                         {customCell ?? (
                           rowLineClamp <= 1 ? (
                             <div className="max-h-full overflow-hidden truncate whitespace-nowrap leading-5">{value || "-"}</div>

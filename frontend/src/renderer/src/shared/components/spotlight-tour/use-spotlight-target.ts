@@ -10,7 +10,7 @@ type SpotlightTargetState = {
 const targetSettleTrackingMs = 1200;
 const targetEventTrackingMs = 420;
 
-export function useSpotlightTarget(target: SpotlightTourTarget | undefined, active: boolean): SpotlightTargetState {
+export function useSpotlightTarget(target: SpotlightTourTarget | undefined, active: boolean, trackMotion = false): SpotlightTargetState {
   const [state, setState] = useState<SpotlightTargetState>({ rect: null, missing: false });
 
   useLayoutEffect(() => {
@@ -61,7 +61,7 @@ export function useSpotlightTarget(target: SpotlightTourTarget | undefined, acti
         }
 
         update();
-        if (performance.now() < trackUntil) {
+        if (trackMotion || performance.now() < trackUntil) {
           trackingFrame = window.requestAnimationFrame(tick);
         }
       };
@@ -128,7 +128,7 @@ export function useSpotlightTarget(target: SpotlightTourTarget | undefined, acti
       window.removeEventListener("resize", handleViewportChange);
       window.removeEventListener("scroll", handleViewportChange, true);
     };
-  }, [active, target]);
+  }, [active, target, trackMotion]);
 
   return state;
 }

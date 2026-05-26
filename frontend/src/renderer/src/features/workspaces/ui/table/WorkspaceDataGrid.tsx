@@ -107,6 +107,7 @@ export function WorkspaceDataGrid({ workspaceId, runtime, table, suspendWidthTra
         viewState={initialWorkspaceUiRef.current.grid}
         onViewStateChange={recordGridViewState}
         suspendWidthTracking={suspendWidthTracking}
+        guideStepId={guideStepId}
       />
       <AnimatePresence initial={false}>
         {taggingScoreCutOpen || forceTaggingScoreCutOpen ? <TaggingScoreCutDialog key="tagging-score-cut-dialog" runtime={runtime} onClose={() => {

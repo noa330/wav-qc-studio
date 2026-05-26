@@ -21,6 +21,10 @@ import type {
 
 export const studioBackend = {
   getAppInfo: () => window.studioBackend.getAppInfo(),
+  checkAppUpdate: () => window.studioBackend.checkAppUpdate(),
+  getAppUpdateState: () => window.studioBackend.getAppUpdateState(),
+  installAppUpdate: () => window.studioBackend.installAppUpdate(),
+  onAppUpdateState: (callback: Parameters<typeof window.studioBackend.onAppUpdateState>[0]) => window.studioBackend.onAppUpdateState(callback),
   loadAppState: () => window.studioBackend.loadAppState(),
   saveAppState: (request: AppStateSaveRequest) => window.studioBackend.saveAppState(request),
   saveAppStateSync: (request: AppStateSaveRequest) => window.studioBackend.saveAppStateSync(request),

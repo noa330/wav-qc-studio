@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ClipboardPaste, Copy, MousePointer2, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { menuMotion, softPressTap, subtleSpring, tightPressTap } from "@/shared/motion";
 import { computeTourPanelPosition, getTourPanelWidth } from "./geometry";
@@ -13,6 +13,8 @@ const spotlightViewportInset = 2;
 const defaultPanelHeight = 184;
 const spotlightTransition = subtleSpring;
 const panelMoveTransition = subtleSpring;
+const cueDotSize = 18;
+const resizeCueDuration = 3.2;
 
 type SpotlightTourProps = {
   open: boolean;
@@ -26,14 +28,17 @@ export function SpotlightTour({ open, steps, ariaLabel, onClose, onStepChange }:
   const [stepIndex, setStepIndex] = useState(0);
   const [panelWidth, setPanelWidth] = useState(() => getTourPanelWidth());
   const [panelHeight, setPanelHeight] = useState(defaultPanelHeight);
+  const [lockedPanelPosition, setLockedPanelPosition] = useState<{ stepId: string; left: number; top: number } | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const currentStep = steps[stepIndex];
-  const { rect, missing } = useSpotlightTarget(currentStep?.target, open);
+  const { rect, missing } = useSpotlightTarget(currentStep?.target, open, Boolean(currentStep?.visualCue));
   const panelSize: SpotlightSize = useMemo(() => ({ width: panelWidth, height: panelHeight }), [panelHeight, panelWidth]);
   const panelPosition = useMemo(
     () => computeTourPanelPosition(rect, currentStep?.placement ?? "bottom", panelSize),
     [currentStep?.placement, panelSize, rect],
   );
+  const panelPositionLocked = currentStep ? shouldLockPanelPosition(currentStep) : false;
+  const visiblePanelPosition = panelPositionLocked && lockedPanelPosition?.stepId === currentStep?.id ? lockedPanelPosition : panelPosition;
 
   useEffect(() => {
     if (open) {
@@ -48,6 +53,15 @@ export function SpotlightTour({ open, steps, ariaLabel, onClose, onStepChange }:
 
     onStepChange?.(stepIndex, currentStep);
   }, [currentStep, onStepChange, open, stepIndex]);
+
+  useEffect(() => {
+    if (!open || !currentStep || !shouldLockPanelPosition(currentStep)) {
+      setLockedPanelPosition(null);
+      return;
+    }
+
+    setLockedPanelPosition((current) => current?.stepId === currentStep.id ? current : { stepId: currentStep.id, left: panelPosition.left, top: panelPosition.top });
+  }, [currentStep, open, panelPosition.left, panelPosition.top]);
 
   useEffect(() => {
     if (!open) {
@@ -143,12 +157,13 @@ export function SpotlightTour({ open, steps, ariaLabel, onClose, onStepChange }:
           />
         ) : null}
       </AnimatePresence>
+      {paddedRect && currentStep.visualCue ? <SpotlightVisualCue rect={paddedRect} type={currentStep.visualCue} /> : null}
 
       <motion.div
         ref={panelRef}
         className="fixed z-[3001] rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-4 text-[var(--primary-text)] shadow-[0_20px_54px_rgba(0,0,0,.48)]"
-        initial={{ ...menuMotion.initial, left: panelPosition.left, top: panelPosition.top }}
-        animate={{ ...menuMotion.animate, left: panelPosition.left, top: panelPosition.top }}
+        initial={{ ...menuMotion.initial, left: visiblePanelPosition.left, top: visiblePanelPosition.top }}
+        animate={{ ...menuMotion.animate, left: visiblePanelPosition.left, top: visiblePanelPosition.top }}
         exit={menuMotion.exit}
         transition={panelMoveTransition}
         style={{
@@ -229,6 +244,95 @@ export function SpotlightTour({ open, steps, ariaLabel, onClose, onStepChange }:
     </div>,
     document.body,
   );
+}
+
+function SpotlightVisualCue({ rect, type }: { rect: SpotlightRect; type: NonNullable<SpotlightTourStep["visualCue"]> }) {
+  if (type === "context-menu") {
+    return <ContextMenuCue rect={rect} />;
+  }
+
+  if (type === "cell-resize") {
+    return <CellResizeCue rect={rect} />;
+  }
+
+  return <PanelResizeCue rect={rect} />;
+}
+
+function PanelResizeCue({ rect }: { rect: SpotlightRect }) {
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+
+  return (
+    <div className="pointer-events-none fixed z-[3001]" style={{ left: centerX, top: centerY }} aria-hidden="true">
+      <motion.span
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/90 bg-white shadow-[0_0_22px_rgba(255,255,255,.86)]"
+        style={{ width: cueDotSize, height: cueDotSize }}
+        animate={{ x: [-28, 28, -28], scale: [0.92, 1.08, 0.92] }}
+        transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+      />
+    </div>
+  );
+}
+
+function CellResizeCue({ rect }: { rect: SpotlightRect }) {
+  const right = rect.left + rect.width;
+  const bottom = rect.top + rect.height;
+  const centerY = rect.top + rect.height / 2;
+  const centerX = rect.left + rect.width / 2;
+  const phaseTimes = [0, 0.08, 0.5, 0.58, 1];
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[3001]" aria-hidden="true">
+      <motion.span
+        className="fixed -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/90 bg-white shadow-[0_0_22px_rgba(255,255,255,.86)]"
+        style={{ left: right, top: centerY, width: cueDotSize, height: cueDotSize }}
+        animate={{ x: [0, 34, 0, 0, 0], opacity: [1, 1, 1, 0, 0], scale: [0.94, 1.06, 0.94, 0.94, 0.94] }}
+        transition={{ duration: resizeCueDuration, repeat: Infinity, ease: "easeInOut", times: phaseTimes }}
+      />
+      <motion.span
+        className="fixed -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/90 bg-white shadow-[0_0_22px_rgba(255,255,255,.86)]"
+        style={{ left: centerX, top: bottom, width: cueDotSize, height: cueDotSize }}
+        animate={{ y: [0, 0, 0, 26, 0], opacity: [0, 0, 1, 1, 1], scale: [0.94, 0.94, 0.94, 1.06, 0.94] }}
+        transition={{ duration: resizeCueDuration, repeat: Infinity, ease: "easeInOut", times: phaseTimes }}
+      />
+    </div>
+  );
+}
+
+function ContextMenuCue({ rect }: { rect: SpotlightRect }) {
+  const menuWidth = 184;
+  const menuLeft = clamp(rect.left + Math.min(rect.width - 12, 110), 12, window.innerWidth - menuWidth - 12);
+  const menuTop = clamp(rect.top + Math.min(rect.height + 8, 34), 12, window.innerHeight - 178);
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[3001]" aria-hidden="true">
+      <motion.div
+        className="fixed min-w-[184px] rounded-[4px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] py-1 text-sm text-[var(--primary-text)] shadow-[0_14px_32px_rgba(0,0,0,.34)]"
+        style={{ left: menuLeft, top: menuTop }}
+        initial={{ opacity: 0, scale: 0.96, y: -4 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={menuMotion.transition}
+      >
+        <ContextMenuCueItem icon={<Copy className="size-4" />} label="복사" />
+        <ContextMenuCueItem icon={<ClipboardPaste className="size-4" />} label="붙여넣기" muted />
+        <div className="my-1 h-px bg-[var(--panel-stroke)]" />
+        <ContextMenuCueItem icon={<MousePointer2 className="size-4" />} label="전체 선택" />
+      </motion.div>
+    </div>
+  );
+}
+
+function ContextMenuCueItem({ icon, label, muted }: { icon: ReactNode; label: string; muted?: boolean }) {
+  return (
+    <div className={cn("grid h-9 w-full grid-cols-[22px_minmax(0,1fr)] items-center gap-2 px-3 text-left", muted && "text-[var(--secondary-text)] opacity-55")}>
+      {icon}
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function shouldLockPanelPosition(step: SpotlightTourStep): boolean {
+  return step.visualCue === "panel-resize" || step.visualCue === "cell-resize";
 }
 
 function getProgressDots(totalSteps: number, activeIndex: number): Array<{ key: string; active: boolean }> {

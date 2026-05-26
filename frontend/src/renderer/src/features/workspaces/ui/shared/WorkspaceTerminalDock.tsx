@@ -2,10 +2,11 @@ import { useState, type CSSProperties } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ChevronRight, Terminal, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { menuMotion, softPressTap } from "@/shared/motion";
+import { menuMotion } from "@/shared/motion";
 import type { WorkspaceTerminalState } from "../../state/workspace-runtime-store";
 import { WorkspacePtyTerminal } from "./WorkspacePtyTerminal";
 import { terminalStatusDotClass, terminalStatusLabel } from "./workspace-terminal-format";
+import { WorkspaceDockActionButton, WorkspaceDockIcon, WorkspaceDockLabel, WorkspaceDockShell, WorkspaceDockStatus } from "./WorkspaceDockPrimitives";
 
 type WorkspaceTerminalDockProps = {
   terminal: WorkspaceTerminalState;
@@ -106,35 +107,24 @@ export function WorkspaceTerminalDock({
         ) : null}
       </AnimatePresence>
 
-      <motion.div
-        layout={embedded ? false : true}
-        className={cn(
-          "relative flex h-10 min-w-0 items-center gap-2 rounded-[5px] border border-[var(--panel-stroke)] bg-[#0d131c]/95 px-3 text-sm font-normal text-[var(--primary-text)] shadow-[0_16px_36px_rgba(0,0,0,.28)] backdrop-blur",
-          compact && "h-7 min-w-[148px] px-2 shadow-none",
-          embedded && "min-w-0 border-transparent bg-transparent px-0 shadow-none backdrop-blur-0",
-        )}
-        transition={embedded ? { duration: 0 } : undefined}
-      >
+      <WorkspaceDockShell compact={compact} embedded={embedded} className={cn(compact && "min-w-[148px]")}>
         {embedded ? null : (
           <>
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-[5px] border border-[var(--neutral-button-stroke)] bg-[var(--table-header-bg)] text-[var(--primary-text)]">
-              <Terminal className="size-3.5" strokeWidth={1.8} />
-            </span>
-            <span className="min-w-0 flex-1 truncate">{title}</span>
+            <WorkspaceDockIcon icon={Terminal} />
+            <WorkspaceDockLabel>{title}</WorkspaceDockLabel>
           </>
         )}
-        <span className={cn("size-2 shrink-0 rounded-full", terminalStatusDotClass(terminal.status))} />
-        <span className="shrink-0 text-[13px] font-normal leading-[18px] text-[var(--primary-text)]">{terminalStatusLabel(terminal.status)}</span>
-        <motion.button
-          type="button"
-          whileTap={softPressTap}
+        <WorkspaceDockStatus dotClassName={terminalStatusDotClass(terminal.status)}>
+          {terminalStatusLabel(terminal.status)}
+        </WorkspaceDockStatus>
+        <WorkspaceDockActionButton
           onClick={onOpenFull}
-          className="ml-1 flex size-7 shrink-0 items-center justify-center rounded-[4px] text-[var(--control-arrow)] hover:bg-[var(--soft-selection-hover)] hover:text-[var(--primary-text)]"
+          variant="ghost"
           aria-label="전체 콘솔 열기"
         >
           <ChevronRight className="size-4" strokeWidth={1.8} />
-        </motion.button>
-      </motion.div>
+        </WorkspaceDockActionButton>
+      </WorkspaceDockShell>
     </div>
   );
 }

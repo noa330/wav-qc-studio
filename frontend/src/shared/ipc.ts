@@ -23,6 +23,10 @@ export const WAV_AUDIO_EXTENSIONS = [".wav", ".wave"] as const;
 
 export const IPC_CHANNELS = {
   appInfo: "app:info",
+  appUpdateCheck: "app:update-check",
+  appUpdateInstall: "app:update-install",
+  appUpdateState: "app:update-state",
+  appUpdateStateChanged: "app:update-state-changed",
   loadAppState: "app-state:load",
   saveAppState: "app-state:save",
   saveAppStateSync: "app-state:save-sync",
@@ -58,6 +62,28 @@ export type AppInfo = {
     electron: string;
     node: string;
   };
+};
+
+export type AppUpdatePhase =
+  | "idle"
+  | "checking"
+  | "not-available"
+  | "available"
+  | "downloading"
+  | "downloaded"
+  | "installing"
+  | "error";
+
+export type AppUpdateState = {
+  phase: AppUpdatePhase;
+  currentVersion: string;
+  latestVersion?: string;
+  percent?: number;
+  bytesPerSecond?: number;
+  checkedAt?: string;
+  releaseName?: string;
+  releaseDate?: string;
+  error?: string;
 };
 
 export type JsonPrimitive = string | number | boolean | null;
@@ -692,6 +718,10 @@ export type WorkspaceExportProgressEvent = {
 
 export type StudioBackendApi = {
   getAppInfo: () => AppInfo;
+  checkAppUpdate: () => Promise<AppUpdateState>;
+  getAppUpdateState: () => Promise<AppUpdateState>;
+  installAppUpdate: () => Promise<AppUpdateState>;
+  onAppUpdateState: (callback: (state: AppUpdateState) => void) => () => void;
   loadAppState: () => Promise<AppStateLoadResult>;
   saveAppState: (request: AppStateSaveRequest) => Promise<AppStateSaveResult>;
   saveAppStateSync: (request: AppStateSaveRequest) => AppStateSaveResult;

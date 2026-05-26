@@ -8,7 +8,7 @@ import { ColumnFilterMenu, DuplicatePasteDialog, GridContextMenu } from "./data-
 import { useDataGridResizeActions } from "./data-grid-resize-actions";
 import { countDuplicateRows, estimateRowHeight, resolveColumnWidths, scrollRowToViewportCenter } from "./data-grid-sizing";
 import { DataGridTable } from "./data-grid-table";
-import { defaultCheckWidth, defaultHeaderHeight, defaultRowHeight, defaultSheetTabs, gridRowWindowBufferScreens, type ColumnMenuState, type DataGridProps, type DuplicateDialogState, type DuplicatePasteMode, type GridMenuState, type RowRevealRequest, type RowScrollAnchor } from "./data-grid-types";
+import { defaultCheckWidth, defaultColumnWidth, defaultHeaderHeight, defaultRowHeight, defaultSheetTabs, gridRowWindowBufferScreens, type ColumnMenuState, type DataGridProps, type DuplicateDialogState, type DuplicatePasteMode, type GridMenuState, type RowRevealRequest, type RowScrollAnchor } from "./data-grid-types";
 
 export type { CellRenderContext, DataGridViewState } from "./data-grid-types";
 
@@ -42,6 +42,7 @@ export function DataGrid({
   viewState,
   onViewStateChange,
   suspendWidthTracking = false,
+  guideStepId,
 }: DataGridProps) {
   const [pageSize, setPageSize] = useState(() => Math.max(1, Math.trunc(viewState?.pageSize ?? 50)));
   const [pageIndex, setPageIndex] = useState(() => Math.max(0, Math.trunc(viewState?.pageIndex ?? 0)));
@@ -66,6 +67,7 @@ export function DataGrid({
   const [rowWindowViewport, setRowWindowViewport] = useState({ height: 0, scrollTop: 0 });
   const [rowWindowStart, setRowWindowStart] = useState(0);
   const [isColumnResizing, setIsColumnResizing] = useState(false);
+  const [resizeGuideDemo, setResizeGuideDemo] = useState({ phase: "column" as "column" | "row", progress: 0 });
   const viewportWidth = useDataGridViewportWidth({
     viewportRef,
     suspendWidthTracking,
@@ -84,9 +86,21 @@ export function DataGrid({
   const canDeleteSheet = Boolean(onDeleteSheet && sheets.length > 1 && displayActiveSheetId);
   const { safePageSize, pageCount, safePageIndex } = resolveGridPagination({ rowCount: table.rows.length, pageSize, pageIndex, showPagination });
   const pageRows = table.rows.slice(safePageIndex * safePageSize, safePageIndex * safePageSize + safePageSize);
-  const resolvedColumnWidths = useMemo(() => resolveColumnWidths(table, columnWidths, columnMenus, showsRowChecks, viewportWidth, isColumnResizing, fillRemainingColumnKey), [table, columnWidths, columnMenus, showsRowChecks, viewportWidth, isColumnResizing, fillRemainingColumnKey]);
+  const baseResolvedColumnWidths = useMemo(() => resolveColumnWidths(table, columnWidths, columnMenus, showsRowChecks, viewportWidth, isColumnResizing, fillRemainingColumnKey), [table, columnWidths, columnMenus, showsRowChecks, viewportWidth, isColumnResizing, fillRemainingColumnKey]);
+  const resizeGuideActive = guideStepId === "data-grid-resize";
+  const resolvedColumnWidths = useMemo(() => {
+    if (!resizeGuideActive || resizeGuideDemo.phase !== "column" || table.columns.length === 0) {
+      return baseResolvedColumnWidths;
+    }
+
+    const firstColumn = table.columns[0];
+    return {
+      ...baseResolvedColumnWidths,
+      [firstColumn.key]: Math.round((baseResolvedColumnWidths[firstColumn.key] ?? defaultColumnWidth) + resizeGuideDemo.progress * 74),
+    };
+  }, [baseResolvedColumnWidths, resizeGuideActive, resizeGuideDemo.phase, resizeGuideDemo.progress, table.columns]);
   const tableWidth = (showsRowChecks ? defaultCheckWidth : 0) + table.columns.reduce((total, column) => total + resolvedColumnWidths[column.key], 0);
-  const pageRowHeights = useMemo(
+  const basePageRowHeights = useMemo(
     () =>
       pageRows.map((row) => {
         const selectedAutoHeight = selectedRowSet.has(row.id) ? estimateRowHeight(row, table, resolvedColumnWidths) : defaultRowHeight;
@@ -94,6 +108,13 @@ export function DataGrid({
       }),
     [pageRows, resolvedColumnWidths, rowHeights, selectedRowSet, table],
   );
+  const pageRowHeights = useMemo(() => {
+    if (!resizeGuideActive || resizeGuideDemo.phase !== "row" || basePageRowHeights.length === 0) {
+      return basePageRowHeights;
+    }
+
+    return basePageRowHeights.map((height, index) => (index === rowWindowStart ? Math.round(height + resizeGuideDemo.progress * 34) : height));
+  }, [basePageRowHeights, resizeGuideActive, resizeGuideDemo.phase, resizeGuideDemo.progress, rowWindowStart]);
   const pageRowOffsets = useMemo(() => buildRowOffsets(pageRowHeights), [pageRowHeights]);
   const { chunkSize: rowWindowChunkSize, stepSize: rowWindowStepSize } = resolveScrollWindowMetrics({
     viewportExtent: rowWindowViewport.height - defaultHeaderHeight,
@@ -106,6 +127,34 @@ export function DataGrid({
   const windowRows = pageRows.slice(rowWindowRange.start, rowWindowRange.end);
 
   useDataGridViewStateSync({ pageSize, pageIndex, columnWidths, autoFitColumns, rowHeights, autoFitRowsActive, onViewStateChange });
+  useEffect(() => {
+    if (!resizeGuideActive) {
+      setResizeGuideDemo((current) => (current.progress === 0 && current.phase === "column" ? current : { phase: "column", progress: 0 }));
+      return undefined;
+    }
+
+    let frame: number | undefined;
+    const startedAt = performance.now();
+    const durationMs = 3200;
+    const tick = () => {
+      const elapsed = (performance.now() - startedAt) % durationMs;
+      const rowPhase = elapsed >= durationMs / 2;
+      const localProgress = (elapsed % (durationMs / 2)) / (durationMs / 2);
+      const easedProgress = Math.sin(localProgress * Math.PI);
+      setResizeGuideDemo({
+        phase: rowPhase ? "row" : "column",
+        progress: easedProgress,
+      });
+      frame = window.requestAnimationFrame(tick);
+    };
+
+    frame = window.requestAnimationFrame(tick);
+    return () => {
+      if (frame !== undefined) {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, [resizeGuideActive]);
   const captureRowScrollAnchor = useCallback(
     (scrollTop: number) => {
       if (windowRows.length === 0) {

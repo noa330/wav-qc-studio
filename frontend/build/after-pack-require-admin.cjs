@@ -20,10 +20,17 @@ module.exports = async function afterPackRequireAdmin(context) {
     throw new Error(`Cannot set administrator manifest. Missing executable: ${exePath}`);
   }
 
+  const iconPath = path.join(context.packager.info.buildResourcesDir, "icon.ico");
+  if (!existsSync(iconPath)) {
+    throw new Error(`Cannot set application icon. Missing icon: ${iconPath}`);
+  }
+
   const rcedit = await getRceditBundle("1.1.0");
 
   await execFileAsync(rcedit.x64, [
     exePath,
+    "--set-icon",
+    iconPath,
     "--set-requested-execution-level",
     "requireAdministrator",
   ]);

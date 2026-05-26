@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { motion } from "motion/react";
-import type { VoiceModelRuntimeStatus, WorkspaceRuntimeEnvironmentStatus } from "@shared/ipc";
+import type { AppUpdateState, VoiceModelRuntimeStatus, WorkspaceRuntimeEnvironmentStatus } from "@shared/ipc";
 import { menuMotion, progressSpring, softPressTap } from "@/shared/motion";
 import type { WorkspaceRuntimeState, WorkspaceTerminalState } from "../../state/workspace-runtime-store";
 import { ProjectSelector } from "../shared/WorkspaceProjectSelector";
 import { WorkspaceRuntimeInstallDock, WorkspaceVoiceModelInstallDock } from "../shared/WorkspaceRuntimeInstallDocks";
 import { WorkspaceTerminalDock } from "../shared/WorkspaceTerminalDock";
+import { shouldShowAppUpdateDock, WorkspaceAppUpdateDock } from "../shared/WorkspaceAppUpdateDock";
 
 
 export function useCompactWorkspaceHeader(): boolean {
@@ -52,9 +53,12 @@ export function WorkspaceStatusWidget({
   runtimeEnvironmentInstalling,
   voiceModelRuntimeStatus,
   voiceModelRuntimeInstalling,
+  appUpdateState,
   onTerminalBubblePinnedChange,
   onInstallRuntime,
   onInstallVoiceModelRuntime,
+  onCheckAppUpdate,
+  onInstallAppUpdate,
   onOpenFullTerminal,
 }: {
   statusItems: WorkspaceHeaderStatusItem[];
@@ -67,9 +71,12 @@ export function WorkspaceStatusWidget({
   runtimeEnvironmentInstalling: boolean;
   voiceModelRuntimeStatus?: VoiceModelRuntimeStatus;
   voiceModelRuntimeInstalling: boolean;
+  appUpdateState: AppUpdateState;
   onTerminalBubblePinnedChange: (pinned: boolean) => void;
   onInstallRuntime: () => void;
   onInstallVoiceModelRuntime: () => void;
+  onCheckAppUpdate: () => void;
+  onInstallAppUpdate: () => void;
   onOpenFullTerminal: () => void;
 }) {
   const [position, setPosition] = useState({ right: 20, top: 20 });
@@ -227,6 +234,18 @@ export function WorkspaceStatusWidget({
                 status={voiceModelRuntimeStatus}
                 installing={voiceModelRuntimeInstalling}
                 onInstall={onInstallVoiceModelRuntime}
+                compact
+                embedded
+              />
+            </>
+          ) : null}
+          {shouldShowAppUpdateDock(appUpdateState) ? (
+            <>
+              <span className="mx-2 h-4 w-px shrink-0 bg-[var(--panel-stroke)] opacity-85" />
+              <WorkspaceAppUpdateDock
+                state={appUpdateState}
+                onCheck={onCheckAppUpdate}
+                onInstall={onInstallAppUpdate}
                 compact
                 embedded
               />

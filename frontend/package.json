@@ -1,6 +1,6 @@
 {
   "name": "wav-qc-studio-electron-frontend",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Electron-only React UI shell for WAV QC Studio.",
   "private": true,
   "license": "MIT",
@@ -21,6 +21,7 @@
     "@xterm/xterm": "^6.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "electron-updater": "^6.8.3",
     "lucide-react": "^1.14.0",
     "motion": "^12.38.0",
     "react": "^19.2.5",

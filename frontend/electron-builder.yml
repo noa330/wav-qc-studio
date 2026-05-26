@@ -70,3 +70,8 @@ nsis:
   artifactName: wav-qc-studio-${version}-setup.${ext}
   script: build/install-only.nsi
   include: build/installer.nsh
+
+publish:
+  provider: github
+  owner: noa330
+  repo: wav-qc-studio

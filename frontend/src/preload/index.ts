@@ -4,6 +4,7 @@ import {
   type AppStateSaveRequest,
   type AudioCropRequest,
   type AudioEditRequest,
+  type AppUpdateState,
   type CreateProjectRequest,
   type DialogFileSelectionOptions,
   type FileTreeScanOptions,
@@ -31,6 +32,14 @@ const studioBackend: StudioBackendApi = {
       node: process.versions.node,
     },
   }),
+  checkAppUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.appUpdateCheck),
+  getAppUpdateState: () => ipcRenderer.invoke(IPC_CHANNELS.appUpdateState),
+  installAppUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.appUpdateInstall),
+  onAppUpdateState: (callback: (state: AppUpdateState) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: AppUpdateState) => callback(payload);
+    ipcRenderer.on(IPC_CHANNELS.appUpdateStateChanged, listener);
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.appUpdateStateChanged, listener);
+  },
   loadAppState: () => ipcRenderer.invoke(IPC_CHANNELS.loadAppState),
   saveAppState: (request: AppStateSaveRequest) => ipcRenderer.invoke(IPC_CHANNELS.saveAppState, request),
   saveAppStateSync: (request: AppStateSaveRequest) => ipcRenderer.sendSync(IPC_CHANNELS.saveAppStateSync, request),

@@ -11,9 +11,11 @@ import { cardCollapsedSize, clampResizablePanelSize, workspaceSplitterSize } fro
 import { type WorkspacePanelRenderer, type WorkspaceResizeAxis } from "../layout/workspace-layout-types";
 import { workspaces as workspaceDefinitions, type WorkspaceDefinition } from "../../model/workspace-config";
 import type { WorkspaceRuntime } from "../../state/use-workspace-runtime";
+import { useAppUpdate } from "../../state/use-app-update";
 import { WorkspaceTerminalDialog } from "../shared/WorkspaceTerminalDialog";
 import { WorkspaceTerminalDock } from "../shared/WorkspaceTerminalDock";
 import { WorkspaceRuntimeInstallDock, WorkspaceVoiceModelInstallDock } from "../shared/WorkspaceRuntimeInstallDocks";
+import { shouldShowAppUpdateDock, WorkspaceAppUpdateDock } from "../shared/WorkspaceAppUpdateDock";
 import { ProjectSelector } from "../shared/WorkspaceProjectSelector";
 import { PanelCard } from "../panels/WorkspacePanelCard";
 import { createWorkspaceHeaderStatusItems, useCompactWorkspaceHeader, WorkspaceStatusWidget } from "./WorkspaceStatusWidget";
@@ -30,6 +32,7 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
   const layoutRootRef = useRef<HTMLDivElement | null>(null);
   const workspaceGridRef = useRef<HTMLDivElement | null>(null);
   const state = runtime.getState(workspace.id);
+  const appUpdate = useAppUpdate();
   const statusItems = createWorkspaceHeaderStatusItems(state);
   const isBusy = state.isRunning || state.isExporting || state.isBatchSpeakerRunning;
   const progressPercent = Math.max(0, Math.min(100, Math.round(state.progressPercent)));
@@ -49,6 +52,7 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
   const [terminalDialogOpen, setTerminalDialogOpen] = useState(false);
   const [terminalDockOpen, setTerminalDockOpen] = useState(false);
   const [terminalBubblePinned, setTerminalBubblePinned] = useState(true);
+  const [guidePanelResizeProgress, setGuidePanelResizeProgress] = useState(0);
   const restoreTerminalDockAfterDialogRef = useRef(false);
   const handledTerminalOpenRequestRef = useRef<Record<string, number>>({});
   if (handledTerminalOpenRequestRef.current[workspace.id] === undefined) {
@@ -64,6 +68,13 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
   );
   const renderPanelCard: WorkspacePanelRenderer = (props) => <PanelCard {...props} />;
   const rightPanelsVisible = workspace.right.length > 0;
+  const guidePanelResizeActive = runtime.guideMode?.activeStepId === "workspace-splitters";
+  const displayedOuterLayoutSizes = guidePanelResizeActive
+    ? {
+        ...outerLayoutSizes,
+        left: clampResizablePanelSize(Math.round(outerLayoutSizes.left + guidePanelResizeProgress * 46), outerPanelMin.left, outerLayoutSizes.left + 56),
+      }
+    : outerLayoutSizes;
   const workspaceGridColumns = [
     "var(--workspace-left-width)",
     `${workspaceSplitterSize}px`,
@@ -73,8 +84,8 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
   ].join(" ");
   const workspaceGridStyle = {
     gridTemplateColumns: workspaceGridColumns,
-    "--workspace-left-width": `${outerLayoutSizes.left}px`,
-    "--workspace-right-width": `${outerLayoutSizes.right}px`,
+    "--workspace-left-width": `${displayedOuterLayoutSizes.left}px`,
+    "--workspace-right-width": `${displayedOuterLayoutSizes.right}px`,
   } as CSSProperties;
   const guideTerminalOpen = Boolean(runtime.guideMode?.terminalOpen);
   const terminalDockVisible = terminalDockOpen || guideTerminalOpen;
@@ -102,6 +113,11 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
       && voiceModelRuntimeStatusMatchesKey(voiceModelRuntimeStatus, voiceModelRuntimeKey)
       && !voiceModelRuntimeStatus.ok,
   );
+  const appUpdateVisible = shouldShowAppUpdateDock(appUpdate.state);
+  const installDockVisible = runtimeEnvironmentVisible || voiceModelRuntimeVisible;
+  const updateDockBottom = 24;
+  const installDockBottom = appUpdateVisible ? 78 : 24;
+  const terminalDockBottom = 24 + (appUpdateVisible ? 54 : 0) + (installDockVisible ? 54 : 0);
 
   useEffect(() => {
     if (!runtime.guideMode) {
@@ -114,6 +130,29 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
       void runtime.checkVoiceModelRuntime(workspace.id);
     }
   }, [runtime.checkVoiceModelRuntime, runtime.guideMode, runtimeEnvironmentStatus?.ok, voiceModelRuntimeKey, workspace.id]);
+
+  useEffect(() => {
+    if (!guidePanelResizeActive) {
+      setGuidePanelResizeProgress((current) => (current === 0 ? current : 0));
+      return undefined;
+    }
+
+    let frame: number | undefined;
+    const startedAt = performance.now();
+    const durationMs = 1600;
+    const tick = () => {
+      const progress = ((performance.now() - startedAt) % durationMs) / durationMs;
+      setGuidePanelResizeProgress(Math.sin(progress * Math.PI));
+      frame = window.requestAnimationFrame(tick);
+    };
+
+    frame = window.requestAnimationFrame(tick);
+    return () => {
+      if (frame !== undefined) {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, [guidePanelResizeActive]);
 
   useEffect(() => {
     persistence.recordWorkspaceUiSnapshot(workspace.id, {
@@ -218,12 +257,15 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
               runtimeEnvironmentInstalling={runtimeEnvironmentInstalling}
               voiceModelRuntimeStatus={voiceModelRuntimeVisible ? voiceModelRuntimeStatus : undefined}
               voiceModelRuntimeInstalling={voiceModelRuntimeInstalling}
+              appUpdateState={appUpdate.state}
               onTerminalBubblePinnedChange={(pinned) => {
                 setTerminalDockOpen(true);
                 setTerminalBubblePinned(pinned);
               }}
               onInstallRuntime={() => void runtime.installRuntimeEnvironment(workspace.id)}
               onInstallVoiceModelRuntime={() => void runtime.installVoiceModelRuntime(workspace.id)}
+              onCheckAppUpdate={appUpdate.check}
+              onInstallAppUpdate={appUpdate.install}
               onOpenFullTerminal={() => setTerminalDialogOpen(true)}
             />
           </motion.div>
@@ -300,9 +342,9 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
         <div ref={layoutRootRef} className="relative min-h-0 flex-1" data-app-tour-target="workspace-layout">
         <div ref={workspaceGridRef} className="grid h-full min-h-0" style={workspaceGridStyle}>
           <PanelCard key={workspace.left.id} layoutId="workspace-card-left" workspaceId={workspace.id} panel={workspace.left} runtime={runtime} collapseMode="none" />
-          <PanelResizeHandle orientation="vertical" onMouseDown={(event) => resizeOuterPanel("left", event.clientX)} />
+          <PanelResizeHandle orientation="vertical" forceActive={guidePanelResizeActive} guideResizeProgress={guidePanelResizeProgress} onMouseDown={(event) => resizeOuterPanel("left", event.clientX)} />
           <WorkspaceCenterPanels workspace={workspace} runtime={runtime} renderPanel={renderPanelCard} />
-          {rightPanelsVisible ? <PanelResizeHandle orientation="vertical" onMouseDown={(event) => resizeOuterPanel("right", event.clientX)} /> : <div aria-hidden="true" />}
+          {rightPanelsVisible ? <PanelResizeHandle orientation="vertical" forceActive={guidePanelResizeActive} guideResizeProgress={guidePanelResizeProgress} onMouseDown={(event) => resizeOuterPanel("right", event.clientX)} /> : <div aria-hidden="true" />}
           {rightPanelsVisible ? <WorkspaceRightPanels workspace={workspace} runtime={runtime} renderPanel={renderPanelCard} /> : <div />}
         </div>
         </div>
@@ -316,7 +358,7 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
             exit={{ opacity: 0, y: 10, scale: 0.985 }}
             transition={menuMotion.transition}
             className="fixed right-6 z-[2100]"
-            style={{ bottom: runtimeEnvironmentVisible || voiceModelRuntimeVisible ? 78 : 24 }}
+            style={{ bottom: terminalDockBottom }}
           >
             <WorkspaceTerminalDock
               terminal={state.terminal}
@@ -342,7 +384,8 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.985 }}
             transition={menuMotion.transition}
-            className="fixed bottom-6 right-6 z-[2100]"
+            className="fixed right-6 z-[2100]"
+            style={{ bottom: installDockBottom }}
           >
             <WorkspaceRuntimeInstallDock
               status={runtimeEnvironmentStatus}
@@ -361,12 +404,33 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.985 }}
             transition={menuMotion.transition}
-            className="fixed bottom-6 right-6 z-[2100]"
+            className="fixed right-6 z-[2100]"
+            style={{ bottom: installDockBottom }}
           >
             <WorkspaceVoiceModelInstallDock
               status={voiceModelRuntimeStatus}
               installing={voiceModelRuntimeInstalling}
               onInstall={() => void runtime.installVoiceModelRuntime(workspace.id)}
+              className="w-[420px]"
+            />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+      <AnimatePresence>
+        {!compactHeader && appUpdateVisible ? (
+          <motion.div
+            key="app-update-dock"
+            initial={{ opacity: 0, y: 10, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.985 }}
+            transition={menuMotion.transition}
+            className="fixed right-6 z-[2100]"
+            style={{ bottom: updateDockBottom }}
+          >
+            <WorkspaceAppUpdateDock
+              state={appUpdate.state}
+              onCheck={appUpdate.check}
+              onInstall={appUpdate.install}
               className="w-[420px]"
             />
           </motion.div>

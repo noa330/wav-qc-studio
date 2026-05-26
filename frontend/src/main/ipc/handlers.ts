@@ -34,6 +34,7 @@ import { checkWorkspaceRuntimeEnvironment, installWorkspaceRuntimeEnvironment } 
 import { checkVoiceModelRuntime, installVoiceModelRuntime } from "../backend/voice/model-runtime";
 import { cleanupInactiveAudioConversionCaches, cleanupWorkspaceRunCaches, loadWorkspaceFromPath, resolveWorkspaceOutputPath, runBatchSpeakerDiarization, runWorkspace } from "../backend/workspace-runner";
 import { updateStartupSplashProgress } from "../startup-splash-window";
+import { checkAppUpdate, getAppUpdateState, installAppUpdate } from "../app-updater";
 import { cancelWorkspaceOperation, registerWorkspaceOperation, unregisterWorkspaceOperation } from "./workspace-operation-registry";
 
 function formatBytes(value: number): string {
@@ -56,6 +57,9 @@ export function registerIpcHandlers(): void {
       node: process.versions.node,
     },
   }));
+  ipcMain.handle(IPC_CHANNELS.appUpdateCheck, () => checkAppUpdate());
+  ipcMain.handle(IPC_CHANNELS.appUpdateState, () => getAppUpdateState());
+  ipcMain.handle(IPC_CHANNELS.appUpdateInstall, () => installAppUpdate());
 
   ipcMain.handle(IPC_CHANNELS.loadAppState, async () => {
     const result = await loadAppStateSnapshot((progress) => {
@@ -273,6 +277,9 @@ export function registerIpcHandlers(): void {
     cleanupInactiveAudioConversionCaches();
     cleanupTensorBoardSessions();
     ipcMain.removeHandler(IPC_CHANNELS.appInfo);
+    ipcMain.removeHandler(IPC_CHANNELS.appUpdateCheck);
+    ipcMain.removeHandler(IPC_CHANNELS.appUpdateState);
+    ipcMain.removeHandler(IPC_CHANNELS.appUpdateInstall);
     ipcMain.removeHandler(IPC_CHANNELS.loadAppState);
     ipcMain.removeHandler(IPC_CHANNELS.saveAppState);
     ipcMain.removeAllListeners(IPC_CHANNELS.saveAppStateSync);

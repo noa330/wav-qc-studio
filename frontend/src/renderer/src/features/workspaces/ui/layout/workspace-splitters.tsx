@@ -46,8 +46,24 @@ export function useWorkspaceLayoutResizeState(): WorkspaceLayoutResizeState {
   return useContext(WorkspaceLayoutResizeContext);
 }
 
-export function PanelResizeHandle({ orientation, onMouseDown }: { orientation: "vertical" | "horizontal"; onMouseDown: (event: ReactMouseEvent<HTMLButtonElement>) => void }) {
+export function PanelResizeHandle({
+  orientation,
+  onMouseDown,
+  forceActive = false,
+  guideResizeProgress = 0,
+}: {
+  orientation: "vertical" | "horizontal";
+  onMouseDown: (event: ReactMouseEvent<HTMLButtonElement>) => void;
+  forceActive?: boolean;
+  guideResizeProgress?: number;
+}) {
   const [active, setActive] = useState(false);
+  const lineActive = active || forceActive;
+  const guideTargetStyle = forceActive
+    ? orientation === "vertical"
+      ? { width: 12 + guideResizeProgress * 54 }
+      : { height: 12 + guideResizeProgress * 54 }
+    : undefined;
 
   return (
     <div className={cn(resizeHandleClass, orientation === "vertical" ? "w-[14px] cursor-col-resize" : "h-[14px] cursor-row-resize")}>
@@ -55,6 +71,7 @@ export function PanelResizeHandle({ orientation, onMouseDown }: { orientation: "
         type="button"
         aria-label={orientation === "vertical" ? "?⑤꼸 ??議곗젅" : "?⑤꼸 ?믪씠 議곗젅"}
         data-app-tour-target="workspace-resize-handle"
+        data-resize-orientation={orientation}
         onMouseEnter={() => setActive(true)}
         onMouseLeave={() => setActive(false)}
         onFocus={() => setActive(true)}
@@ -66,13 +83,21 @@ export function PanelResizeHandle({ orientation, onMouseDown }: { orientation: "
         }}
         className="relative h-full w-full rounded-[3px] outline-none"
       >
-        <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <span
+          className={cn(
+            "pointer-events-none absolute flex items-center justify-center",
+            orientation === "vertical" ? "inset-y-0 left-1/2 w-3 -translate-x-1/2" : "inset-x-0 top-1/2 h-3 -translate-y-1/2",
+          )}
+          style={guideTargetStyle}
+          data-app-tour-target="workspace-resize-line"
+          data-resize-orientation={orientation}
+        >
           <motion.span
             variants={resizeHandleLineVariants}
             initial="idle"
-            animate={active ? "active" : "idle"}
+            animate={lineActive ? "active" : "idle"}
             transition={resizeHandleLineTransition}
-            className={cn("rounded-full bg-[var(--accent-blue)]", orientation === "vertical" ? "h-[calc(100%-24px)] w-0.5" : "h-0.5 w-[calc(100%-24px)]")}
+            className={cn("rounded-full bg-[var(--accent-blue)]", orientation === "vertical" ? "h-[calc(100%-6px)] w-0.5" : "h-0.5 w-[calc(100%-6px)]")}
           />
         </span>
       </button>

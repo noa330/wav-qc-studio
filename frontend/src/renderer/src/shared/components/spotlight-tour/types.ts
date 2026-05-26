@@ -17,6 +17,7 @@ export type SpotlightTourStep = {
   caption?: string;
   bullets?: readonly string[];
   placement?: SpotlightTourPlacement;
+  visualCue?: "panel-resize" | "cell-resize" | "context-menu";
 };
 
 export type SpotlightRect = {

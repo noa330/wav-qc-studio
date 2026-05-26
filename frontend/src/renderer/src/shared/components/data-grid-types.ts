@@ -87,6 +87,7 @@ export type DataGridProps = {
   viewState?: DataGridViewState;
   onViewStateChange?: (state: DataGridViewState) => void;
   suspendWidthTracking?: boolean;
+  guideStepId?: string;
 };
 
 export const defaultSheetTabs: DataGridSheetTab[] = [{ id: "default-sheet-1", label: "Sheet1" }];

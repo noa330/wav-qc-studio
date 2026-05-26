@@ -1,8 +1,7 @@
 import { Download } from "lucide-react";
-import { motion } from "motion/react";
 import type { VoiceModelRuntimeStatus, WorkspaceRuntimeEnvironmentStatus } from "@shared/ipc";
 import { cn } from "@/lib/utils";
-import { softPressTap } from "@/shared/motion";
+import { WorkspaceDockActionButton, WorkspaceDockIcon, WorkspaceDockLabel, WorkspaceDockShell, WorkspaceDockStatus } from "./WorkspaceDockPrimitives";
 
 export function WorkspaceRuntimeInstallDock({
   status,
@@ -26,37 +25,26 @@ export function WorkspaceRuntimeInstallDock({
 
   const label = missing.map((item) => item.label).join(", ");
   return (
-    <motion.div
-      layout={embedded ? false : true}
-      className={cn(
-        "relative flex h-10 min-w-0 items-center gap-2 rounded-[5px] border border-[var(--panel-stroke)] bg-[#0d131c]/95 px-3 text-sm font-normal text-[var(--primary-text)] shadow-[0_16px_36px_rgba(0,0,0,.28)] backdrop-blur",
-        compact && "h-7 min-w-[176px] px-2 shadow-none",
-        embedded && "min-w-0 border-transparent bg-transparent px-0 shadow-none backdrop-blur-0",
-        className,
-      )}
-      transition={embedded ? { duration: 0 } : undefined}
-      data-status-widget-interactive="true"
+    <WorkspaceDockShell
+      compact={compact}
+      embedded={embedded}
+      className={cn(compact && "min-w-[176px]", className)}
+      dataStatusWidgetInteractive="true"
       title={label}
       onPointerDown={(event) => event.stopPropagation()}
     >
-      {embedded ? null : (
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-[5px] border border-[var(--neutral-button-stroke)] bg-[var(--table-header-bg)] text-[var(--primary-text)]">
-          <Download className="size-3.5" strokeWidth={1.8} />
-        </span>
-      )}
-      <span className="min-w-0 flex-1 truncate">{embedded ? "런타임" : label}</span>
-      <span className={cn("size-2 shrink-0 rounded-full", installing ? "bg-[var(--accent-blue)]" : "bg-[#f7c34a]")} />
-      <span className="shrink-0 text-[13px] font-normal leading-[18px] text-[var(--primary-text)]">{installing ? "설치 중" : "없음"}</span>
-      <motion.button
-        type="button"
-        whileTap={installing ? undefined : softPressTap}
+      {embedded ? null : <WorkspaceDockIcon icon={Download} />}
+      <WorkspaceDockLabel>{embedded ? "런타임" : label}</WorkspaceDockLabel>
+      <WorkspaceDockStatus dotClassName={installing ? "bg-[var(--accent-blue)]" : "bg-[#f7c34a]"}>
+        {installing ? "설치 중" : "없음"}
+      </WorkspaceDockStatus>
+      <WorkspaceDockActionButton
         onClick={onInstall}
         disabled={installing}
-        className="ml-1 flex h-7 shrink-0 items-center justify-center rounded-[4px] bg-[var(--accent-blue)] px-2.5 text-[12px] font-normal text-white hover:brightness-110 disabled:opacity-55"
       >
         {installing ? "..." : "설치"}
-      </motion.button>
-    </motion.div>
+      </WorkspaceDockActionButton>
+    </WorkspaceDockShell>
   );
 }
 
@@ -82,36 +70,25 @@ export function WorkspaceVoiceModelInstallDock({
   const label = `${status.label} 모델`;
   const title = status.error ? `${label}: ${status.error}` : `${label}: ${status.path}`;
   return (
-    <motion.div
-      layout={embedded ? false : true}
-      className={cn(
-        "relative flex h-10 min-w-0 items-center gap-2 rounded-[5px] border border-[var(--panel-stroke)] bg-[#0d131c]/95 px-3 text-sm font-normal text-[var(--primary-text)] shadow-[0_16px_36px_rgba(0,0,0,.28)] backdrop-blur",
-        compact && "h-7 min-w-[198px] px-2 shadow-none",
-        embedded && "min-w-0 border-transparent bg-transparent px-0 shadow-none backdrop-blur-0",
-        className,
-      )}
-      transition={embedded ? { duration: 0 } : undefined}
-      data-status-widget-interactive="true"
+    <WorkspaceDockShell
+      compact={compact}
+      embedded={embedded}
+      className={cn(compact && "min-w-[198px]", className)}
+      dataStatusWidgetInteractive="true"
       title={title}
       onPointerDown={(event) => event.stopPropagation()}
     >
-      {embedded ? null : (
-        <span className="flex size-7 shrink-0 items-center justify-center rounded-[5px] border border-[var(--neutral-button-stroke)] bg-[var(--table-header-bg)] text-[var(--primary-text)]">
-          <Download className="size-3.5" strokeWidth={1.8} />
-        </span>
-      )}
-      <span className="min-w-0 flex-1 truncate">{embedded ? "모델" : label}</span>
-      <span className={cn("size-2 shrink-0 rounded-full", installing ? "bg-[var(--accent-blue)]" : "bg-[#f7c34a]")} />
-      <span className="shrink-0 text-[13px] font-normal leading-[18px] text-[var(--primary-text)]">{installing ? "설치 중" : "없음"}</span>
-      <motion.button
-        type="button"
-        whileTap={installing ? undefined : softPressTap}
+      {embedded ? null : <WorkspaceDockIcon icon={Download} />}
+      <WorkspaceDockLabel>{embedded ? "모델" : label}</WorkspaceDockLabel>
+      <WorkspaceDockStatus dotClassName={installing ? "bg-[var(--accent-blue)]" : "bg-[#f7c34a]"}>
+        {installing ? "설치 중" : "없음"}
+      </WorkspaceDockStatus>
+      <WorkspaceDockActionButton
         onClick={onInstall}
         disabled={installing}
-        className="ml-1 flex h-7 shrink-0 items-center justify-center rounded-[4px] bg-[var(--accent-blue)] px-2.5 text-[12px] font-normal text-white hover:brightness-110 disabled:opacity-55"
       >
         {installing ? "..." : "설치"}
-      </motion.button>
-    </motion.div>
+      </WorkspaceDockActionButton>
+    </WorkspaceDockShell>
   );
 }

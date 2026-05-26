@@ -22,8 +22,8 @@ Function .onInit
 FunctionEnd
 
 !insertmacro MUI_PAGE_WELCOME
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW LicensePageShow
 !insertmacro MUI_PAGE_LICENSE "${BUILD_RESOURCES_DIR}\license-ko.txt"
-!define MUI_PAGE_CUSTOMFUNCTION_LEAVE EnvValidateInstallPath
 !insertmacro MUI_PAGE_DIRECTORY
 
 !ifmacrodef customPageAfterChangeDir
@@ -54,7 +54,7 @@ Section "install" INSTALL_SECTION_ID
 
   !ifndef DO_NOT_CREATE_DESKTOP_SHORTCUT
     ${ifNot} ${isNoDesktopShortcut}
-      CreateShortCut "$DESKTOP\${SHORTCUT_NAME}.lnk" "$appExe" "" "$appExe" 0 "" "" "${APP_DESCRIPTION}"
+      CreateShortCut "$DESKTOP\${SHORTCUT_NAME}.lnk" "$appExe" "" "$INSTDIR\resources\icon.ico" 0 "" "" "${APP_DESCRIPTION}"
     ${endIf}
   !endif
 
