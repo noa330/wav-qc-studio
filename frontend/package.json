@@ -3,6 +3,7 @@
   "version": "0.1.1",
   "description": "Electron-only React UI shell for WAV QC Studio.",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {

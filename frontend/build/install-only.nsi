@@ -22,6 +22,7 @@ Function .onInit
 FunctionEnd
 
 !insertmacro MUI_PAGE_WELCOME
+!insertmacro MUI_PAGE_LICENSE "${BUILD_RESOURCES_DIR}\license-ko.txt"
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE EnvValidateInstallPath
 !insertmacro MUI_PAGE_DIRECTORY
 

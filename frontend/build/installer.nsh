@@ -7,6 +7,9 @@
 !define MUI_INSTFILESPAGE_SHOWDETAILS
 !define MUI_WELCOMEPAGE_TITLE "WAV QC Studio 설치"
 !define MUI_WELCOMEPAGE_TEXT "WAV QC Studio 설치 마법사입니다.$\r$\n$\r$\n이 설치기는 앱 본체와 Development 원본 백업을 설치하고, 필요한 경우 Python 가상환경을 구성합니다.$\r$\n$\r$\n설치 경로와 가상환경 구성은 다음 단계에서 선택할 수 있습니다."
+!define MUI_LICENSEPAGE_TEXT_TOP "WAV QC Studio 라이선스와 서드파티 자산 고지를 확인하세요. 동의하면 다음 단계로 진행할 수 있습니다.$\r$\n$\r$\n"
+!define MUI_LICENSEPAGE_TEXT_BOTTOM "설치를 계속하려면 라이선스 조건에 동의해야 합니다."
+!define MUI_LICENSEPAGE_BUTTON "동의함"
 !define MUI_DIRECTORYPAGE_TEXT_TOP "WAV QC Studio를 설치할 폴더를 선택하세요. 기본 경로를 사용하거나 찾아보기를 눌러 원하는 위치를 지정할 수 있습니다."
 !define MUI_INSTFILESPAGE_FINISHHEADER_TEXT "설치 작업 완료"
 !define MUI_INSTFILESPAGE_FINISHHEADER_SUBTEXT "선택한 구성 요소 설치가 완료되었습니다."
