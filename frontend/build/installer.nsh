@@ -9,19 +9,3 @@
 !define MUI_INSTFILESPAGE_FINISHHEADER_SUBTEXT "앱 본체 설치가 완료되었습니다."
 !define MUI_FINISHPAGE_TITLE "WAV QC Studio 설치 완료"
 !define MUI_FINISHPAGE_TEXT "WAV QC Studio가 설치되었습니다.$\r$\n$\r$\n필요한 런타임은 앱 안의 설치 위젯에서 설치할 수 있습니다."
-
-Function LicensePageShow
-  FindWindow $0 "#32770" "" $HWNDPARENT
-  GetDlgItem $1 $0 1000
-
-  System::Store "S"
-  System::Call 'USER32::GetWindowRect(psr1,@r2)'
-  System::Call 'USER32::MapWindowPoints(p0,psr0,pr2,i2)'
-  System::Call '*$2(i.r3,i.r4,i.r5,i.r6)'
-  IntOp $5 $5 - $3
-  IntOp $6 $6 - $4
-  IntOp $4 $4 + 10
-  IntOp $6 $6 - 10
-  System::Call 'USER32::SetWindowPos(psr1,p0,ir3,ir4,ir5,ir6,i0x14)'
-  System::Store "L"
-FunctionEnd
