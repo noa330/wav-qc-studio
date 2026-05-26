@@ -9,6 +9,7 @@ const initialUpdateState: AppUpdateState = {
 
 export function useAppUpdate() {
   const [state, setState] = useState<AppUpdateState>(initialUpdateState);
+  const [dismissedVersion, setDismissedVersion] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -32,9 +33,20 @@ export function useAppUpdate() {
     void studioBackend.installAppUpdate().then(setState);
   }, []);
 
+  const dismiss = useCallback(() => {
+    if (state.latestVersion) {
+      setDismissedVersion(state.latestVersion);
+    }
+  }, [state.latestVersion]);
+
+  const visibleState = dismissedVersion && state.latestVersion === dismissedVersion
+    ? { ...state, phase: "idle" as const }
+    : state;
+
   return {
-    state,
+    state: visibleState,
     check,
     install,
+    dismiss,
   };
 }

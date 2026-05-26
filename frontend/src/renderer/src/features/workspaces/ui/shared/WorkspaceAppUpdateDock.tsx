@@ -24,6 +24,7 @@ export function WorkspaceAppUpdateDock({
   state,
   onCheck,
   onInstall,
+  onDismiss,
   compact = false,
   embedded = false,
   className,
@@ -31,6 +32,7 @@ export function WorkspaceAppUpdateDock({
   state: AppUpdateState;
   onCheck: () => void;
   onInstall: () => void;
+  onDismiss: () => void;
   compact?: boolean;
   embedded?: boolean;
   className?: string;
@@ -80,6 +82,12 @@ export function WorkspaceAppUpdateDock({
     buttonLabel = "재시도";
   }
 
+  if (state.phase === "downloaded") {
+    buttonLabel = "업데이트";
+  }
+
+  const canDismiss = ["available", "downloading", "downloaded"].includes(state.phase);
+
   return (
     <WorkspaceDockShell
       compact={compact}
@@ -95,6 +103,15 @@ export function WorkspaceAppUpdateDock({
       <WorkspaceDockActionButton onClick={buttonAction} disabled={buttonDisabled}>
         {buttonLabel}
       </WorkspaceDockActionButton>
+      {canDismiss ? (
+        <WorkspaceDockActionButton
+          onClick={onDismiss}
+          variant="ghost"
+          className="w-auto px-2.5 text-[12px]"
+        >
+          다음에
+        </WorkspaceDockActionButton>
+      ) : null}
     </WorkspaceDockShell>
   );
 }

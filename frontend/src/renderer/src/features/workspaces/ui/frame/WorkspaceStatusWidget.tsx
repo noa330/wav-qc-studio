@@ -59,6 +59,7 @@ export function WorkspaceStatusWidget({
   onInstallVoiceModelRuntime,
   onCheckAppUpdate,
   onInstallAppUpdate,
+  onDismissAppUpdate,
   onOpenFullTerminal,
 }: {
   statusItems: WorkspaceHeaderStatusItem[];
@@ -77,6 +78,7 @@ export function WorkspaceStatusWidget({
   onInstallVoiceModelRuntime: () => void;
   onCheckAppUpdate: () => void;
   onInstallAppUpdate: () => void;
+  onDismissAppUpdate: () => void;
   onOpenFullTerminal: () => void;
 }) {
   const [position, setPosition] = useState({ right: 20, top: 20 });
@@ -246,6 +248,7 @@ export function WorkspaceStatusWidget({
                 state={appUpdateState}
                 onCheck={onCheckAppUpdate}
                 onInstall={onInstallAppUpdate}
+                onDismiss={onDismissAppUpdate}
                 compact
                 embedded
               />

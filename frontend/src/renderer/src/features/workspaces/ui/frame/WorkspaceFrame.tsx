@@ -266,6 +266,7 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
               onInstallVoiceModelRuntime={() => void runtime.installVoiceModelRuntime(workspace.id)}
               onCheckAppUpdate={appUpdate.check}
               onInstallAppUpdate={appUpdate.install}
+              onDismissAppUpdate={appUpdate.dismiss}
               onOpenFullTerminal={() => setTerminalDialogOpen(true)}
             />
           </motion.div>
@@ -431,6 +432,7 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
               state={appUpdate.state}
               onCheck={appUpdate.check}
               onInstall={appUpdate.install}
+              onDismiss={appUpdate.dismiss}
               className="w-[420px]"
             />
           </motion.div>

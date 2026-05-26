@@ -142,6 +142,6 @@ export async function installAppUpdate(): Promise<AppUpdateState> {
     releaseName: updateState.releaseName,
     releaseDate: updateState.releaseDate,
   });
-  autoUpdater.quitAndInstall();
+  autoUpdater.quitAndInstall(true, true);
   return updateState;
 }
