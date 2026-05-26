@@ -5,8 +5,6 @@ directories:
   output: release
   buildResources: build
 
-afterPack: ./build/after-pack-require-admin.cjs
-
 files:
   - out/**
   - package.json
@@ -54,7 +52,7 @@ win:
     - nsis
   icon: build/icon.ico
   executableName: WavQcStudio
-  requestedExecutionLevel: requireAdministrator
+  requestedExecutionLevel: asInvoker
   signAndEditExecutable: false
 
 nsis:
