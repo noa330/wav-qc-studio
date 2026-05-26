@@ -14,7 +14,7 @@ import type { WorkspaceRuntime } from "../../state/use-workspace-runtime";
 import { useAppUpdate } from "../../state/use-app-update";
 import { WorkspaceTerminalDialog } from "../shared/WorkspaceTerminalDialog";
 import { WorkspaceTerminalDock } from "../shared/WorkspaceTerminalDock";
-import { WorkspaceRuntimeInstallDock, WorkspaceVoiceModelInstallDock } from "../shared/WorkspaceRuntimeInstallDocks";
+import { shouldShowRuntimeEnvironmentInstallDock, shouldShowVoiceModelInstallDock, WorkspaceRuntimeInstallDock, WorkspaceVoiceModelInstallDock } from "../shared/WorkspaceRuntimeInstallDocks";
 import { shouldShowAppUpdateDock, WorkspaceAppUpdateDock } from "../shared/WorkspaceAppUpdateDock";
 import { ProjectSelector } from "../shared/WorkspaceProjectSelector";
 import { PanelCard } from "../panels/WorkspacePanelCard";
@@ -53,6 +53,7 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
   const [terminalDockOpen, setTerminalDockOpen] = useState(false);
   const [terminalBubblePinned, setTerminalBubblePinned] = useState(true);
   const [guidePanelResizeProgress, setGuidePanelResizeProgress] = useState(0);
+  const [dismissedInstallDocks, setDismissedInstallDocks] = useState<Set<string>>(() => new Set());
   const restoreTerminalDockAfterDialogRef = useRef(false);
   const handledTerminalOpenRequestRef = useRef<Record<string, number>>({});
   if (handledTerminalOpenRequestRef.current[workspace.id] === undefined) {
@@ -91,7 +92,13 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
   const terminalDockVisible = terminalDockOpen || guideTerminalOpen;
   const runtimeEnvironmentStatus = runtime.getRuntimeEnvironmentStatus(workspace.id);
   const runtimeEnvironmentInstalling = runtime.isRuntimeEnvironmentInstalling(workspace.id);
-  const runtimeEnvironmentVisible = Boolean(runtimeEnvironmentStatus && !runtimeEnvironmentStatus.ok);
+  const runtimeEnvironmentDockKey = runtimeEnvironmentStatus
+    ? `runtime:${workspace.id}:${runtimeEnvironmentStatus.requirements.map((item) => `${item.label}:${item.installed ? 1 : 0}`).join("|")}`
+    : "";
+  const runtimeEnvironmentVisible = Boolean(
+    shouldShowRuntimeEnvironmentInstallDock(runtimeEnvironmentStatus)
+      && (runtimeEnvironmentInstalling || !dismissedInstallDocks.has(runtimeEnvironmentDockKey)),
+  );
   const voiceModelRuntimeStatus = runtime.getVoiceModelRuntimeStatus(workspace.id);
   const voiceModelRuntimeInstalling = runtime.isVoiceModelRuntimeInstalling(workspace.id);
   const voiceModelRuntimeKey = useMemo(
@@ -111,13 +118,21 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
       && runtimeEnvironmentStatus?.ok === true
       && voiceModelRuntimeStatus
       && voiceModelRuntimeStatusMatchesKey(voiceModelRuntimeStatus, voiceModelRuntimeKey)
-      && !voiceModelRuntimeStatus.ok,
+      && shouldShowVoiceModelInstallDock(voiceModelRuntimeStatus)
+      && (voiceModelRuntimeInstalling || !dismissedInstallDocks.has(`voice:${voiceModelRuntimeKey.settingsKey}`)),
   );
   const appUpdateVisible = shouldShowAppUpdateDock(appUpdate.state);
   const installDockVisible = runtimeEnvironmentVisible || voiceModelRuntimeVisible;
   const updateDockBottom = 24;
   const installDockBottom = appUpdateVisible ? 78 : 24;
   const terminalDockBottom = 24 + (appUpdateVisible ? 54 : 0) + (installDockVisible ? 54 : 0);
+  const dismissInstallDock = useCallback((key: string) => {
+    setDismissedInstallDocks((current) => {
+      const next = new Set(current);
+      next.add(key);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (!runtime.guideMode) {
@@ -253,20 +268,10 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
               terminal={state.terminal}
               terminalTitle={`${workspace.title} 콘솔`}
               terminalBubblePinned={terminalDockVisible && (terminalBubblePinned || guideTerminalOpen)}
-              runtimeEnvironmentStatus={runtimeEnvironmentStatus}
-              runtimeEnvironmentInstalling={runtimeEnvironmentInstalling}
-              voiceModelRuntimeStatus={voiceModelRuntimeVisible ? voiceModelRuntimeStatus : undefined}
-              voiceModelRuntimeInstalling={voiceModelRuntimeInstalling}
-              appUpdateState={appUpdate.state}
               onTerminalBubblePinnedChange={(pinned) => {
                 setTerminalDockOpen(true);
                 setTerminalBubblePinned(pinned);
               }}
-              onInstallRuntime={() => void runtime.installRuntimeEnvironment(workspace.id)}
-              onInstallVoiceModelRuntime={() => void runtime.installVoiceModelRuntime(workspace.id)}
-              onCheckAppUpdate={appUpdate.check}
-              onInstallAppUpdate={appUpdate.install}
-              onDismissAppUpdate={appUpdate.dismiss}
               onOpenFullTerminal={() => setTerminalDialogOpen(true)}
             />
           </motion.div>
@@ -378,7 +383,7 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
         ) : null}
       </AnimatePresence>
       <AnimatePresence>
-        {!compactHeader && runtimeEnvironmentStatus && !runtimeEnvironmentStatus.ok ? (
+        {runtimeEnvironmentVisible && runtimeEnvironmentStatus ? (
           <motion.div
             key={`${workspace.id}-runtime-install-dock`}
             initial={{ opacity: 0, y: 10, scale: 0.985 }}
@@ -392,13 +397,14 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
               status={runtimeEnvironmentStatus}
               installing={runtimeEnvironmentInstalling}
               onInstall={() => void runtime.installRuntimeEnvironment(workspace.id)}
+              onDismiss={() => dismissInstallDock(runtimeEnvironmentDockKey)}
               className="w-[420px]"
             />
           </motion.div>
         ) : null}
       </AnimatePresence>
       <AnimatePresence>
-        {!compactHeader && voiceModelRuntimeVisible && voiceModelRuntimeStatus ? (
+        {voiceModelRuntimeVisible && voiceModelRuntimeStatus ? (
           <motion.div
             key={`${workspace.id}-voice-model-install-dock`}
             initial={{ opacity: 0, y: 10, scale: 0.985 }}
@@ -412,13 +418,18 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
               status={voiceModelRuntimeStatus}
               installing={voiceModelRuntimeInstalling}
               onInstall={() => void runtime.installVoiceModelRuntime(workspace.id)}
+              onDismiss={() => {
+                if (voiceModelRuntimeKey) {
+                  dismissInstallDock(`voice:${voiceModelRuntimeKey.settingsKey}`);
+                }
+              }}
               className="w-[420px]"
             />
           </motion.div>
         ) : null}
       </AnimatePresence>
       <AnimatePresence>
-        {!compactHeader && appUpdateVisible ? (
+        {appUpdateVisible ? (
           <motion.div
             key="app-update-dock"
             initial={{ opacity: 0, y: 10, scale: 0.985 }}
@@ -430,7 +441,6 @@ export function WorkspaceFrame({ workspace, runtime }: WorkspaceFrameProps) {
           >
             <WorkspaceAppUpdateDock
               state={appUpdate.state}
-              onCheck={appUpdate.check}
               onInstall={appUpdate.install}
               onDismiss={appUpdate.dismiss}
               className="w-[420px]"

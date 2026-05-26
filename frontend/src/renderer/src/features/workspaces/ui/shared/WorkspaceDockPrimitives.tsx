@@ -53,6 +53,14 @@ export function WorkspaceDockLabel({ children, className }: { children: ReactNod
   return <span className={cn("min-w-0 flex-1 truncate", className)}>{children}</span>;
 }
 
+export function WorkspaceDockMetaText({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <span className={cn("whitespace-nowrap text-[12px] font-normal tabular-nums text-[var(--secondary-text)]", className)}>
+      {children}
+    </span>
+  );
+}
+
 export function WorkspaceDockStatus({
   dotClassName,
   children,
@@ -79,7 +87,7 @@ export function WorkspaceDockActionButton({
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean;
-  variant?: "primary" | "ghost";
+  variant?: "primary" | "secondary" | "ghost";
   ariaLabel?: string;
   className?: string;
 }) {
@@ -94,7 +102,9 @@ export function WorkspaceDockActionButton({
         "ml-1 flex h-7 shrink-0 items-center justify-center rounded-[4px] text-[12px] font-normal disabled:opacity-55",
         variant === "primary"
           ? "bg-[var(--accent-blue)] px-2.5 text-white hover:brightness-110"
-          : "size-7 text-[var(--control-arrow)] hover:bg-[var(--soft-selection-hover)] hover:text-[var(--primary-text)]",
+          : variant === "secondary"
+            ? "wpf-button !h-7 px-2.5 text-[var(--primary-text)] hover:bg-[var(--soft-selection-hover)]"
+            : "size-7 text-[var(--control-arrow)] hover:bg-[var(--soft-selection-hover)] hover:text-[var(--primary-text)]",
         className,
       )}
     >

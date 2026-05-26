@@ -6,11 +6,14 @@ const { autoUpdater } = electronUpdater;
 
 type UpdateInfoLike = {
   version?: string;
+  files?: Array<{ size?: number }>;
   releaseName?: string | null;
   releaseDate?: string | null;
 };
 
 type ProgressInfoLike = {
+  total?: number;
+  transferred?: number;
   percent?: number;
   bytesPerSecond?: number;
 };
@@ -35,10 +38,18 @@ function setState(patch: Omit<Partial<AppUpdateState>, "currentVersion"> & { pha
   });
 }
 
+function getUpdateTotalBytes(info?: UpdateInfoLike): number | undefined {
+  const fileSize = info?.files?.find((file) => typeof file.size === "number" && file.size > 0)?.size;
+  return typeof fileSize === "number" ? Math.round(fileSize) : undefined;
+}
+
 function updateInfoState(phase: AppUpdateState["phase"], info: UpdateInfoLike): AppUpdateState {
+  const total = getUpdateTotalBytes(info);
   return setState({
     phase,
     latestVersion: info.version,
+    transferred: total && phase === "available" ? 0 : undefined,
+    total,
     releaseName: info.releaseName ?? undefined,
     releaseDate: info.releaseDate ?? undefined,
     checkedAt: new Date().toISOString(),
@@ -56,6 +67,7 @@ export function initAppUpdater(webContents: WebContents): void {
   initialized = true;
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.autoRunAppAfterInstall = true;
 
   autoUpdater.on("checking-for-update", () => {
     setState({ phase: "checking", checkedAt: new Date().toISOString() });
@@ -74,6 +86,8 @@ export function initAppUpdater(webContents: WebContents): void {
       phase: "downloading",
       latestVersion: updateState.latestVersion,
       percent: Math.max(0, Math.min(100, Math.round(progress.percent ?? 0))),
+      transferred: Math.max(0, Math.round(progress.transferred ?? 0)),
+      total: Math.max(0, Math.round(progress.total ?? updateState.total ?? 0)),
       bytesPerSecond: progress.bytesPerSecond ?? 0,
       checkedAt: updateState.checkedAt,
       releaseName: updateState.releaseName,
@@ -82,9 +96,16 @@ export function initAppUpdater(webContents: WebContents): void {
   });
 
   autoUpdater.on("update-downloaded", (info: UpdateInfoLike) => {
-    updateInfoState("downloaded", {
-      ...info,
-      version: info.version ?? updateState.latestVersion,
+    const total = getUpdateTotalBytes(info) ?? updateState.total;
+    setState({
+      phase: "downloaded",
+      latestVersion: info.version ?? updateState.latestVersion,
+      transferred: total ?? updateState.transferred,
+      total,
+      percent: 100,
+      releaseName: info.releaseName ?? updateState.releaseName,
+      releaseDate: info.releaseDate ?? updateState.releaseDate,
+      checkedAt: new Date().toISOString(),
     });
   });
 

@@ -3,6 +3,7 @@
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
 !include "nsDialogs.nsh"
+!include "allowOnlyOneInstallerInstance.nsh"
 !include "extractAppPackage.nsh"
 
 RequestExecutionLevel user
@@ -94,7 +95,7 @@ Page custom LicensePageCreate LicensePageLeave
 !insertmacro MUI_PAGE_INSTFILES
 
 Function StartApp
-  ExecShell "open" "$launchLink"
+  !insertmacro StartApp
 FunctionEnd
 
 !ifndef HIDE_RUN_AFTER_FINISH
@@ -111,6 +112,7 @@ Section "install" INSTALL_SECTION_ID
   StrCpy $appExe "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
   StrCpy $launchLink "$appExe"
 
+  !insertmacro CHECK_APP_RUNNING
   !insertmacro extractEmbeddedAppPackage
 
   !ifndef DO_NOT_CREATE_DESKTOP_SHORTCUT
@@ -122,4 +124,10 @@ Section "install" INSTALL_SECTION_ID
   !ifmacrodef customInstall
     !insertmacro customInstall
   !endif
+
+  ${If} ${isForceRun}
+  ${AndIf} ${Silent}
+    HideWindow
+    Call StartApp
+  ${EndIf}
 SectionEnd

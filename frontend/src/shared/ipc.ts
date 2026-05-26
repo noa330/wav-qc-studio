@@ -79,6 +79,8 @@ export type AppUpdateState = {
   currentVersion: string;
   latestVersion?: string;
   percent?: number;
+  transferred?: number;
+  total?: number;
   bytesPerSecond?: number;
   checkedAt?: string;
   releaseName?: string;

@@ -1,12 +1,29 @@
 import { Download } from "lucide-react";
 import type { VoiceModelRuntimeStatus, WorkspaceRuntimeEnvironmentStatus } from "@shared/ipc";
 import { cn } from "@/lib/utils";
-import { WorkspaceDockActionButton, WorkspaceDockIcon, WorkspaceDockLabel, WorkspaceDockShell, WorkspaceDockStatus } from "./WorkspaceDockPrimitives";
+import { WorkspaceDockActionButton, WorkspaceDockIcon, WorkspaceDockLabel, WorkspaceDockMetaText, WorkspaceDockShell } from "./WorkspaceDockPrimitives";
+
+export function shouldShowRuntimeEnvironmentInstallDock(status?: WorkspaceRuntimeEnvironmentStatus): status is WorkspaceRuntimeEnvironmentStatus {
+  return Boolean(status && !status.ok && status.requirements.some((item) => !item.installed));
+}
+
+export function shouldShowVoiceModelInstallDock(status?: VoiceModelRuntimeStatus): status is VoiceModelRuntimeStatus {
+  return Boolean(status && !status.ok);
+}
+
+function renderLabelWithMeta(text: string) {
+  return text.split(/(\([^)]*\))/g).map((part, index) => (
+    part.startsWith("(") && part.endsWith(")")
+      ? <WorkspaceDockMetaText key={`${part}-${index}`}>{part}</WorkspaceDockMetaText>
+      : <span key={`${part}-${index}`}>{part}</span>
+  ));
+}
 
 export function WorkspaceRuntimeInstallDock({
   status,
   installing,
   onInstall,
+  onDismiss,
   compact = false,
   embedded = false,
   className,
@@ -14,12 +31,13 @@ export function WorkspaceRuntimeInstallDock({
   status: WorkspaceRuntimeEnvironmentStatus;
   installing: boolean;
   onInstall: () => void;
+  onDismiss: () => void;
   compact?: boolean;
   embedded?: boolean;
   className?: string;
 }) {
   const missing = status.requirements.filter((item) => !item.installed);
-  if (status.ok || missing.length === 0) {
+  if (!shouldShowRuntimeEnvironmentInstallDock(status)) {
     return null;
   }
 
@@ -34,15 +52,20 @@ export function WorkspaceRuntimeInstallDock({
       onPointerDown={(event) => event.stopPropagation()}
     >
       {embedded ? null : <WorkspaceDockIcon icon={Download} />}
-      <WorkspaceDockLabel>{embedded ? "런타임" : label}</WorkspaceDockLabel>
-      <WorkspaceDockStatus dotClassName={installing ? "bg-[var(--accent-blue)]" : "bg-[#f7c34a]"}>
-        {installing ? "설치 중" : "없음"}
-      </WorkspaceDockStatus>
+      <WorkspaceDockLabel>{embedded ? "런타임" : renderLabelWithMeta(label)}</WorkspaceDockLabel>
+      {!installing ? (
+        <WorkspaceDockActionButton
+          onClick={onDismiss}
+          variant="secondary"
+        >
+          다음에
+        </WorkspaceDockActionButton>
+      ) : null}
       <WorkspaceDockActionButton
         onClick={onInstall}
         disabled={installing}
       >
-        {installing ? "..." : "설치"}
+        {installing ? "..." : "다운로드"}
       </WorkspaceDockActionButton>
     </WorkspaceDockShell>
   );
@@ -52,6 +75,7 @@ export function WorkspaceVoiceModelInstallDock({
   status,
   installing,
   onInstall,
+  onDismiss,
   compact = false,
   embedded = false,
   className,
@@ -59,11 +83,12 @@ export function WorkspaceVoiceModelInstallDock({
   status: VoiceModelRuntimeStatus;
   installing: boolean;
   onInstall: () => void;
+  onDismiss: () => void;
   compact?: boolean;
   embedded?: boolean;
   className?: string;
 }) {
-  if (status.ok) {
+  if (!shouldShowVoiceModelInstallDock(status)) {
     return null;
   }
 
@@ -79,15 +104,20 @@ export function WorkspaceVoiceModelInstallDock({
       onPointerDown={(event) => event.stopPropagation()}
     >
       {embedded ? null : <WorkspaceDockIcon icon={Download} />}
-      <WorkspaceDockLabel>{embedded ? "모델" : label}</WorkspaceDockLabel>
-      <WorkspaceDockStatus dotClassName={installing ? "bg-[var(--accent-blue)]" : "bg-[#f7c34a]"}>
-        {installing ? "설치 중" : "없음"}
-      </WorkspaceDockStatus>
+      <WorkspaceDockLabel>{embedded ? "모델" : renderLabelWithMeta(label)}</WorkspaceDockLabel>
+      {!installing ? (
+        <WorkspaceDockActionButton
+          onClick={onDismiss}
+          variant="secondary"
+        >
+          다음에
+        </WorkspaceDockActionButton>
+      ) : null}
       <WorkspaceDockActionButton
         onClick={onInstall}
         disabled={installing}
       >
-        {installing ? "..." : "설치"}
+        {installing ? "..." : "다운로드"}
       </WorkspaceDockActionButton>
     </WorkspaceDockShell>
   );

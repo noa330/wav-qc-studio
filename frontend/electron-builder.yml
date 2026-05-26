@@ -5,6 +5,8 @@ directories:
   output: release
   buildResources: build
 
+afterPack: ./build/after-pack-windows-metadata.cjs
+
 files:
   - out/**
   - package.json

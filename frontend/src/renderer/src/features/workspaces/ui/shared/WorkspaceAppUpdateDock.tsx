@@ -1,28 +1,43 @@
 import { Download, RefreshCw } from "lucide-react";
 import type { AppUpdateState } from "@shared/ipc";
-import { WorkspaceDockActionButton, WorkspaceDockIcon, WorkspaceDockLabel, WorkspaceDockShell, WorkspaceDockStatus } from "./WorkspaceDockPrimitives";
+import { WorkspaceDockActionButton, WorkspaceDockIcon, WorkspaceDockLabel, WorkspaceDockMetaText, WorkspaceDockShell } from "./WorkspaceDockPrimitives";
 
-function formatSpeed(bytesPerSecond?: number): string {
-  if (!bytesPerSecond || !Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) {
-    return "";
+function formatDownloadSize(bytes: number, unitBase: number): string {
+  if (unitBase >= 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   }
+  if (unitBase >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (unitBase >= 1024) {
+    return `${(bytes / 1024).toFixed(0)} KB`;
+  }
+  return `${Math.round(bytes)} B`;
+}
 
-  if (bytesPerSecond >= 1024 * 1024) {
-    return `${(bytesPerSecond / (1024 * 1024)).toFixed(1)} MB/s`;
+function formatDownloadProgress(state: AppUpdateState): string {
+  const total = state.total ?? 0;
+  const transferred = Math.min(Math.max(0, state.transferred ?? 0), total || Number.POSITIVE_INFINITY);
+  if (total > 0) {
+    const unitBase = total;
+    const totalText = formatDownloadSize(total, unitBase);
+    const totalParts = totalText.split(" ");
+    const unit = totalParts[totalParts.length - 1] ?? "";
+    const transferredText = formatDownloadSize(transferred, unitBase).replace(` ${unit}`, "");
+    return `${transferredText}/${totalText}`;
   }
-  if (bytesPerSecond >= 1024) {
-    return `${Math.round(bytesPerSecond / 1024)} KB/s`;
+  if (state.phase === "downloading" && transferred > 0) {
+    return `${formatDownloadSize(transferred, transferred)}/?`;
   }
-  return `${Math.round(bytesPerSecond)} B/s`;
+  return "";
 }
 
 export function shouldShowAppUpdateDock(state: AppUpdateState): boolean {
-  return ["checking", "available", "downloading", "downloaded", "installing", "error"].includes(state.phase);
+  return ["available", "downloading", "downloaded", "installing", "error"].includes(state.phase);
 }
 
 export function WorkspaceAppUpdateDock({
   state,
-  onCheck,
   onInstall,
   onDismiss,
   compact = false,
@@ -30,7 +45,6 @@ export function WorkspaceAppUpdateDock({
   className,
 }: {
   state: AppUpdateState;
-  onCheck: () => void;
   onInstall: () => void;
   onDismiss: () => void;
   compact?: boolean;
@@ -42,51 +56,15 @@ export function WorkspaceAppUpdateDock({
   }
 
   const latestVersion = state.latestVersion ? `v${state.latestVersion}` : "";
-  const label = latestVersion ? `업데이트 ${latestVersion}` : "업데이트";
-  const speed = formatSpeed(state.bytesPerSecond);
+  const downloadProgress = formatDownloadProgress(state);
+  const labelBase = latestVersion ? `업데이트 ${latestVersion}` : "업데이트";
   const title = [
     `현재 버전: v${state.currentVersion}`,
     state.latestVersion ? `최신 버전: v${state.latestVersion}` : undefined,
+    downloadProgress ? `다운로드: ${downloadProgress}` : undefined,
     state.error ? `오류: ${state.error}` : undefined,
   ].filter(Boolean).join("\n");
-
-  let status = "확인 중";
-  let dotClassName = "bg-[var(--accent-blue)]";
-  let buttonLabel = "확인";
-  let buttonDisabled = false;
-  let buttonAction = onCheck;
-
-  if (state.phase === "available") {
-    status = "준비 중";
-    dotClassName = "bg-[#f7c34a]";
-    buttonLabel = "...";
-    buttonDisabled = true;
-  } else if (state.phase === "downloading") {
-    status = `${Math.round(state.percent ?? 0)}%${speed ? ` ${speed}` : ""}`;
-    dotClassName = "bg-[var(--accent-blue)]";
-    buttonLabel = "...";
-    buttonDisabled = true;
-  } else if (state.phase === "downloaded") {
-    status = "설치 가능";
-    dotClassName = "bg-[#58d68d]";
-    buttonLabel = "설치";
-    buttonAction = onInstall;
-  } else if (state.phase === "installing") {
-    status = "재시작 중";
-    dotClassName = "bg-[var(--accent-blue)]";
-    buttonLabel = "...";
-    buttonDisabled = true;
-  } else if (state.phase === "error") {
-    status = "오류";
-    dotClassName = "bg-[#ff6b7a]";
-    buttonLabel = "재시도";
-  }
-
-  if (state.phase === "downloaded") {
-    buttonLabel = "업데이트";
-  }
-
-  const canDismiss = ["available", "downloading", "downloaded"].includes(state.phase);
+  const updateDisabled = state.phase !== "downloaded";
 
   return (
     <WorkspaceDockShell
@@ -98,20 +76,20 @@ export function WorkspaceAppUpdateDock({
       onPointerDown={(event) => event.stopPropagation()}
     >
       {embedded ? null : <WorkspaceDockIcon icon={state.phase === "error" ? RefreshCw : Download} />}
-      <WorkspaceDockLabel>{embedded ? "업데이트" : label}</WorkspaceDockLabel>
-      <WorkspaceDockStatus dotClassName={dotClassName}>{status}</WorkspaceDockStatus>
-      <WorkspaceDockActionButton onClick={buttonAction} disabled={buttonDisabled}>
-        {buttonLabel}
+      <WorkspaceDockLabel>
+        <span>{embedded ? "업데이트" : labelBase}</span>
+        {downloadProgress ? <WorkspaceDockMetaText className="ml-1">({downloadProgress})</WorkspaceDockMetaText> : null}
+      </WorkspaceDockLabel>
+      <WorkspaceDockActionButton
+        onClick={onDismiss}
+        variant="secondary"
+        disabled={state.phase === "installing"}
+      >
+        다음에
       </WorkspaceDockActionButton>
-      {canDismiss ? (
-        <WorkspaceDockActionButton
-          onClick={onDismiss}
-          variant="ghost"
-          className="w-auto px-2.5 text-[12px]"
-        >
-          다음에
-        </WorkspaceDockActionButton>
-      ) : null}
+      <WorkspaceDockActionButton onClick={onInstall} disabled={updateDisabled}>
+        업데이트
+      </WorkspaceDockActionButton>
     </WorkspaceDockShell>
   );
 }

@@ -107,7 +107,7 @@ export function WorkspaceTerminalDock({
         ) : null}
       </AnimatePresence>
 
-      <WorkspaceDockShell compact={compact} embedded={embedded} className={cn(compact && "min-w-[148px]")}>
+      <WorkspaceDockShell compact={compact} embedded={embedded} className={cn(compact && !embedded && "min-w-[148px]")}>
         {embedded ? null : (
           <>
             <WorkspaceDockIcon icon={Terminal} />
