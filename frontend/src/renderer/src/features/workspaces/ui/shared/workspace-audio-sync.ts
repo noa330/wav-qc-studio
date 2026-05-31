@@ -11,13 +11,28 @@ type SegmentPreviewRequest = {
   end: number;
 };
 
+type PlayRequest = {
+  id: number;
+  play: boolean;
+};
+
+type VolumeRequest = {
+  id: number;
+  volume: number;
+};
+
 export type WorkspaceAudioSyncSnapshot = {
   audioPath?: string;
   currentTime: number;
   duration: number;
+  isPlaying?: boolean;
+  volume?: number;
   seekRequest?: SeekRequest;
   focusRequest?: SeekRequest;
   previewRequest?: SegmentPreviewRequest;
+  activeTabId?: string;
+  playRequest?: PlayRequest;
+  volumeRequest?: VolumeRequest;
 };
 
 type WorkspaceAudioSyncStore = {
@@ -40,7 +55,10 @@ export function useWorkspaceAudioSync(key: string | undefined): WorkspaceAudioSy
   );
 }
 
-export function publishWorkspaceAudioPosition(key: string | undefined, patch: Pick<WorkspaceAudioSyncSnapshot, "audioPath" | "currentTime" | "duration">): void {
+export function publishWorkspaceAudioPosition(
+  key: string | undefined,
+  patch: Pick<WorkspaceAudioSyncSnapshot, "audioPath" | "currentTime" | "duration" | "isPlaying" | "volume">
+): void {
   if (!key) {
     return;
   }
@@ -48,7 +66,15 @@ export function publishWorkspaceAudioPosition(key: string | undefined, patch: Pi
   const current = ensureStore(key).snapshot;
   updateWorkspaceAudioSync(key, {
     ...patch,
-    ...(current.audioPath !== patch.audioPath ? { seekRequest: undefined, focusRequest: undefined, previewRequest: undefined } : {}),
+    ...(current.audioPath !== patch.audioPath
+      ? {
+          seekRequest: undefined,
+          focusRequest: undefined,
+          previewRequest: undefined,
+          playRequest: undefined,
+          volumeRequest: undefined,
+        }
+      : {}),
   });
 }
 
@@ -78,6 +104,39 @@ export function requestWorkspaceAudioPreview(key: string | undefined, start: num
     currentTime: safeStart,
     focusRequest: { id, time: safeStart },
     previewRequest: { id, start: safeStart, end: safeEnd },
+  });
+}
+
+export function requestWorkspaceAudioPlay(key: string | undefined, play: boolean): void {
+  if (!key) {
+    return;
+  }
+
+  const id = Date.now() + Math.random();
+  updateWorkspaceAudioSync(key, {
+    playRequest: { id, play },
+  });
+}
+
+export function requestWorkspaceAudioVolume(key: string | undefined, volume: number): void {
+  if (!key || !Number.isFinite(volume)) {
+    return;
+  }
+
+  const id = Date.now() + Math.random();
+  updateWorkspaceAudioSync(key, {
+    volume,
+    volumeRequest: { id, volume },
+  });
+}
+
+export function publishWorkspaceActiveTab(key: string | undefined, tabId: string): void {
+  if (!key) {
+    return;
+  }
+
+  updateWorkspaceAudioSync(key, {
+    activeTabId: tabId,
   });
 }
 
@@ -129,8 +188,13 @@ function sameSnapshot(left: WorkspaceAudioSyncSnapshot, right: WorkspaceAudioSyn
     left.audioPath === right.audioPath &&
     left.currentTime === right.currentTime &&
     left.duration === right.duration &&
+    left.isPlaying === right.isPlaying &&
+    left.volume === right.volume &&
     left.seekRequest?.id === right.seekRequest?.id &&
     left.focusRequest?.id === right.focusRequest?.id &&
-    left.previewRequest?.id === right.previewRequest?.id
+    left.previewRequest?.id === right.previewRequest?.id &&
+    left.activeTabId === right.activeTabId &&
+    left.playRequest?.id === right.playRequest?.id &&
+    left.volumeRequest?.id === right.volumeRequest?.id
   );
 }

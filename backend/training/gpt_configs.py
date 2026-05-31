@@ -12,6 +12,11 @@ def gpt_model_path_for(gpt_hf: Path, gpt_pretrained: dict[str, dict[str, str]], 
     return gpt_hf / rel
 
 
+def optional_gpt_model_path_for(gpt_hf: Path, gpt_pretrained: dict[str, dict[str, str]], version: str, key: str) -> str:
+    rel = gpt_pretrained[version].get(key, "")
+    return str(gpt_hf / rel) if rel else ""
+
+
 def write_sovits_config_file(
     *,
     gpt_repo: Path,
@@ -40,7 +45,7 @@ def write_sovits_config_file(
     data["train"]["epochs"] = max(1, int(epochs))
     data["train"]["text_low_lr_rate"] = float(text_low_lr_rate)
     data["train"]["pretrained_s2G"] = pretrained_s2g or str(gpt_model_path_for(gpt_hf, gpt_pretrained, version, "s2g"))
-    data["train"]["pretrained_s2D"] = pretrained_s2d or str(gpt_model_path_for(gpt_hf, gpt_pretrained, version, "s2d"))
+    data["train"]["pretrained_s2D"] = pretrained_s2d or optional_gpt_model_path_for(gpt_hf, gpt_pretrained, version, "s2d")
     data["train"]["if_save_latest"] = bool(if_save_latest)
     data["train"]["if_save_every_weights"] = bool(if_save_every_weights)
     data["train"]["save_every_epoch"] = max(1, int(save_every_epoch))

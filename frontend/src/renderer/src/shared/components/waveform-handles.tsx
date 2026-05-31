@@ -54,8 +54,6 @@ export function WaveformBadgeLayer({ anchors }: { anchors: WaveformBadgeAnchor[]
     return null;
   }
 
-  const horizontalClamp = markerBadgeWidthPx / 2;
-
   return (
     <div className="pointer-events-none absolute inset-0 z-[3]" aria-hidden="true">
       {anchors.map((anchor) => (
@@ -63,7 +61,7 @@ export function WaveformBadgeLayer({ anchors }: { anchors: WaveformBadgeAnchor[]
           key={anchor.id}
           className="absolute top-px overflow-visible"
           style={{
-            left: `clamp(${horizontalClamp}px, ${anchor.x}%, calc(100% - ${horizontalClamp}px))`,
+            left: `${anchor.x}%`,
             width: markerBadgeWidthPx,
             height: markerBadgeHeightPx,
             transform: "translateX(-50%)",
@@ -78,7 +76,7 @@ export function WaveformBadgeLayer({ anchors }: { anchors: WaveformBadgeAnchor[]
             strokeWidth="1.35"
             strokeLinejoin="round"
           />
-          <path d="M 5 8 L 7.3 10.4 L 11.4 5.9" fill="none" stroke="var(--primary-text)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M 5 8 L 7.3 10.4 L 11.4 5.9" fill="none" stroke="white" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       ))}
     </div>

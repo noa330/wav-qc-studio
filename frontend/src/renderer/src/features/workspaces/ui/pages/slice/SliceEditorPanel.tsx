@@ -225,7 +225,7 @@ export function SliceEditorBody({
   const splitMenuLabel = selectedMenuRow && readSliceComponents(selectedMenuRow).length > 1 ? "병합 해제" : "마커 분할";
 
   return (
-    <div className={cn("grid h-full min-h-0", hasAudio ? "grid-rows-[minmax(50px,1fr)_10px_20px_18px_auto_12px_auto]" : "grid-rows-[minmax(50px,1fr)_12px_auto_12px_auto]")}>
+    <div className={cn("grid h-full min-h-0", hasAudio ? "grid-rows-[minmax(50px,1fr)_10px_24px_10px_auto_12px_auto]" : "grid-rows-[minmax(50px,1fr)_12px_auto_12px_auto]")}>
       <div className="min-h-[50px] overflow-hidden rounded-[5px] border border-transparent bg-transparent" data-app-tour-target="slice-editor-waveform">
         <AnimatePresence mode="wait" initial={false}>
           {hasAudio ? (
@@ -247,6 +247,7 @@ export function SliceEditorBody({
                 viewStart={view.viewStart}
                 viewEnd={view.viewEnd}
                 playhead={transport.progress}
+                isPlaying={transport.isPlaying}
                 onData={setWaveform}
                 onSelectionChange={(nextStart, nextEnd) => {
                   if (!row || !hasAudio) {
@@ -310,17 +311,19 @@ export function SliceEditorBody({
       {hasAudio ? (
         <>
           <div />
-          <div className="overflow-hidden rounded-[3px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] opacity-90" data-app-tour-target="slice-editor-minimap">
-          <WaveformSurface
-            audioPath={audioPath}
-            bucketCount={260}
-            selectionStart={view.viewStart}
-            selectionEnd={view.viewEnd}
-            selectionHandleStyle="none"
-            allowsSelectionCreationOnClick={false}
-            emptyText=""
-            onSelectionChange={actions?.setViewRange}
-          />
+          <div className="overflow-hidden rounded-[5px] border border-transparent bg-transparent" data-app-tour-target="slice-editor-minimap">
+            <WaveformSurface
+              audioPath={audioPath}
+              bucketCount={260}
+              framedTrack
+              selectionStart={view.viewStart}
+              selectionEnd={view.viewEnd}
+              selectionHandleStyle="none"
+              allowsSelectionCreationOnClick={false}
+              emptyText=""
+              onSelectionChange={actions?.setViewRange}
+              useMarkerStyleForSelection
+            />
           </div>
           <div />
         </>
@@ -330,8 +333,8 @@ export function SliceEditorBody({
       <div
         ref={controlsBarRef}
         className={cn(
-          "min-w-0 items-center gap-x-3 gap-y-2",
-          controlsCompact ? "grid grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[38px_38px]" : "flex h-[38px] overflow-hidden",
+          "min-w-0 items-center gap-x-3 gap-y-2 py-2",
+          controlsCompact ? "grid grid-cols-[auto_minmax(0,1fr)_auto]" : "flex",
         )}
       >
         <div ref={transportControlsRef} className="shrink-0">
@@ -373,7 +376,7 @@ export function SliceEditorBody({
         <span ref={timeControlsRef} className={cn("flex h-[38px] shrink-0 items-center whitespace-nowrap text-sm text-[var(--secondary-text)]", controlsCompact ? "col-start-3 row-start-1" : "ml-auto")}>{formatTime(transport.currentTime)} / {formatTime(transport.duration || totalSec)}</span>
       </div>
       <div />
-      <div className={cn("rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-4", !controlsEnabled && "opacity-55")} data-app-tour-target="slice-editor-time-grid">
+      <div className={cn("rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] py-2.5 px-4", !controlsEnabled && "opacity-55")} data-app-tour-target="slice-editor-time-grid">
         <SliceTimeGrid
           disabled={!controlsEnabled}
           startValue={formatTime(hasSegments ? startSec : 0)}

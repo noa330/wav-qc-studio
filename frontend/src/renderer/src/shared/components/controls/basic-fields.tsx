@@ -184,7 +184,7 @@ export function ToggleSwitch({ checked, onChange, disabled = false }: { checked:
         initial={false}
         animate={{ x: checked ? 20 : 2 }}
         transition={quickEase}
-        className="absolute left-0 top-0.5 size-3.5 rounded-full bg-[var(--primary-text)]"
+        className="absolute left-0 top-0.5 size-3.5 rounded-full bg-white shadow-xs"
       />
     </motion.button>
   );
@@ -253,7 +253,7 @@ export function Tooltip({ label, description, width, className, children }: { la
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: position.placement === "top" ? 4 : -4, scale: 0.985 }}
               transition={menuMotion.transition}
-              className="app-scrollbar fixed z-[1000] max-h-[360px] overflow-auto rounded-[5px] border border-[var(--panel-stroke)] bg-[#0d131c]/95 p-3 text-[13px] leading-5 text-[var(--secondary-text)] shadow-[0_16px_36px_rgba(0,0,0,.42)] backdrop-blur"
+              className="app-scrollbar fixed z-[1000] max-h-[360px] overflow-auto rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--field-bg)]/95 p-3 text-[13px] leading-5 text-[var(--secondary-text)] shadow-[var(--app-popover-shadow)] backdrop-blur"
               style={{
                 left: position.left,
                 top: position.top,
@@ -278,7 +278,7 @@ export function CheckItem({ label, checked, onChange }: { label: string; checked
   return (
     <motion.button type="button" onClick={() => onChange(!checked)} whileTap={softPressTap} className="flex items-center text-sm text-[var(--primary-text)]">
       <span className={cn("mr-2 flex size-[18px] items-center justify-center rounded-[3px] border border-[var(--secondary-text)]", checked && "border-[var(--accent-blue)] bg-[var(--accent-blue)]")}>
-        <AnimatePresence initial={false}>{checked ? <motion.span {...checkPopMotion}><Check className="size-3" /></motion.span> : null}</AnimatePresence>
+        <AnimatePresence initial={false}>{checked ? <motion.span {...checkPopMotion}><Check className="size-3 text-white" /></motion.span> : null}</AnimatePresence>
       </span>
       {label}
     </motion.button>

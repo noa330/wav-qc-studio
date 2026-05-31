@@ -1,9 +1,34 @@
-import { useRef } from "react";
+import { useState, useEffect } from "react";
+import { publishWorkspaceActiveTab } from "../shared/workspace-audio-sync";
 import { type WorkspaceLayoutProps, type WorkspacePanelRenderer } from "./workspace-layout-types";
-import { PanelStack, ResizableColumns, ResizableRows, useWorkspaceLayoutResizeState } from "./workspace-splitters";
-import { useElementBoxSize } from "./workspace-card-overflow";
-import { getInlinePanelStackSwitchSize } from "./workspace-panel-sizing";
-import type { WorkspaceDefinition } from "../../model/workspace-config";
+import { PanelStack, ResizableColumns, ResizableRows } from "./workspace-splitters";
+import type { WorkspaceDefinition, WorkspacePanel } from "../../model/workspace-config";
+import { MotionUnderlineTab } from "@/shared/components/motion-tabs";
+import { WpfCard } from "@/shared/components/wpf-card";
+import { renderPanelHeaderControls, PanelCardSelectedFileInfo } from "../panels/WorkspacePanelCard";
+import type { WorkspaceId } from "@shared/ipc";
+import type { WorkspaceRuntime } from "../../state/use-workspace-runtime";
+
+export const workspaceTableDeckTopRatio = 0.55;
+
+export function isWorkspaceTableDeckPanel(panel: WorkspacePanel): boolean {
+  return panel.kind === "table" || panel.kind === "progress";
+}
+
+export function findWorkspaceTableDeckPanel(workspace: WorkspaceDefinition): WorkspacePanel | undefined {
+  return workspace.center.find(isWorkspaceTableDeckPanel);
+}
+
+export function getWorkspaceTopDefinition(workspace: WorkspaceDefinition, tablePanel?: WorkspacePanel): WorkspaceDefinition {
+  if (!tablePanel) {
+    return workspace;
+  }
+
+  return {
+    ...workspace,
+    center: workspace.center.filter((panel) => panel.id !== tablePanel.id),
+  };
+}
 
 export function WorkspaceCenterPanels(props: WorkspaceLayoutProps) {
   if (props.workspace.center.length === 1) {
@@ -31,25 +56,32 @@ export function WorkspaceCenterPanels(props: WorkspaceLayoutProps) {
 }
 
 export function WorkspaceRightPanels(props: WorkspaceLayoutProps) {
-  switch (props.workspace.id) {
-    case "speaker":
-      return <SpeakerRightPanels {...props} />;
-    case "overview":
-    case "batch":
-    case "training":
-    case "inference":
-      return <TwoCardRightPanels {...props} />;
-    default:
-      return renderWorkspacePanel(props.renderPanel, {
-        workspaceId: props.workspace.id,
-        runtime: props.runtime,
-        panel: props.workspace.right[0],
-        layoutId: "workspace-card-right-a",
-        className: "h-full",
-        detail: true,
-        collapseMode: "none",
-      });
+  if (props.workspace.right.length < 2) {
+    return renderWorkspacePanel(props.renderPanel, {
+      workspaceId: props.workspace.id,
+      runtime: props.runtime,
+      panel: props.workspace.right[0],
+      layoutId: "workspace-card-right-a",
+      className: "h-full",
+      detail: true,
+      collapseMode: "none",
+    });
   }
+
+  // All pages with 2 right panels use the shared TabbedPanelStack
+  return (
+    <TabbedPanelStack
+      workspaceId={props.workspace.id}
+      runtime={props.runtime}
+      renderPanel={props.renderPanel}
+      firstPanel={props.workspace.right[0]}
+      secondPanel={props.workspace.right[1]}
+      firstLayoutId="workspace-card-right-a"
+      secondLayoutId="workspace-card-right-b"
+      showSelectedFile={false}
+      panelDetail={true}
+    />
+  );
 }
 
 const playbackStackSizing = { mode: "fill", preferredSize: 242, minSize: 56, flex: 0 } as const;
@@ -69,79 +101,46 @@ function OverviewCenterPanels(props: WorkspaceLayoutProps) {
 }
 
 function BatchCenterPanels(props: WorkspaceLayoutProps) {
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const { resizing } = useWorkspaceLayoutResizeState();
-  const rootSize = useElementBoxSize(rootRef, resizing);
-  const stackInsteadOfInline = rootSize.width > 0 && rootSize.width <= batchTimelineAudioInlineSwitchWidth;
+  const leftPanel = props.workspace.center.find((panel) => panel.id === "batch-timeline") ?? props.workspace.center[0];
+  const rightPanel = props.workspace.center.find((panel) => panel.id === "batch-audio") ?? props.workspace.center[1];
+
+  if (!leftPanel || !rightPanel) {
+    return <DefaultCenterPanels {...props} />;
+  }
 
   return (
-    <div ref={rootRef} className="h-full min-h-0 min-w-0">
-      {stackInsteadOfInline ? (
-        <PanelStack
-          {...stackBaseProps(props)}
-          items={[
-            { panel: props.workspace.center[1], layoutId: "workspace-card-center-a" },
-            { panel: props.workspace.center[2], layoutId: "workspace-card-center-b", stackSizing: playbackStackSizing },
-            { panel: props.workspace.center[0], layoutId: "workspace-card-center-c", defaultRatio: 1 },
-          ]}
-        />
-      ) : (
-        <ResizableRows
-          storageKey={`${props.workspace.id}:center-main`}
-          initialRatio={0.34}
-          top={(
-            <ResizableColumns
-              storageKey={`${props.workspace.id}:timeline-audio`}
-              initialRatio={batchTimelineAudioInitialRatio}
-              left={renderCenterPanel(props, props.workspace.center[1], "workspace-card-center-a")}
-              right={renderCenterPanel(props, props.workspace.center[2], "workspace-card-center-b")}
-            />
-          )}
-          bottom={renderCenterPanel(props, props.workspace.center[0], "workspace-card-center-c")}
-        />
-      )}
-    </div>
+    <TabbedPanelStack
+      workspaceId={props.workspace.id}
+      runtime={props.runtime}
+      renderPanel={props.renderPanel}
+      firstPanel={rightPanel}
+      secondPanel={leftPanel}
+      firstLayoutId="workspace-card-center-a"
+      secondLayoutId="workspace-card-center-b"
+      showSelectedFile={true}
+    />
   );
 }
 
-const taggingSchemaAudioInitialRatio = 0.58;
-const taggingInlineCenterStackSwitchWidth = getInlinePanelStackSwitchSize(2, undefined, Math.min(taggingSchemaAudioInitialRatio, 1 - taggingSchemaAudioInitialRatio));
-const batchTimelineAudioInitialRatio = taggingSchemaAudioInitialRatio;
-const batchTimelineAudioInlineSwitchWidth = taggingInlineCenterStackSwitchWidth;
-
 function TaggingCenterPanels(props: WorkspaceLayoutProps) {
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const { resizing } = useWorkspaceLayoutResizeState();
-  const rootSize = useElementBoxSize(rootRef, resizing);
-  const stackInsteadOfInline = rootSize.width > 0 && rootSize.width <= taggingInlineCenterStackSwitchWidth;
+  const leftPanel = props.workspace.center.find((panel) => panel.id === "tagging-queue") ?? props.workspace.center[1];
+  const rightPanel = props.workspace.center.find((panel) => panel.id === "tagging-audio") ?? props.workspace.center[0];
+
+  if (!leftPanel || !rightPanel) {
+    return <DefaultCenterPanels {...props} />;
+  }
 
   return (
-    <div ref={rootRef} className="h-full min-h-0 min-w-0">
-      {stackInsteadOfInline ? (
-        <PanelStack
-          {...stackBaseProps(props)}
-          items={[
-            { panel: props.workspace.center[1], layoutId: "workspace-card-center-a" },
-            { panel: props.workspace.center[0], layoutId: "workspace-card-center-b", stackSizing: playbackStackSizing },
-            { panel: props.workspace.center[2], layoutId: "workspace-card-center-c" },
-          ]}
-        />
-      ) : (
-        <ResizableRows
-          storageKey={`${props.workspace.id}:center-main`}
-          initialRatio={0.34}
-          top={(
-            <ResizableColumns
-              storageKey={`${props.workspace.id}:schema-audio`}
-              initialRatio={taggingSchemaAudioInitialRatio}
-              left={renderCenterPanel(props, props.workspace.center[1], "workspace-card-center-a")}
-              right={renderCenterPanel(props, props.workspace.center[0], "workspace-card-center-b")}
-            />
-          )}
-          bottom={renderCenterPanel(props, props.workspace.center[2], "workspace-card-center-c")}
-        />
-      )}
-    </div>
+    <TabbedPanelStack
+      workspaceId={props.workspace.id}
+      runtime={props.runtime}
+      renderPanel={props.renderPanel}
+      firstPanel={rightPanel}
+      secondPanel={leftPanel}
+      firstLayoutId="workspace-card-center-a"
+      secondLayoutId="workspace-card-center-b"
+      showSelectedFile={true}
+    />
   );
 }
 
@@ -186,42 +185,29 @@ function TrainingCenterPanels(props: WorkspaceLayoutProps) {
 }
 
 function InferenceCenterPanels(props: WorkspaceLayoutProps) {
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const { resizing } = useWorkspaceLayoutResizeState();
-  const rootSize = useElementBoxSize(rootRef, resizing);
-  const stackInsteadOfInline = rootSize.width > 0 && rootSize.width <= taggingInlineCenterStackSwitchWidth;
-
   return (
-    <div ref={rootRef} className="h-full min-h-0 min-w-0">
-      {stackInsteadOfInline ? (
-        <PanelStack
-          {...stackBaseProps(props)}
-          items={[
-            { panel: props.workspace.center[0], layoutId: "workspace-card-center-a", stackSizing: playbackStackSizing },
-            { panel: props.workspace.center[1], layoutId: "workspace-card-center-b", stackSizing: playbackStackSizing },
-            { panel: props.workspace.center[2], layoutId: "workspace-card-center-c", defaultRatio: 1 },
-          ]}
-        />
-      ) : (
-        <ResizableRows
-          storageKey={`${props.workspace.id}:center-main`}
-          initialRatio={0.48}
-          top={(
-            <ResizableColumns
-              storageKey={`${props.workspace.id}:reference-output`}
-              initialRatio={0.5}
-              left={renderCenterPanel(props, props.workspace.center[0], "workspace-card-center-a")}
-              right={renderCenterPanel(props, props.workspace.center[1], "workspace-card-center-b")}
-            />
-          )}
-          bottom={renderCenterPanel(props, props.workspace.center[2], "workspace-card-center-c")}
-        />
-      )}
-    </div>
+    <PanelStack
+      {...stackBaseProps(props)}
+      items={[
+        { panel: props.workspace.center[0], layoutId: "workspace-card-center-a", defaultRatio: 1 },
+        { panel: props.workspace.center[1], layoutId: "workspace-card-center-b", stackSizing: comparisonPlaybackStackSizing },
+      ]}
+    />
   );
 }
 
 function DefaultCenterPanels(props: WorkspaceLayoutProps) {
+  if (props.workspace.center.length === 2) {
+    return (
+      <ResizableColumns
+        storageKey={`${props.workspace.id}:center-top`}
+        initialRatio={0.5}
+        left={renderCenterPanel(props, props.workspace.center[0], "workspace-card-center-a")}
+        right={renderCenterPanel(props, props.workspace.center[1], "workspace-card-center-b")}
+      />
+    );
+  }
+
   return (
     <ResizableRows
       storageKey={`${props.workspace.id}:center-main`}
@@ -235,33 +221,6 @@ function DefaultCenterPanels(props: WorkspaceLayoutProps) {
         />
       )}
       bottom={renderCenterPanel(props, props.workspace.center[2], "workspace-card-center-c")}
-    />
-  );
-}
-
-const rightSelectorPlaybackLikeSizing = { mode: "content", preferredSize: 236, minSize: 56, maxSize: null } as const;
-const rightTailFillSizing = { mode: "fill", minSize: 56, flex: 1 } as const;
-
-function SpeakerRightPanels(props: WorkspaceLayoutProps) {
-  return (
-    <PanelStack
-      {...stackBaseProps(props)}
-      items={[
-        { panel: props.workspace.right[0], layoutId: "workspace-card-right-a", stackSizing: rightSelectorPlaybackLikeSizing },
-        { panel: props.workspace.right[1], layoutId: "workspace-card-right-b", detail: true, stackSizing: rightTailFillSizing },
-      ]}
-    />
-  );
-}
-
-function TwoCardRightPanels(props: WorkspaceLayoutProps) {
-  return (
-    <PanelStack
-      {...stackBaseProps(props)}
-      items={[
-        { panel: props.workspace.right[0], layoutId: "workspace-card-right-a", stackSizing: rightSelectorPlaybackLikeSizing },
-        { panel: props.workspace.right[1], layoutId: "workspace-card-right-b", detail: true, stackSizing: rightTailFillSizing },
-      ]}
     />
   );
 }
@@ -287,4 +246,126 @@ function renderCenterPanel(props: WorkspaceLayoutProps, panel: WorkspaceDefiniti
 
 function renderWorkspacePanel(renderPanel: WorkspacePanelRenderer, props: Parameters<WorkspacePanelRenderer>[0]) {
   return renderPanel(props);
+}
+
+// ─── Tabbed Panel Stack ────────────────────────────────────────────────────
+// Shared single-card container for two panels with a unified underline tab bar.
+// The tab bar IS the card header: tabs on the left, active-panel controls on the right.
+// Both panels are kept mounted (display:none for inactive) to preserve stateful
+// component state (audio, scroll, etc.) across tab switches.
+//
+// Used for:
+//   - Center panels: Tagging (스키마 / 오디오재생), Script (타임라인 / 오디오재생)
+//   - Right panels:  De-noise, Score, Script, Training, Inference (모델선택 / 설정)
+
+type TabbedPanelStackProps = {
+  workspaceId: WorkspaceId;
+  runtime: WorkspaceRuntime;
+  renderPanel: WorkspacePanelRenderer;
+  firstPanel: WorkspacePanel;
+  secondPanel: WorkspacePanel;
+  firstLayoutId: string;
+  secondLayoutId: string;
+  /** Show the selected audio file info row between header and bodies. Default true for center, false for right. */
+  showSelectedFile?: boolean;
+  /** Pass detail=true to panel bodies (right panels use p-5 padding). Default false. */
+  panelDetail?: boolean;
+};
+
+function TabbedPanelStack({
+  workspaceId,
+  runtime,
+  renderPanel,
+  firstPanel,
+  secondPanel,
+  firstLayoutId,
+  secondLayoutId,
+  showSelectedFile = false,
+  panelDetail = false,
+}: TabbedPanelStackProps) {
+  const [activeId, setActiveId] = useState<string>(firstPanel.id);
+  const underlineId = `${workspaceId}-${firstLayoutId}-tabs`;
+  const activePanel = activeId === firstPanel.id ? firstPanel : secondPanel;
+  const workspaceState = runtime.getState(workspaceId);
+
+  useEffect(() => {
+    publishWorkspaceActiveTab(workspaceId, activeId);
+  }, [workspaceId, activeId]);
+
+  return (
+    <WpfCard className="flex h-full min-h-0 min-w-0 flex-col">
+      {/* Unified card header: tabs left, active-panel controls + ellipsis right */}
+      <div className="shrink-0 flex items-end justify-between gap-2 px-4 pt-4 pb-0">
+        {/* Tab group — fit-content width, underline sits on the border-b below */}
+        <div className="flex items-end gap-0">
+          <MotionUnderlineTab
+            label={firstPanel.title}
+            active={activeId === firstPanel.id}
+            onClick={() => setActiveId(firstPanel.id)}
+            className="px-3 pb-3 pt-[6px]"
+            underlineId={underlineId}
+          />
+          <MotionUnderlineTab
+            label={secondPanel.title}
+            active={activeId === secondPanel.id}
+            onClick={() => setActiveId(secondPanel.id)}
+            className="px-3 pb-3 pt-[6px]"
+            underlineId={underlineId}
+          />
+        </div>
+        {/* Active-panel controls — swap when tab changes */}
+        <div className="flex shrink-0 items-center gap-2 pb-3">
+          {renderPanelHeaderControls(workspaceId, activePanel, runtime, true, workspaceState)}
+        </div>
+      </div>
+      {/* Divider line that the tab underlines sit on */}
+      <div className="shrink-0 border-b border-[var(--panel-stroke)] mx-0" />
+
+      {/* Selected file info — only shown for center panels (showSelectedFile=true) when a file is selected. */}
+      {showSelectedFile && workspaceState.selectedAudioPath ? (
+        <div className="shrink-0 px-4 pt-3 pb-0">
+          <PanelCardSelectedFileInfo
+            selectedAudioPath={workspaceState.selectedAudioPath}
+            inputPath={workspaceState.inputPath}
+          />
+        </div>
+      ) : null}
+
+      {/* Panel bodies — both mounted, inactive hidden via CSS */}
+      <div className="relative min-h-0 flex-1">
+        <div
+          className="h-full min-h-0"
+          style={{ display: activeId === firstPanel.id ? undefined : "none" }}
+          aria-hidden={activeId !== firstPanel.id}
+        >
+          {renderPanel({
+            workspaceId,
+            runtime,
+            panel: firstPanel,
+            layoutId: firstLayoutId,
+            className: "h-full min-h-0 min-w-0",
+            collapseMode: "none",
+            cardMode: "tabbed",
+            detail: panelDetail,
+          })}
+        </div>
+        <div
+          className="h-full min-h-0"
+          style={{ display: activeId === secondPanel.id ? undefined : "none" }}
+          aria-hidden={activeId !== secondPanel.id}
+        >
+          {renderPanel({
+            workspaceId,
+            runtime,
+            panel: secondPanel,
+            layoutId: secondLayoutId,
+            className: "h-full min-h-0 min-w-0",
+            collapseMode: "none",
+            cardMode: "tabbed",
+            detail: panelDetail,
+          })}
+        </div>
+      </div>
+    </WpfCard>
+  );
 }

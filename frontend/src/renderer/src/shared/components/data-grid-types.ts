@@ -76,18 +76,22 @@ export type DataGridProps = {
   onToggleRowCheck?: (row: DataTableRow) => void;
   onToggleAllRows?: (checked: boolean) => void;
   onToggleRowsCheck?: (checked: boolean, rowIds: string[]) => void;
-  sheetToolbar?: ReactNode;
   columnMenus?: Record<string, ReactNode>;
   renderCell?: (context: CellRenderContext) => ReactNode;
   onVisibleRowsChange?: (rows: DataTableRow[]) => void;
   emptyText?: string;
-  showSheetTabs?: boolean;
   showPagination?: boolean;
   fillRemainingColumnKey?: string;
   viewState?: DataGridViewState;
   onViewStateChange?: (state: DataGridViewState) => void;
   suspendWidthTracking?: boolean;
   guideStepId?: string;
+  /** footer 오른쪽 슬롯 — 위젯 버튼(필터, 검색·바꾸기 등) */
+  footerWidget?: ReactNode;
+  /** 외부에서 페이지 크기를 제어할 때 사용 (설정되면 내부 state보다 우선) */
+  controlledPageSize?: number;
+  /** controlledPageSize 변경 핸들러 */
+  onPageSizeChange?: (size: number) => void;
 };
 
 export const defaultSheetTabs: DataGridSheetTab[] = [{ id: "default-sheet-1", label: "Sheet1" }];

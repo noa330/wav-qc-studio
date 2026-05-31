@@ -22,6 +22,7 @@ export type WaveformSurfaceProps = {
   muted?: boolean;
   revision?: number;
   showRuler?: boolean;
+  rulerPosition?: "top" | "bottom";
   selectionStart?: number;
   selectionEnd?: number;
   selectionHandleStyle?: SelectionHandleStyle;
@@ -32,6 +33,7 @@ export type WaveformSurfaceProps = {
   viewStart?: number;
   viewEnd?: number;
   playhead?: number;
+  isPlaying?: boolean;
   onData?: (data: WaveformData) => void;
   onMarkerSelect?: (markerId: string, additive: boolean) => void;
   onMarkerContextMenu?: (markerId: string, event: ReactMouseEvent<Element>) => void;
@@ -40,6 +42,7 @@ export type WaveformSurfaceProps = {
   onRangeCreate?: (start: number, end: number) => void;
   onSelectionChange?: (start: number, end: number) => void;
   onWheelZoom?: (anchor: number, deltaY: number) => void;
+  useMarkerStyleForSelection?: boolean;
 };
 
 export type WaveformMarker = {

@@ -1,8 +1,10 @@
 import { app, BrowserWindow, ipcMain, screen, shell } from "electron";
 import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import { IPC_CHANNELS, type StartupSplashProgress, type StartupSplashResult } from "@shared/ipc";
 import { createStartupSplashSteps, startupSplashFullRevealAnimationMs } from "@shared/startup-splash";
 import { getAppIconPath } from "./app-icon";
+import { defaultManagedProjectName, resolveManagedProjectsRoot } from "./backend/project/workspaces";
 
 const minimumVisibleMs = 2000;
 const closeFadeMs = 180;
@@ -35,6 +37,41 @@ let closeTimer: ReturnType<typeof setTimeout> | undefined;
 let ipcRegistered = false;
 let currentProgress: StartupSplashProgress = defaultProgress;
 let startupCompletionAnimationWaitMs = 0;
+
+function readActiveProjectThemeSync(): "light" | "dark" {
+  try {
+    const projectsRoot = resolveManagedProjectsRoot();
+    const activeProjectPath = join(projectsRoot, "active-project.json");
+    let activeProjectName = defaultManagedProjectName;
+    try {
+      const activeProjectContent = readFileSync(activeProjectPath, "utf8");
+      const parsed = JSON.parse(activeProjectContent);
+      if (parsed && typeof parsed === "object") {
+        activeProjectName = parsed.activeProjectName || parsed.projectName || defaultManagedProjectName;
+      }
+    } catch {
+      // ignore, fallback to default
+    }
+
+    const projectStatePath = join(projectsRoot, activeProjectName, "project-state.json");
+    const stateContent = readFileSync(projectStatePath, "utf8");
+    const parsedState = JSON.parse(stateContent);
+    
+    const stateObj = parsedState && typeof parsedState === "object" && parsedState.state !== undefined 
+      ? parsedState.state 
+      : parsedState;
+
+    if (stateObj && typeof stateObj === "object" && stateObj.shell && typeof stateObj.shell === "object") {
+      const theme = stateObj.shell.theme;
+      if (theme === "light" || theme === "dark") {
+        return theme;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return "dark";
+}
 
 export function createStartupSplashWindow(): BrowserWindow | null {
   if (startupCompleted) {
@@ -96,12 +133,15 @@ export function createStartupSplashWindow(): BrowserWindow | null {
     splashLoaded = false;
   });
 
+  const theme = readActiveProjectThemeSync();
+
   if (process.env.ELECTRON_RENDERER_URL) {
-    void splashWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}/startup-splash.html?appVersion=${encodeURIComponent(app.getVersion())}`);
+    void splashWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}/startup-splash.html?appVersion=${encodeURIComponent(app.getVersion())}&theme=${theme}`);
   } else {
     void splashWindow.loadFile(join(__dirname, "../renderer/startup-splash.html"), {
       query: {
         appVersion: app.getVersion(),
+        theme: theme,
       },
     });
   }

@@ -1,9 +1,8 @@
 import { AnimatePresence, motion } from "motion/react";
-import { Check, ChevronRight, Plus } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 import type { MouseEvent as ReactMouseEvent, ReactNode, RefObject } from "react";
 import type { DataTable, DataTableRow } from "@shared/ipc";
 import { cn } from "@/lib/utils";
-import { MotionUnderlineTab } from "@/shared/components/motion-tabs";
 import { checkPopMotion, tableEmptyMotion, tightPressTap } from "@/shared/motion";
 import { ColumnResizeHandle, RowResizeHandle } from "./data-grid-resize-handles";
 import { resolveRowLineClamp } from "./data-grid-sizing";
@@ -14,16 +13,10 @@ import {
   rowCheckStickyBaseClass,
   type CellRenderContext,
   type ColumnMenuState,
-  type DataGridSheetTab,
 } from "./data-grid-types";
 
 type DataGridTableProps = {
   table: DataTable;
-  sheets: DataGridSheetTab[];
-  displaySheets: DataGridSheetTab[];
-  displayActiveSheetId?: string;
-  showSheetTabs: boolean;
-  sheetToolbar?: ReactNode;
   selectedRowIds: string[];
   selectedRowSet: Set<string>;
   headerTargetRows: DataTableRow[];
@@ -44,8 +37,6 @@ type DataGridTableProps = {
   emptyText: string;
   suppressNextRowClickRef: RefObject<boolean>;
   suppressNextRowClickTimerRef: RefObject<number | undefined>;
-  onCreateSheet?: () => void;
-  onSelectSheet?: (sheetId: string) => void;
   onSelectRow?: (row: DataTableRow, additive: boolean) => void;
   onToggleRowCheck?: (row: DataTableRow) => void;
   onToggleAllRows?: (checked: boolean) => void;
@@ -62,11 +53,6 @@ type DataGridTableProps = {
 
 export function DataGridTable({
   table,
-  sheets,
-  displaySheets,
-  displayActiveSheetId,
-  showSheetTabs,
-  sheetToolbar,
   selectedRowIds,
   selectedRowSet,
   headerTargetRows,
@@ -87,8 +73,6 @@ export function DataGridTable({
   emptyText,
   suppressNextRowClickRef,
   suppressNextRowClickTimerRef,
-  onCreateSheet,
-  onSelectSheet,
   onSelectRow,
   onToggleRowCheck,
   onToggleAllRows,
@@ -103,39 +87,7 @@ export function DataGridTable({
   suppressNextRowClick,
 }: DataGridTableProps) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[5px] border border-[var(--panel-stroke)] bg-transparent">
-      {showSheetTabs ? (
-        <div
-          className="flex h-12 shrink-0 items-end justify-between gap-3 border-b border-[var(--table-header-bg)] bg-transparent px-4"
-          data-app-tour-target="data-grid-sheets"
-          onContextMenu={(event) => openMenu(event, [])}
-        >
-          <div className="flex min-w-0 items-end gap-5">
-            {displaySheets.map((sheet) => {
-              const active = sheet.id === displayActiveSheetId;
-              const realSheet = sheets.some((item) => item.id === sheet.id);
-              return (
-                <MotionUnderlineTab
-                  key={sheet.id}
-                  label={sheet.label}
-                  active={active}
-                  onClick={() => onSelectSheet?.(sheet.id)}
-                  onContextMenu={(event) => openMenu(event, [])}
-                  disabled={!realSheet}
-                  className="h-10 min-w-[76px] px-2"
-                />
-              );
-            })}
-            {onCreateSheet ? (
-              <button type="button" onClick={onCreateSheet} className="mb-[9px] flex size-6 items-center justify-center text-[var(--secondary-text)] hover:text-[var(--primary-text)]" aria-label="새 시트">
-                <Plus className="size-4" strokeWidth={1.7} />
-              </button>
-            ) : null}
-          </div>
-          {sheetToolbar ? <div className="mb-[7px] flex shrink-0 items-center gap-2">{sheetToolbar}</div> : null}
-        </div>
-      ) : null}
-
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-none border-x-0 border-t border-b border-[var(--panel-stroke)] bg-transparent">
       <div
         ref={viewportRef}
         className="scroll-window-viewport relative min-h-0 flex-1 overflow-auto"
@@ -156,7 +108,7 @@ export function DataGridTable({
                 <th
                   className={cn(
                     rowCheckStickyBaseClass,
-                    "top-0 z-50 h-10 border-b border-r border-[var(--table-header-bg)] bg-[var(--table-header-bg)] px-3 font-normal shadow-[1px_0_0_var(--table-header-bg)]",
+                    "top-0 z-50 h-10 border-b border-[var(--panel-stroke)] bg-[var(--table-header-bg)] px-3 font-normal shadow-[1px_0_0_var(--panel-stroke)]",
                   )}
                   style={{ position: "sticky", left: 0, top: 0 }}
                 >
@@ -170,7 +122,6 @@ export function DataGridTable({
                         onToggleRowsCheck?.(!allChecked, headerTargetRows.map((row) => row.id));
                         return;
                       }
-
                       onToggleAllRows?.(!allChecked);
                     }}
                     className={cn(
@@ -181,7 +132,7 @@ export function DataGridTable({
                     <AnimatePresence initial={false}>
                       {allChecked ? (
                         <motion.span {...checkPopMotion}>
-                          <Check className="size-3 text-[var(--primary-text)]" strokeWidth={1.9} />
+                          <Check className="size-3 text-white" strokeWidth={1.9} />
                         </motion.span>
                       ) : null}
                     </AnimatePresence>
@@ -189,7 +140,7 @@ export function DataGridTable({
                 </th>
               ) : null}
               {table.columns.map((column) => (
-                <th key={column.key} className="sticky top-0 z-30 border-b border-r border-[var(--table-header-bg)] bg-[var(--table-header-bg)] px-2 font-normal" style={{ height: defaultHeaderHeight }}>
+                <th key={column.key} className="sticky top-0 z-30 border-b border-r border-[var(--panel-stroke)] bg-[var(--table-header-bg)] px-2 font-normal" style={{ height: defaultHeaderHeight }}>
                   <div className="grid h-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
                     <div className="flex h-full min-w-0 items-center overflow-hidden text-ellipsis whitespace-nowrap leading-none">{column.label}</div>
                     {columnMenus[column.key] ? (
@@ -253,7 +204,7 @@ export function DataGridTable({
                   )}
                 >
                   {showsRowChecks ? (
-                    <td className={cn(rowCheckStickyBaseClass, "z-20 border-b border-r border-[var(--table-header-bg)] bg-[var(--table-header-bg)] px-3 shadow-[1px_0_0_var(--table-header-bg)]")} style={{ height: rowHeight }}>
+                    <td className={cn(rowCheckStickyBaseClass, "z-20 border-b border-[var(--panel-stroke)] bg-[var(--table-header-bg)] px-3 shadow-[1px_0_0_var(--panel-stroke)]")} style={{ height: rowHeight }}>
                       <motion.button
                         type="button"
                         aria-label={`${row.cells.fileName || row.cells.file_name || row.id} 내보내기 선택`}
@@ -271,7 +222,7 @@ export function DataGridTable({
                         <AnimatePresence initial={false}>
                           {rowChecks?.[row.id] !== false ? (
                             <motion.span {...checkPopMotion}>
-                              <Check className="size-3 text-[var(--primary-text)]" strokeWidth={1.9} />
+                              <Check className="size-3 text-white" strokeWidth={1.9} />
                             </motion.span>
                           ) : null}
                         </AnimatePresence>
@@ -291,7 +242,7 @@ export function DataGridTable({
                     return (
                       <td
                         key={column.key}
-                        className="relative border-b border-r border-[var(--table-header-bg)] px-2 align-middle"
+                        className="relative border-b border-r border-[var(--panel-stroke)] px-2 align-middle"
                         style={{ height: rowHeight }}
                         data-app-tour-target={offset === 0 && columnIndex === 0 ? "data-grid-resize-cell" : undefined}
                       >

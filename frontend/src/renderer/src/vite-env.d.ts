@@ -7,6 +7,7 @@ declare global {
     studioBackend: StudioBackendApi;
     studioShell: {
       getAppInfo: () => AppInfo;
+      setMenuBarVisibility: (visible: boolean) => void;
     };
   }
 }

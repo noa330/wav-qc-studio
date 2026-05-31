@@ -28,12 +28,12 @@ export const gptPretrainedDefaults: Record<GptVersion, GptPretrainedDefaults> = 
   v3: {
     s1: `${gptHfRoot}\\s1v3.ckpt`,
     s2g: `${gptHfRoot}\\s2Gv3.pth`,
-    s2d: `${gptHfRoot}\\s2Dv3.pth`,
+    s2d: "",
   },
   v4: {
     s1: `${gptHfRoot}\\s1v3.ckpt`,
     s2g: `${gptHfRoot}\\gsv-v4-pretrained\\s2Gv4.pth`,
-    s2d: `${gptHfRoot}\\gsv-v4-pretrained\\s2Dv4.pth`,
+    s2d: "",
   },
   v2Pro: {
     s1: `${gptHfRoot}\\s1v3.ckpt`,

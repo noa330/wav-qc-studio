@@ -6,7 +6,7 @@ import { NumericField, SelectField, ToggleSwitch } from "@/shared/components/con
 import { softPressTap } from "@/shared/motion";
 import { gptPretrainedDefaults, shouldReplaceGptPretrainedPath, type GptVersion } from "../../../model/voice-training-pretrained";
 import type { WorkspaceRuntime } from "../../../state/use-workspace-runtime";
-import { SettingControlSlot } from "../../shared/workspace-panel-primitives";
+import { SettingControlSlot, ModelSelectionPanel, ModelOptionItem } from "../../shared/workspace-panel-primitives";
 import { defaultTrainingModelNames } from "./training-panel-config";
 
 export { TrainingSettingsBody } from "./TrainingSettingsBody";
@@ -81,21 +81,35 @@ export function TrainingModelBody({ runtime }: { runtime: WorkspaceRuntime }) {
     runtime.syncTrainingModelCheckpoints(undefined, nextTraining);
   };
 
+  const options: ModelOptionItem<VoiceTrainingModel>[] = [
+    {
+      value: "gpt-sovits",
+      title: "GPT-SoVITS",
+      description: ".list 데이터셋, 텍스트/SSL/시맨틱 전처리, SoVITS와 GPT 체크포인트",
+      badgeText: "훈련 지원",
+      badgeType: "purple",
+      tags: ["음성 합성", "파인튜닝"],
+    },
+    {
+      value: "omnivoice",
+      title: "OmniVoice",
+      description: ".jsonl/.json 데이터셋, 오디오 토큰 추출, 스텝 기준 체크포인트",
+      badgeText: "훈련 지원",
+      badgeType: "blue",
+      tags: ["오디오 코덱", "대형 모델"],
+    },
+  ];
+
   return (
-    <div className="app-scrollbar h-full min-h-0 min-w-0 space-y-3 overflow-auto pr-1">
-      <TrainingModelOption
-        title="GPT-SoVITS"
-        subtitle=".list 데이터셋, 텍스트/SSL/시맨틱 전처리, SoVITS와 GPT 체크포인트"
-        checked={settings.selectedModel === "gpt-sovits"}
-        onSelect={() => selectModel("gpt-sovits")}
-      />
-      <TrainingModelOption
-        title="OmniVoice"
-        subtitle=".jsonl/.json 데이터셋, 오디오 토큰 추출, 스텝 기준 체크포인트"
-        checked={settings.selectedModel === "omnivoice"}
-        onSelect={() => selectModel("omnivoice")}
-      />
-    </div>
+    <ModelSelectionPanel
+      title="학습 모델"
+      subtitle="학습에 사용할 모델을 선택하세요."
+      options={options}
+      selectedValue={settings.selectedModel}
+      onSelect={selectModel}
+      helpText="모델에 대한 자세한 정보는 도움말을 참고하세요."
+      helpHref="https://github.com"
+    />
   );
 }
 
@@ -273,28 +287,3 @@ function TrainingToggleSetting({ label, children }: { label: string; children: R
   );
 }
 
-function TrainingModelOption({ title, subtitle, checked, onSelect }: { title: string; subtitle: string; checked: boolean; onSelect: () => void }) {
-  return (
-    <motion.button
-      type="button"
-      role="radio"
-      aria-checked={checked}
-      onClick={onSelect}
-      whileTap={softPressTap}
-      className={cn(
-        "grid w-full min-w-0 grid-cols-[18px_minmax(0,1fr)] items-center gap-2 rounded-[5px] bg-transparent px-2 py-2.5 text-left transition-[background-color,border-color] focus-visible:outline-none",
-        checked
-          ? "border-2 border-[var(--nav-selected-bg)]"
-          : "border border-[var(--panel-stroke)] hover:bg-[var(--soft-selection-hover)] focus-visible:border-2 focus-visible:border-[var(--nav-selected-bg)] focus-visible:bg-[var(--soft-selection-hover)]",
-      )}
-    >
-      <span className={cn("relative size-[18px] rounded-full border border-[var(--panel-stroke)]", checked && "border-[var(--accent-blue)]")}>
-        {checked ? <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--accent-blue)]" /> : null}
-      </span>
-      <div className="min-w-0">
-        <span className="text-sm font-normal text-[var(--primary-text)]">{title}</span>
-        <p className="mt-1 text-[13px] leading-[18px] text-[var(--secondary-text)]">{subtitle}</p>
-      </div>
-    </motion.button>
-  );
-}

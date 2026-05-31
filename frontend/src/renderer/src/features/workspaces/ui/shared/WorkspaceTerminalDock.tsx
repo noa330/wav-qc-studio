@@ -69,7 +69,7 @@ export function WorkspaceTerminalDock({
             key="terminal-bubble"
             {...menuMotion}
             className={cn(
-              "absolute z-[1] w-[var(--terminal-dock-bubble-width,100%)] rounded-[5px] border border-[var(--panel-stroke)] bg-[#0d131c]/95 px-3 py-3 pr-10 font-mono text-[13px] font-normal leading-5 text-[var(--secondary-text)] shadow-[0_16px_36px_rgba(0,0,0,.42)] backdrop-blur",
+              "absolute z-[1] w-[var(--terminal-dock-bubble-width,100%)] rounded-[5px] border border-[var(--terminal-dock-bubble-border)] bg-[var(--terminal-dock-bubble-bg)] px-3 py-3 pr-10 font-mono text-[13px] font-normal leading-5 text-[var(--secondary-text)] shadow-[var(--terminal-dock-bubble-shadow)] backdrop-blur",
               placement === "top" ? "bottom-[calc(100%+var(--terminal-dock-bubble-gap,10px))]" : "top-[calc(100%+var(--terminal-dock-bubble-gap,10px))]",
               "right-[calc(var(--terminal-dock-bubble-right-offset,0px)*-1)]",
             )}
@@ -87,7 +87,7 @@ export function WorkspaceTerminalDock({
             >
               <X className="size-3.5" strokeWidth={1.8} />
             </button>
-            <div className="h-[132px] overflow-hidden rounded-[4px] bg-[#0d131c]">
+            <div className="h-[132px] overflow-hidden rounded-[4px] bg-transparent">
               {terminal.text.trim() ? (
                 <WorkspacePtyTerminal text={terminal.text} className="h-full w-full px-2 py-2" fontSize={12} scrollback={800} />
               ) : (
@@ -98,7 +98,7 @@ export function WorkspaceTerminalDock({
               <span
                 aria-hidden="true"
                 className={cn(
-                  "absolute left-[var(--terminal-dock-caret-left,50%)] size-3 -translate-x-1/2 rotate-45 border border-[var(--panel-stroke)] bg-[#0d131c]",
+                  "absolute left-[var(--terminal-dock-caret-left,50%)] size-3 -translate-x-1/2 rotate-45 border border-[var(--terminal-dock-bubble-border)] bg-[var(--terminal-dock-bubble-bg)]",
                   placement === "top" ? "bottom-[-7px] border-l-0 border-t-0" : "top-[-7px] border-b-0 border-r-0",
                 )}
               />

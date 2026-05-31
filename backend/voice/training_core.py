@@ -864,7 +864,11 @@ def gpt_hf_cache_ready(version: str | None = None) -> bool:
         if not item:
             continue
         spec = GPT_PRETRAINED[item]
-        required.extend([spec["gpt"], spec["s2g"], spec["s2d"]])
+        required.extend(
+            file_name
+            for file_name in [spec.get(key, "") for key in ("gpt", "s2g", "s2d", "vocoder", "vocoder_config")]
+            if file_name
+        )
     required.append("sv/pretrained_eres2netv2w24s4ep4.ckpt")
     return all(is_download_complete(GPT_HF / file_name, reject_git_lfs_pointer=True) for file_name in required)
 
@@ -947,8 +951,8 @@ def validate_gpt_version(version: str) -> None:
     if version not in GPT_VERSIONS:
         raise ToolError(f"Unsupported GPT-SoVITS version: {version}")
     missing = [key for key in ("gpt", "s2g") if not gpt_model_path(version, key).exists()]
-    s2d = gpt_model_path(version, "s2d")
-    if not s2d.exists():
+    s2d = GPT_PRETRAINED[version].get("s2d", "")
+    if s2d and not gpt_model_path(version, "s2d").exists():
         missing.append("s2d")
     if missing:
         raise ToolError(f"Missing GPT-SoVITS {version} pretrained files: {missing}")

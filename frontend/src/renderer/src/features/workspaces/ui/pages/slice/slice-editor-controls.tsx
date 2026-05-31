@@ -36,7 +36,7 @@ export function SliceMarkerContextMenu({
     <motion.div
       ref={refEl}
       {...menuMotion}
-      className="fixed z-[1100] min-w-[180px] rounded-[4px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] py-1 text-sm shadow-[0_14px_32px_rgba(0,0,0,.34)]"
+      className="fixed z-[1100] min-w-[180px] rounded-[4px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] py-1 text-sm shadow-[var(--app-menu-shadow)]"
       style={{ left: menu.x, top: menu.y }}
     >
       <SliceMarkerMenuItem icon={<Copy className="size-4" />} label="복사하기" disabled={!canSplit} onClick={onCopy} />

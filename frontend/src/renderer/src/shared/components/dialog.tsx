@@ -33,7 +33,7 @@ export function AppDialog({
     >
       <motion.div
         {...dialogPanelMotion}
-        className={cn("rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--shell-chrome-card-bg)] p-4 shadow-[0_18px_44px_rgba(0,0,0,.45)]", widthClassName)}
+        className={cn("rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--shell-chrome-card-bg)] p-4 shadow-[var(--app-dialog-shadow)]", widthClassName)}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">

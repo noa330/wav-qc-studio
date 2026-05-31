@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence } from "motion/react";
 import { ChartNoAxesColumnIncreasing, Filter, ListChecks } from "lucide-react";
 import type { DataTableRow, WorkspaceId } from "@shared/ipc";
@@ -16,7 +17,7 @@ import { useWorkspaceAudioSync } from "../shared/workspace-audio-sync";
 import { BatchEditableCell, TaggingResultCell } from "./WorkspaceTableCells";
 
 
-export function WorkspaceDataGrid({ workspaceId, runtime, table, suspendWidthTracking = false }: { workspaceId: WorkspaceId; runtime: WorkspaceRuntime; table: ReturnType<WorkspaceRuntime["getTable"]>; suspendWidthTracking?: boolean }) {
+export function WorkspaceDataGrid({ workspaceId, runtime, table, suspendWidthTracking = false, controlledPageSize, onPageSizeChange }: { workspaceId: WorkspaceId; runtime: WorkspaceRuntime; table: ReturnType<WorkspaceRuntime["getTable"]>; suspendWidthTracking?: boolean; controlledPageSize?: number; onPageSizeChange?: (size: number) => void }) {
   const persistence = useAppPersistence();
   const initialWorkspaceUiRef = useRef(persistence.getWorkspaceUiSnapshot(workspaceId));
   const [overviewEditorOpen, setOverviewEditorOpen] = useState(() => workspaceId === "overview" && initialWorkspaceUiRef.current.dialogs.overviewEditorOpen);
@@ -24,6 +25,21 @@ export function WorkspaceDataGrid({ workspaceId, runtime, table, suspendWidthTra
   const [taggingScoreCutOpen, setTaggingScoreCutOpen] = useState(() => workspaceId === "tagging" && initialWorkspaceUiRef.current.dialogs.taggingScoreCutOpen);
   const [trainingTensorBoardOpen, setTrainingTensorBoardOpen] = useState(() => workspaceId === "training" && initialWorkspaceUiRef.current.dialogs.trainingTensorBoardOpen);
   const [visibleGridRows, setVisibleGridRows] = useState<DataTableRow[]>([]);
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const searchTarget = () => {
+      const el = document.getElementById(`workspace-header-widget-slot-${workspaceId}`);
+      if (el) {
+        setPortalTarget(el);
+      }
+    };
+    
+    searchTarget();
+    const timer = setTimeout(searchTarget, 50);
+    return () => clearTimeout(timer);
+  }, [workspaceId]);
+
   const state = runtime.getState(workspaceId);
   const guideStepId = runtime.guideMode?.activeStepId;
   const forceOverviewEditorOpen = guideStepId === "overview-filter-dialog";
@@ -50,6 +66,15 @@ export function WorkspaceDataGrid({ workspaceId, runtime, table, suspendWidthTra
     });
   }, [batchReplaceOpen, overviewEditorOpen, persistence, taggingScoreCutOpen, trainingTensorBoardOpen, workspaceId]);
 
+  // footer 오른쪽 위젯 슬롯: 위젯이 있는 워크스페이스에만 표시
+  const footerWidget = resolveFooterWidget(workspaceId, {
+    onOpenOverviewEditor: () => setOverviewEditorOpen(true),
+    onOpenBatchReplace: () => setBatchReplaceOpen(true),
+    onOpenTaggingScoreCut: () => setTaggingScoreCutOpen(true),
+    onOpenTrainingTensorBoard: () => setTrainingTensorBoardOpen(true),
+    guideStepId,
+  });
+
   return (
     <>
       <DataGrid
@@ -71,21 +96,6 @@ export function WorkspaceDataGrid({ workspaceId, runtime, table, suspendWidthTra
         onToggleRowCheck={(row) => runtime.toggleRowExportCheck(workspaceId, row)}
         onToggleAllRows={(checked) => runtime.setAllRowExportChecks(workspaceId, checked, table.rows)}
         onToggleRowsCheck={(checked, rowIds) => runtime.setRowsExportChecks(workspaceId, checked, rowIds)}
-        sheetToolbar={
-          workspaceId === "overview" ? (
-            <TableFilterButton ariaLabel="커스텀 필터" tourTarget="table-toolbar-overview" onClick={() => setOverviewEditorOpen(true)} />
-          ) : workspaceId === "batch" ? (
-            <TableFilterButton ariaLabel="내용 검색 및 바꾸기" tourTarget="table-toolbar-batch" onClick={() => setBatchReplaceOpen(true)} />
-          ) : workspaceId === "tagging" ? (
-            <TableFilterButton ariaLabel="태그 디코딩 설정" tourTarget="table-toolbar-tagging" onClick={() => setTaggingScoreCutOpen(true)}>
-              <ListChecks className="size-4" strokeWidth={2} />
-            </TableFilterButton>
-          ) : workspaceId === "training" ? (
-            <TableFilterButton ariaLabel="TensorBoard 그래프" tourTarget="table-toolbar-training" onClick={() => setTrainingTensorBoardOpen(true)}>
-              <ChartNoAxesColumnIncreasing className="size-4" strokeWidth={2} />
-            </TableFilterButton>
-          ) : null
-        }
         columnMenus={buildColumnMenus(workspaceId, runtime)}
         renderCell={
           workspaceId === "batch"
@@ -108,7 +118,9 @@ export function WorkspaceDataGrid({ workspaceId, runtime, table, suspendWidthTra
         onViewStateChange={recordGridViewState}
         suspendWidthTracking={suspendWidthTracking}
         guideStepId={guideStepId}
+        footerWidget={null}
       />
+      {portalTarget && footerWidget ? createPortal(footerWidget, portalTarget) : null}
       <AnimatePresence initial={false}>
         {taggingScoreCutOpen || forceTaggingScoreCutOpen ? <TaggingScoreCutDialog key="tagging-score-cut-dialog" runtime={runtime} onClose={() => {
           if (!forceTaggingScoreCutOpen) {
@@ -164,6 +176,61 @@ export function WorkspaceDataGrid({ workspaceId, runtime, table, suspendWidthTra
   );
 }
 
+// ─── Footer 위젯 슬롯 ────────────────────────────────────────────────────────
+
+type FooterWidgetHandlers = {
+  onOpenOverviewEditor: () => void;
+  onOpenBatchReplace: () => void;
+  onOpenTaggingScoreCut: () => void;
+  onOpenTrainingTensorBoard: () => void;
+  guideStepId?: string;
+};
+
+function resolveFooterWidget(workspaceId: WorkspaceId, handlers: FooterWidgetHandlers): ReactNode {
+  switch (workspaceId) {
+    case "overview":
+      return (
+        <TableFilterButton
+          ariaLabel="커스텀 필터"
+          tourTarget="table-toolbar-overview"
+          onClick={handlers.onOpenOverviewEditor}
+        />
+      );
+    case "batch":
+      return (
+        <TableFilterButton
+          ariaLabel="내용 검색 및 바꾸기"
+          tourTarget="table-toolbar-batch"
+          onClick={handlers.onOpenBatchReplace}
+        />
+      );
+    case "tagging":
+      return (
+        <TableFilterButton
+          ariaLabel="태그 디코딩 설정"
+          tourTarget="table-toolbar-tagging"
+          onClick={handlers.onOpenTaggingScoreCut}
+        >
+          <ListChecks className="size-4" strokeWidth={2} />
+        </TableFilterButton>
+      );
+    case "training":
+      return (
+        <TableFilterButton
+          ariaLabel="TensorBoard 그래프"
+          tourTarget="table-toolbar-training"
+          onClick={handlers.onOpenTrainingTensorBoard}
+        >
+          <ChartNoAxesColumnIncreasing className="size-4" strokeWidth={2} />
+        </TableFilterButton>
+      );
+    default:
+      return null;
+  }
+}
+
+// ─── 유틸리티 ────────────────────────────────────────────────────────────────
+
 function sameRowIds(left: DataTableRow[], right: DataTableRow[]): boolean {
   return left.length === right.length && left.every((row, index) => row.id === right[index]?.id);
 }
@@ -173,6 +240,8 @@ function sameAudioPath(left?: string, right?: string): boolean {
   const normalizedRight = (right ?? "").trim().replace(/\\/gu, "/").toLowerCase();
   return normalizedLeft.length > 0 && normalizedLeft === normalizedRight;
 }
+
+// ─── PanelCard 헤더용 컴포넌트 (export) ─────────────────────────────────────
 
 export function TableHeaderSearch({ workspaceId, runtime }: { workspaceId: WorkspaceId; runtime: WorkspaceRuntime }) {
   const state = runtime.getState(workspaceId);
@@ -228,7 +297,7 @@ function TableFilterButton({ ariaLabel, tourTarget, onClick, children }: { ariaL
     <button
       type="button"
       onClick={onClick}
-      className="flex size-8 items-center justify-center rounded-[5px] border border-[var(--neutral-button-stroke)] bg-[var(--table-header-bg)] text-[var(--primary-text)] hover:bg-[var(--soft-selection-hover)]"
+      className="flex size-[38px] items-center justify-center rounded-[5px] border border-[var(--neutral-button-stroke)] bg-[var(--table-header-bg)] text-[var(--primary-text)] hover:bg-[var(--soft-selection-hover)]"
       aria-label={ariaLabel}
       data-app-tour-target={tourTarget}
     >
@@ -236,6 +305,8 @@ function TableFilterButton({ ariaLabel, tourTarget, onClick, children }: { ariaL
     </button>
   );
 }
+
+// ─── 컬럼 메뉴 ───────────────────────────────────────────────────────────────
 
 function buildColumnMenus(workspaceId: WorkspaceId, runtime: WorkspaceRuntime): Record<string, ReactNode> {
   if (workspaceId === "overview") {

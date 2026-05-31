@@ -6,8 +6,8 @@ export type WorkspaceOuterLayoutSizes = {
 };
 
 export const defaultOuterLayoutSizes: WorkspaceOuterLayoutSizes = {
-  left: 292,
-  right: 322,
+  left: 350,
+  right: 350,
 };
 
 export const outerPanelMin = {

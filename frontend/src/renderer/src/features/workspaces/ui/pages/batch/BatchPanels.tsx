@@ -1,25 +1,162 @@
 import type { DataTableRow } from "@shared/ipc";
-import { LoaderCircle, Square } from "lucide-react";
-import { motion } from "motion/react";
-import { useMemo } from "react";
+import { LoaderCircle, Square, Check, Pencil, MoreVertical, Sparkles, GitMerge, Power } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { useMemo, useState, useEffect } from "react";
 import type { KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
 import { ToggleSwitch } from "@/shared/components/controls";
 import { DataGrid } from "@/shared/components/data-grid";
-import { loadingDotTransition, loadingSpinnerTransition, tightPressTap } from "@/shared/motion";
+import { loadingDotTransition, loadingSpinnerTransition, tightPressTap, checkPopMotion, softPressTap } from "@/shared/motion";
 import { readBatchTranscriptGaps, readBatchTranscriptMuteIntervals, readBatchWords, type BatchTranscriptGap, type BatchWordAlignment } from "../../../model/batch-alignment";
 import { collectBatchSpeakers } from "../../../model/batch-filter";
 import type { WorkspaceRuntime } from "../../../state/use-workspace-runtime";
 import { WorkspaceAudioPlaybackPanel } from "../../shared/WorkspaceAudioPlaybackPanel";
 import { requestWorkspaceAudioPreview, requestWorkspaceAudioSeek, useWorkspaceAudioSync } from "../../shared/workspace-audio-sync";
 import { EmptyPanel } from "../../shared/workspace-panel-primitives";
+import { ColumnSearchField } from "@/shared/components/column-search-field";
 
 export { BatchModelSettingsBody } from "./BatchModelSettingsBody";
+
+const SPEAKER_COLORS = [
+  "#8B5CF6", // Purple
+  "#10B981", // Green
+  "#3B82F6", // Blue
+  "#EF4444", // Red
+  "#F59E0B", // Orange
+  "#EC4899", // Pink
+  "#06B6D4", // Cyan
+  "#84CC16", // Lime
+];
+
+function getSpeakerColor(speaker: string): string {
+  if (!speaker) return "#9CA3AF";
+  let hash = 0;
+  for (let i = 0; i < speaker.length; i++) {
+    hash = speaker.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % SPEAKER_COLORS.length;
+  return SPEAKER_COLORS[index];
+}
 
 export function BatchSpeakerSelectionBody({ runtime, rows }: { runtime: WorkspaceRuntime; rows: DataTableRow[] }) {
   const state = runtime.getState("batch");
   const speakers = collectBatchSpeakers(rows);
-  const selectedSpeakers = speakers.filter((speaker) => state.batchSpeakerChecks[speaker] !== false);
+  const [checkedSpeakers, setCheckedSpeakers] = useState<Set<string>>(new Set());
+  const [renamingSpeaker, setRenamingSpeaker] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  
+  const [searchText, setSearchText] = useState("");
+  const [filterKeys, setFilterKeys] = useState<string[]>([]);
+
+  const totalDuration = useMemo(() => {
+    let sum = 0;
+    for (const row of rows) {
+      const sec = Number(row.raw?.durationSec ?? row.raw?.duration_sec ?? 0);
+      if (Number.isFinite(sec)) {
+        sum += sec;
+      }
+    }
+    return sum;
+  }, [rows]);
+
+  const formatTotalDuration = (seconds: number) => {
+    const min = Math.floor(seconds / 60);
+    const sec = Math.floor(seconds % 60);
+    return `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  };
+
+  const searchOptions = useMemo(() => [
+    { key: "active", label: "활성 화자만" },
+    { key: "inactive", label: "비활성 화자만" }
+  ], []);
+
+  const handleSelectedKeysChange = (keys: string[]) => {
+    if (keys.includes("active") && keys.includes("inactive")) {
+      setFilterKeys([]);
+    } else {
+      setFilterKeys(keys);
+    }
+  };
+
+  const filteredSpeakers = useMemo(() => {
+    return speakers.filter((speaker) => {
+      if (searchText.trim()) {
+        const clean = searchText.trim().toLowerCase();
+        if (!speaker.toLowerCase().includes(clean)) {
+          return false;
+        }
+      }
+      if (filterKeys.length > 0) {
+        const isActive = state.batchSpeakerChecks[speaker] !== false;
+        if (filterKeys.includes("active") && !isActive) {
+          return false;
+        }
+        if (filterKeys.includes("inactive") && isActive) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [speakers, searchText, filterKeys, state.batchSpeakerChecks]);
+
+  useEffect(() => {
+    if (speakers.length === 0) {
+      setSearchText("");
+      setFilterKeys([]);
+    }
+  }, [speakers]);
+
+  useEffect(() => {
+    setCheckedSpeakers((current) => {
+      const next = new Set<string>();
+      for (const speaker of current) {
+        if (speakers.includes(speaker)) {
+          next.add(speaker);
+        }
+      }
+      return next;
+    });
+  }, [speakers]);
+
+  const toggleChecked = (speaker: string) => {
+    setCheckedSpeakers((current) => {
+      const next = new Set(current);
+      if (next.has(speaker)) {
+        next.delete(speaker);
+      } else {
+        next.add(speaker);
+      }
+      return next;
+    });
+  };
+
+  const startRename = (speaker: string) => {
+    setRenamingSpeaker(speaker);
+    setRenameValue(speaker);
+  };
+
+  const commitRename = (oldName: string) => {
+    const cleanNew = renameValue.trim();
+    if (cleanNew && cleanNew !== oldName) {
+      runtime.renameBatchSpeaker(oldName, cleanNew);
+    }
+    setRenamingSpeaker(null);
+  };
+
+  const getSpeakerLineCount = (speaker: string) => {
+    return rows.filter((row) => {
+      const activeStage = (row.raw?.activeStage || row.raw?.active_stage || "").toLowerCase();
+      if (activeStage === "diarizing" || activeStage === "preparing_diarization") {
+        return false;
+      }
+      if (row.cells.speaker === "화자구분 중") {
+        return false;
+      }
+      const currentSpeaker = row.raw?.speaker || row.raw?.speaker_groups || row.cells.speaker || "";
+      return currentSpeaker === speaker;
+    }).length;
+  };
+
   const speakerStageRunning = rows.some((row) => {
     const activeStage = (row.raw?.activeStage || row.raw?.active_stage || "").toLowerCase();
     return activeStage === "diarizing" || activeStage === "preparing_diarization";
@@ -27,65 +164,245 @@ export function BatchSpeakerSelectionBody({ runtime, rows }: { runtime: Workspac
   const speakerRunning = state.isBatchSpeakerRunning || speakerStageRunning;
   const canRunSpeaker = rows.length > 0 && Boolean(state.inputPath) && !state.isRunning && !state.isExporting && !speakerRunning;
   const canStopSpeaker = state.isBatchSpeakerRunning;
+
+  // Execute Diarization (top purple button)
   const runSpeakerButton = (
     <motion.button
       type="button"
       disabled={speakerRunning ? !canStopSpeaker : !canRunSpeaker}
       onClick={() => void (speakerRunning ? runtime.cancelBatchSpeakerDiarization() : runtime.runBatchSpeakerDiarization())}
-      whileTap={speakerRunning ? canStopSpeaker ? tightPressTap : undefined : canRunSpeaker ? tightPressTap : undefined}
+      whileTap={speakerRunning ? (canStopSpeaker ? tightPressTap : undefined) : canRunSpeaker ? tightPressTap : undefined}
       className={cn(
-        "h-[38px] w-full min-w-0 truncate px-4 text-sm disabled:opacity-45",
-        speakerRunning && canStopSpeaker ? "wpf-danger-button" : "wpf-button",
+        "flex w-full items-center justify-center gap-2 transition shadow-sm",
+        speakerRunning && canStopSpeaker 
+          ? "wpf-danger-button disabled:opacity-45" 
+          : "wpf-primary-button disabled:opacity-45 disabled:cursor-not-allowed"
       )}
       aria-label={speakerRunning ? "화자 구분 중지" : "화자 구분 실행"}
     >
       {speakerRunning && canStopSpeaker ? (
         <span className="inline-flex min-w-0 items-center justify-center">
           <Square className="mr-2 size-3.5 shrink-0" fill="currentColor" strokeWidth={1.7} />
-          STOP
+          STOP (화자 구분 중지)
         </span>
       ) : (
-        "화자 구분 Run"
+        <span className="inline-flex min-w-0 items-center justify-center gap-2">
+          <Sparkles className="size-4 shrink-0" />
+          화자 구분 실행
+        </span>
       )}
     </motion.button>
   );
-  const speakerActions = (
-    <div className="grid shrink-0 grid-cols-1 gap-2 pt-3">
-      {runSpeakerButton}
-      {speakers.length > 0 ? (
-        <button
-          type="button"
-          disabled={selectedSpeakers.length < 2 || state.isRunning || state.isExporting || speakerRunning}
-          onClick={() => runtime.mergeEnabledBatchSpeakers()}
-          className="wpf-button h-[38px] w-full min-w-0 truncate px-4 text-sm disabled:opacity-45"
-        >
-          화자 병합
-        </button>
-      ) : null}
-    </div>
-  );
+
+  // Rerun selected speakers
+  const handleRerunSelectedSpeakers = () => {
+    if (checkedSpeakers.size === 0 || speakerRunning) {
+      return;
+    }
+    void runtime.runSelectedSpeakersDiarization(Array.from(checkedSpeakers));
+  };
+
+  // Merge selected speakers
+  const handleMergeSelectedSpeakers = () => {
+    if (checkedSpeakers.size < 2 || speakerRunning) {
+      return;
+    }
+    runtime.mergeEnabledBatchSpeakers(Array.from(checkedSpeakers));
+    setCheckedSpeakers(new Set());
+  };
 
   const speakerContent = speakers.length === 0 && speakerRunning ? (
     <BatchSpeakerLoadingPanel />
   ) : speakers.length === 0 ? (
-    <EmptyPanel text={rows.length > 0 ? "화자 구분 Run으로 화자 목록을 만들 수 있습니다." : "먼저 왼쪽 RUN으로 전사 결과를 만든 뒤, 여기서 화자 구분을 실행할 수 있습니다."} />
+    <EmptyPanel text="표시할 결과가 없습니다." />
   ) : (
-    <div className="app-scrollbar h-full min-h-0 space-y-3 overflow-auto pr-1">
+    <div className="app-scrollbar h-full min-h-0 overflow-auto pr-1">
       {speakerRunning ? <BatchSpeakerLoadingPanel compact /> : null}
-      {speakers.map((speaker) => (
-        <div key={speaker} className="grid grid-cols-[auto_1fr_auto] items-center">
-          <span className="flex size-8 items-center justify-center rounded-full bg-[var(--nav-selected-bg)] text-sm text-[var(--primary-text)]">{speaker.slice(0, 1).toUpperCase()}</span>
-          <p className="mx-[10px] truncate text-sm text-[var(--primary-text)]">{speaker}</p>
-          <ToggleSwitch checked={state.batchSpeakerChecks[speaker] !== false} onChange={() => runtime.toggleBatchSpeaker(speaker)} />
+      {filteredSpeakers.length === 0 ? (
+        <div className="flex h-full min-h-[120px] items-center justify-center text-center text-sm text-[var(--secondary-text)]">
+          검색 결과가 없습니다.
         </div>
-      ))}
+      ) : (
+        <div className="flex flex-col gap-3">
+          {filteredSpeakers.map((speaker) => {
+            const isChecked = checkedSpeakers.has(speaker);
+            return (
+              <div 
+                key={speaker} 
+                className="flex flex-col gap-2 rounded-xl border border-[var(--panel-stroke)] bg-[var(--field-bg)] p-3.5 shadow-sm transition hover:border-[var(--accent-blue)]"
+              >
+                <div className="flex items-center gap-3">
+                  {/* Standalone Checkbox */}
+                  <button
+                    type="button"
+                    onClick={() => toggleChecked(speaker)}
+                    className="flex size-[18px] shrink-0 items-center justify-center rounded-[3px] border transition"
+                    style={{
+                      borderColor: isChecked ? "var(--accent-blue)" : "var(--control-stroke)",
+                      backgroundColor: isChecked ? "var(--accent-blue)" : "transparent"
+                    }}
+                  >
+                    <AnimatePresence initial={false}>
+                      {isChecked ? (
+                        <motion.span {...checkPopMotion}>
+                          <Check className="size-3 text-white" strokeWidth={3} />
+                        </motion.span>
+                      ) : null}
+                    </AnimatePresence>
+                  </button>
+
+                  {/* Color Dot */}
+                  <span 
+                    className="size-2.5 shrink-0 rounded-full" 
+                    style={{ backgroundColor: getSpeakerColor(speaker) }} 
+                  />
+
+                  {/* Speaker Name / Inline Rename Input */}
+                  {renamingSpeaker === speaker ? (
+                    <input
+                      type="text"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onBlur={() => commitRename(speaker)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") commitRename(speaker);
+                        if (e.key === "Escape") setRenamingSpeaker(null);
+                      }}
+                      autoFocus
+                      className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-[var(--primary-text)] outline-none border-b border-[var(--accent-blue)]"
+                    />
+                  ) : (
+                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                      <span className="truncate text-sm font-semibold text-[var(--primary-text)]">
+                        {speaker}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => startRename(speaker)}
+                        className="inline-flex items-center text-[var(--secondary-text)] hover:text-[var(--primary-text)] transition"
+                        title="이름 수정"
+                      >
+                        <Pencil className="size-3.5 shrink-0" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* ToggleSwitch */}
+                  <ToggleSwitch 
+                    checked={state.batchSpeakerChecks[speaker] !== false} 
+                    onChange={() => runtime.toggleBatchSpeaker(speaker)} 
+                  />
+                </div>
+
+                {/* Subtext: Speech line count */}
+                <div className="pl-[30px] text-xs text-[var(--secondary-text)]">
+                  대사 {getSpeakerLineCount(speaker)}개
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col">
-      <div className="min-h-0 min-w-0 flex-1 overflow-hidden">{speakerContent}</div>
-      {speakerActions}
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-4">
+      {/* 화자 구분 */}
+      <div className="flex shrink-0 flex-col gap-2.5">
+        <div className="flex items-center justify-between min-h-5 mb-1.5">
+          <p className="text-sm font-normal text-[var(--primary-text)]">화자 구분</p>
+          {rows.length > 0 ? (
+            <span className="text-xs text-[var(--secondary-text)]">
+              전체 오디오 길이 {formatTotalDuration(totalDuration)}
+            </span>
+          ) : null}
+        </div>
+        {runSpeakerButton}
+      </div>
+
+      {/* 화자 목록 */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 border-t border-[var(--panel-stroke)] pt-3 overflow-hidden">
+        <div className="flex items-center justify-between min-h-5">
+          <p className="text-sm font-normal text-[var(--primary-text)]">화자 목록</p>
+        </div>
+
+        {/* Search Field */}
+        <div className="shrink-0">
+          <ColumnSearchField
+            value={searchText}
+            onChange={setSearchText}
+            options={searchOptions}
+            selectedKeys={filterKeys}
+            onSelectedKeysChange={handleSelectedKeysChange}
+            ariaLabel="화자 검색"
+            placeholder="화자 검색..."
+            headerLabel="검색 대상"
+            allOptionLabel="전체 화자"
+          />
+        </div>
+
+        {/* Main Speakers List Card */}
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+          {speakerContent}
+        </div>
+      </div>
+
+      {/* Bottom Actions Section */}
+      <div className="flex shrink-0 flex-col gap-3.5 border-t border-[var(--panel-stroke)] pt-4">
+        {/* Selected Speaker Actions Container */}
+        <div className="flex flex-col gap-2.5 bg-[var(--table-header-bg)] border border-[var(--panel-stroke)] rounded-[5px] p-4 shadow-sm">
+          <h5 className="text-[14px] font-semibold text-[var(--primary-text)] mb-0.5">
+            선택 화자 작업
+          </h5>
+
+          {/* Merge Speakers */}
+          <motion.button
+            type="button"
+            disabled={checkedSpeakers.size < 2 || state.isRunning || state.isExporting || speakerRunning}
+            onClick={handleMergeSelectedSpeakers}
+            whileTap={checkedSpeakers.size >= 2 && !speakerRunning ? softPressTap : undefined}
+            className="wpf-action-button flex h-[38px] w-full items-center justify-center gap-2 px-4 text-sm font-semibold transition"
+          >
+            <GitMerge 
+              className={cn(
+                "size-4 shrink-0 transition", 
+                (checkedSpeakers.size < 2 || state.isRunning || state.isExporting || speakerRunning)
+                  ? "text-[var(--secondary-text)]/40" 
+                  : "text-[var(--accent-blue)]/90"
+              )} 
+            />
+            선택 화자 병합
+          </motion.button>
+
+
+
+          {/* Rerun Selected Speakers Block */}
+          <motion.button
+            type="button"
+            disabled={checkedSpeakers.size === 0 || state.isRunning || state.isExporting || speakerRunning}
+            onClick={handleRerunSelectedSpeakers}
+            whileTap={checkedSpeakers.size > 0 && !speakerRunning ? softPressTap : undefined}
+            className="wpf-action-button flex h-[38px] w-full items-center justify-center gap-2 px-4 text-sm font-semibold transition"
+          >
+            <Power 
+              className={cn(
+                "size-4 shrink-0 transition", 
+                (checkedSpeakers.size === 0 || state.isRunning || state.isExporting || speakerRunning)
+                  ? "text-[var(--secondary-text)]/40" 
+                  : "text-[var(--accent-blue)]/90"
+              )} 
+            />
+            선택 화자 재분리
+          </motion.button>
+
+          {/* Unified compact description */}
+          <div className="text-[12px] leading-5 text-[var(--secondary-text)] flex flex-col gap-0.5 mt-2 px-0.5">
+            <span>• 병합: 2개 이상 선택 시 첫 번째 화자로 병합됩니다.</span>
+            <span>• 재분리: 선택 화자의 오디오 구간만 다시 분리를 시도합니다.</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -103,19 +420,7 @@ function BatchSpeakerLoadingPanel({ compact = false }: { compact?: boolean }) {
         >
           <LoaderCircle className="size-4" strokeWidth={1.9} />
         </motion.span>
-        <span className="inline-flex min-w-0 justify-center" aria-label={text}>
-          {[...text].map((char, index) => (
-            <motion.span
-              key={`${char}-${index}`}
-              className={cn("inline-block", char === " " && "w-1.5")}
-              animate={{ y: [0, -4, 0], opacity: [0.45, 1, 0.45] }}
-              transition={{ ...loadingDotTransition, delay: index * 0.045 }}
-              aria-hidden="true"
-            >
-              {char === " " ? "\u00a0" : char}
-            </motion.span>
-          ))}
-        </span>
+        <span>{text}</span>
       </div>
     </div>
   );
@@ -211,7 +516,6 @@ export function BatchTimelineBody({ row }: { row?: DataTableRow }) {
   return (
     <DataGrid
       table={table}
-      showSheetTabs={false}
       showPagination={false}
       selectedRowId={activeId}
       onSelectRow={(timelineRow) => {
@@ -476,19 +780,19 @@ function formatAlignmentStatus(statusCode: string): string {
 
 function transcriptTokenClass(event: BatchTimelineEvent): string {
   if (event.kind === "extra") {
-    return "bg-[#363b46] text-[#d8dde8]";
+    return "bg-[var(--token-extra-bg)] text-[var(--token-extra-text)]";
   }
   if (event.statusCode === "missing" || event.statusCode === "unalignable") {
-    return "bg-[#5b1b1b] text-[#ffb4b4]";
+    return "bg-[var(--token-negative-bg)] text-[var(--token-negative-text)]";
   }
   const score = Number(event.score);
   if (Number.isFinite(score) && score < 0.32) {
-    return "bg-[#5b1b1b] text-[#ffb4b4]";
+    return "bg-[var(--token-negative-bg)] text-[var(--token-negative-text)]";
   }
   if (event.statusCode !== "aligned" || (Number.isFinite(score) && score < 0.62)) {
-    return "bg-[#5a4310] text-[#ffe08a]";
+    return "bg-[var(--token-warning-bg)] text-[var(--token-warning-text)]";
   }
-  return "bg-[#145232] text-[#93f5b6]";
+  return "bg-[var(--token-positive-bg)] text-[var(--token-positive-text)]";
 }
 
 function defaultTranscriptText(value: string, rowLineClamp: number) {

@@ -14,6 +14,7 @@ export function SelectField<T extends string>({
   ariaLabel,
   placeholder,
   emptyText = "선택 가능한 항목이 없습니다.",
+  dropdownClassName,
 }: {
   value: T | "";
   options: Array<{ value: T; label: string }>;
@@ -22,6 +23,7 @@ export function SelectField<T extends string>({
   ariaLabel: string;
   placeholder?: string;
   emptyText?: string;
+  dropdownClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [opening, setOpening] = useState(false);
@@ -172,7 +174,7 @@ export function SelectField<T extends string>({
                   ref={menuRef}
                   id={listboxId}
                   role="listbox"
-                  className="z-[1000]"
+                  className={cn("z-[1000]", dropdownClassName)}
                   style={{ left: menuGeometry.left, top: menuGeometry.top, width: menuGeometry.width, maxHeight: menuGeometry.maxHeight }}
                 >
                   <DropdownMenuHeader>{ariaLabel}</DropdownMenuHeader>

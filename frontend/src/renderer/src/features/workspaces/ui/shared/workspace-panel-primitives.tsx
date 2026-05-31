@@ -1,11 +1,11 @@
-﻿import { FastForward, Play, Rewind, Square } from "lucide-react";
+import { FastForward, Play, Rewind, Square, ExternalLink, HelpCircle } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { DetailField } from "@shared/ipc";
 import { cn } from "@/lib/utils";
 import { NumericField, Tooltip } from "@/shared/components/controls";
 import type { AudioTransport } from "@/shared/hooks/use-audio-transport";
-import { checkPopMotion, tightPressTap } from "@/shared/motion";
+import { checkPopMotion, tightPressTap, softPressTap } from "@/shared/motion";
 
 
 const settingRowGridStyle: CSSProperties = {
@@ -252,14 +252,23 @@ export function TransportButtons({ transport, disabled = false }: { transport?: 
       <motion.button type="button" disabled={isDisabled} onClick={() => transport?.skip(-5)} whileTap={isDisabled ? undefined : tightPressTap} className="flex h-[38px] w-10 items-center justify-center text-[#D2D7E1] disabled:opacity-35" aria-label="5초 뒤로">
         <Rewind className="size-4" fill="currentColor" />
       </motion.button>
-      <motion.button type="button" disabled={isDisabled} onClick={() => transport?.toggle()} whileTap={isDisabled ? undefined : tightPressTap} className="flex h-[38px] w-10 items-center justify-center text-[#D2D7E1] disabled:opacity-35" aria-label={transport?.isPlaying ? "정지" : "재생"}>
+      <motion.button
+        type="button"
+        disabled={isDisabled}
+        onClick={() => transport?.toggle()}
+        whileTap={isDisabled ? undefined : tightPressTap}
+        className={cn(
+          "flex items-center justify-center size-10 rounded-full bg-[var(--accent-blue)] text-white hover:opacity-90 transition-opacity focus:outline-none mx-1.5 disabled:opacity-35"
+        )}
+        aria-label={transport?.isPlaying ? "정지" : "재생"}
+      >
         <AnimatePresence mode="wait" initial={false}>
           {transport?.isPlaying ? (
-            <motion.span key="stop" {...checkPopMotion}>
+            <motion.span key="stop" {...checkPopMotion} className="flex items-center justify-center">
               <Square className="size-4" fill="currentColor" />
             </motion.span>
           ) : (
-            <motion.span key="play" {...checkPopMotion}>
+            <motion.span key="play" {...checkPopMotion} className="flex items-center justify-center ml-0.5">
               <Play className="size-4" fill="currentColor" />
             </motion.span>
           )}
@@ -271,3 +280,140 @@ export function TransportButtons({ transport, disabled = false }: { transport?: 
     </div>
   );
 }
+
+export interface ModelOptionItem<T extends string> {
+  value: T;
+  title: string;
+  description: string;
+  badgeText?: string;
+  badgeType?: "purple" | "green" | "blue";
+  tags?: string[];
+}
+
+export function ModelSelectionPanel<T extends string>({
+  title,
+  subtitle,
+  options,
+  selectedValue,
+  onSelect,
+  helpText,
+  helpHref = "https://github.com",
+}: {
+  title: string;
+  subtitle: string;
+  options: ModelOptionItem<T>[];
+  selectedValue: T;
+  onSelect: (value: T) => void;
+  helpText?: string;
+  helpHref?: string;
+}) {
+  return (
+    <div className="app-scrollbar h-full min-h-0 min-w-0 flex flex-col overflow-auto pr-1 text-left">
+      {/* Title & Subtitle */}
+      <div className="mb-4 text-left shrink-0 border-t border-[var(--panel-stroke)] pt-3 first:border-t-0 first:pt-0">
+        <div className="flex min-h-5 items-center gap-1.5 mb-1.5">
+          <p className="text-sm font-normal text-[var(--primary-text)]">{title}</p>
+        </div>
+        <p className="text-xs leading-4 text-[var(--secondary-text)] px-0.5">
+          {subtitle}
+        </p>
+      </div>
+
+      {/* Model Options */}
+      <div className="space-y-3 shrink-0">
+        {options.map((option) => {
+          const checked = selectedValue === option.value;
+          const badgeClasses = option.badgeType ? {
+            purple: "bg-[var(--accent)] text-[var(--primary)]",
+            green: "bg-[#E6F4EA] text-[#137333] dark:bg-[#1C3A27] dark:text-[#34D399]",
+            blue: "bg-[#E8F0FE] text-[#1A73E8] dark:bg-[#1E293B] dark:text-[#60A5FA]",
+          }[option.badgeType] : "";
+
+          return (
+            <motion.button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={checked}
+              onClick={() => onSelect(option.value)}
+              whileTap={softPressTap}
+              className={cn(
+                "grid w-full min-w-0 grid-cols-[18px_minmax(0,1fr)] items-start gap-4 rounded-xl border border-[var(--panel-stroke)] p-3.5 text-left transition focus-visible:outline-none shadow-sm",
+                checked
+                  ? "bg-[var(--soft-selection-hover)]"
+                  : "bg-[var(--field-bg)] hover:bg-[var(--soft-selection-hover)]"
+              )}
+            >
+              <span className={cn(
+                "relative size-[18px] shrink-0 rounded-full border transition-colors mt-0.5",
+                checked ? "border-[var(--accent-blue)] bg-transparent" : "border-[var(--secondary-text)] bg-transparent"
+              )}>
+                {checked ? (
+                  <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--accent-blue)]" />
+                ) : null}
+              </span>
+              <div className="flex flex-col gap-1.5 min-w-0 w-full">
+                {/* Title and Badge row */}
+                <div className="flex items-center justify-between w-full">
+                  <span className="text-sm font-semibold leading-5 text-[var(--primary-text)]">{option.title}</span>
+                  {option.badgeText && (
+                    <span className={cn("rounded-[3px] px-2 py-0.5 text-xs font-semibold leading-4", badgeClasses)}>
+                      {option.badgeText}
+                    </span>
+                  )}
+                </div>
+
+                {/* Description row */}
+                <p className="text-xs leading-normal text-[var(--secondary-text)]">
+                  {option.description}
+                </p>
+
+                {/* Tags row */}
+                {option.tags && option.tags.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    {option.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-[3px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] px-2.5 py-1 text-xs font-normal text-[var(--secondary-text)] leading-3"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.button>
+          );
+        })}
+      </div>
+
+      {/* Spacer to push help card to the bottom */}
+      <div className="flex-grow min-h-[30px]" />
+
+      {/* Help Card */}
+      {helpText && (
+        <div className="mt-5 rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--table-header-bg)] p-4 text-left shrink-0 mb-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-[var(--primary-text)]">
+              <HelpCircle className="size-[16px]" strokeWidth={2.2} />
+              <span className="text-[14px] font-semibold">도움말</span>
+            </div>
+            <a
+              href={helpHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[var(--secondary-text)] hover:text-[var(--primary)] transition-colors"
+              aria-label="도움말 외부 링크"
+            >
+              <ExternalLink className="size-4" strokeWidth={1.8} />
+            </a>
+          </div>
+          <p className="mt-2 text-[12px] leading-5 text-[var(--secondary-text)]">
+            {helpText}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+

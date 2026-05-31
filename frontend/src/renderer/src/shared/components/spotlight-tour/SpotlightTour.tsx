@@ -126,21 +126,21 @@ export function SpotlightTour({ open, steps, ariaLabel, onClose, onStepChange }:
   const firstStep = stepIndex === 0;
   const lastStep = stepIndex === steps.length - 1;
   const paddedRect = rect ? buildSpotlightRect(rect) : null;
-  const scrims = buildSpotlightScrims(paddedRect);
+  const pointerBlockers = buildPointerBlockers(paddedRect);
   const stepGroupProgress = getStepGroupProgress(steps, stepIndex);
   const progressDots = getProgressDots(stepGroupProgress.steps.length, stepGroupProgress.index);
 
   return createPortal(
     <div className="fixed inset-0 z-[3000]" role="dialog" aria-modal="true" aria-label={ariaLabel}>
-      {scrims.map((scrim) => (
+      {pointerBlockers.map((blocker) => (
         <div
-          key={scrim.key}
-          className="pointer-events-auto fixed bg-black/55 backdrop-blur-[1.5px]"
+          key={blocker.key}
+          className="pointer-events-auto fixed"
           style={{
-            top: scrim.top,
-            left: scrim.left,
-            width: scrim.width,
-            height: scrim.height,
+            top: blocker.top,
+            left: blocker.left,
+            width: blocker.width,
+            height: blocker.height,
           }}
         />
       ))}
@@ -152,7 +152,7 @@ export function SpotlightTour({ open, steps, ariaLabel, onClose, onStepChange }:
             animate={paddedRect}
             transition={spotlightTransition}
             style={{
-              boxShadow: "0 20px 58px rgba(0,0,0,.44)",
+              boxShadow: "var(--app-tour-backdrop)",
             }}
           />
         ) : null}
@@ -161,7 +161,7 @@ export function SpotlightTour({ open, steps, ariaLabel, onClose, onStepChange }:
 
       <motion.div
         ref={panelRef}
-        className="fixed z-[3001] rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-4 text-[var(--primary-text)] shadow-[0_20px_54px_rgba(0,0,0,.48)]"
+        className="fixed z-[3001] rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-4 text-[var(--primary-text)] shadow-[var(--app-spotlight-shadow)]"
         initial={{ ...menuMotion.initial, left: visiblePanelPosition.left, top: visiblePanelPosition.top }}
         animate={{ ...menuMotion.animate, left: visiblePanelPosition.left, top: visiblePanelPosition.top }}
         exit={menuMotion.exit}
@@ -307,7 +307,7 @@ function ContextMenuCue({ rect }: { rect: SpotlightRect }) {
   return (
     <div className="pointer-events-none fixed inset-0 z-[3001]" aria-hidden="true">
       <motion.div
-        className="fixed min-w-[184px] rounded-[4px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] py-1 text-sm text-[var(--primary-text)] shadow-[0_14px_32px_rgba(0,0,0,.34)]"
+        className="fixed min-w-[184px] rounded-[4px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] py-1 text-sm text-[var(--primary-text)] shadow-[var(--app-menu-shadow)]"
         style={{ left: menuLeft, top: menuTop }}
         initial={{ opacity: 0, scale: 0.96, y: -4 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -365,7 +365,7 @@ function getStepGroupProgress(
   };
 }
 
-function buildSpotlightScrims(target: SpotlightRect | null): Array<SpotlightRect & { key: string }> {
+function buildPointerBlockers(target: SpotlightRect | null): Array<SpotlightRect & { key: string }> {
   if (typeof window === "undefined") {
     return [];
   }

@@ -19,6 +19,8 @@ export function ColumnSearchField({
   ariaLabel,
   placeholder = "\uac80\uc0c9\uc5b4\ub97c \uc785\ub825\ud558\uc138\uc694.",
   onSubmit,
+  headerLabel = "\uac80\uc0c9 \uc5f4 \uc120\ud0dd",
+  allOptionLabel = "\uc804\uccb4 \uc5f4",
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -28,6 +30,8 @@ export function ColumnSearchField({
   ariaLabel: string;
   placeholder?: string;
   onSubmit?: () => void;
+  headerLabel?: string;
+  allOptionLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [menuGeometry, setMenuGeometry] = useState<{ left: number; top: number; width: number; maxHeight: number } | null>(null);
@@ -138,8 +142,8 @@ export function ColumnSearchField({
                   style={{ left: menuGeometry.left, top: menuGeometry.top, width: menuGeometry.width, maxHeight: menuGeometry.maxHeight }}
                   onMouseDown={(event) => event.preventDefault()}
                 >
-                  <DropdownMenuHeader>{"\uac80\uc0c9 \uc5f4 \uc120\ud0dd"}</DropdownMenuHeader>
-                  <DropdownMenuOption label={"\uc804\uccb4 \uc5f4"} checked={selectedKeys.length === 0} onClick={() => onSelectedKeysChange([])} />
+                  <DropdownMenuHeader>{headerLabel}</DropdownMenuHeader>
+                  <DropdownMenuOption label={allOptionLabel} checked={selectedKeys.length === 0} onClick={() => onSelectedKeysChange([])} />
                   <DropdownMenuSeparator />
                   {options.map((option) => (
                     <DropdownMenuOption key={option.key} label={option.label} checked={selectedKeys.length === 0 || selectedKeys.includes(option.key)} onClick={() => toggleColumn(option.key)} />

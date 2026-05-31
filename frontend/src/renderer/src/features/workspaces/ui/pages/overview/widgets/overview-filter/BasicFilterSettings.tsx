@@ -92,7 +92,7 @@ function MetricRangeRow({
           className="absolute inset-0 h-8 w-full cursor-pointer opacity-0"
           aria-label={`${profile.chipLabel} ${label}`}
         />
-        <div className="pointer-events-none absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--panel-stroke)] bg-[var(--primary-text)]" style={{ left: `${percentage}%` }} />
+        <div className="pointer-events-none absolute top-1/2 wpf-slider-thumb -translate-x-1/2 -translate-y-1/2 bg-[var(--accent-blue)]" style={{ left: `${percentage}%` }} />
       </div>
       <span className="truncate text-right text-[13px] text-[var(--secondary-text)]">{scoreText}</span>
     </div>

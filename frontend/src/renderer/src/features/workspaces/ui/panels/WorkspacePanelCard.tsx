@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "motion/react";
-import { EllipsisVertical } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import type { WorkspaceId } from "@shared/ipc";
 import { useAppPersistence } from "@/app/app-persistence";
 import { cn } from "@/lib/utils";
+import { SelectField } from "@/shared/components/controls";
+import { DropdownMenuHeader, DropdownMenuOption, DropdownMenuSurface } from "@/shared/components/dropdown-menu";
 import { FileBrowser, type FileBrowserNodeChecks } from "@/shared/components/file-browser";
 import { WpfCard } from "@/shared/components/wpf-card";
 import { workspaceCardSpring } from "@/shared/motion";
@@ -11,7 +14,7 @@ import { getPanelBodyLayoutMode, getPanelBodyMinSize, resolveMeasuredPanelCollap
 import { type PanelAutoCollapseSuppression, type PanelCollapseMode, type WorkspaceResizeAxis } from "../layout/workspace-layout-types";
 import { useWorkspaceLayoutResizeState } from "../layout/workspace-splitters";
 import type { WorkspacePanel } from "../../model/workspace-config";
-import { toggleInferenceReferencePath } from "../../model/inference-reference-selection";
+import { setInferenceReferencePathsChecked, toggleInferenceReferencePath } from "../../model/inference-reference-selection";
 import { resolveBrowserTree } from "../../model/workspace-browser-tree";
 import type { WorkspaceRuntime } from "../../state/use-workspace-runtime";
 import { BatchAudioHeaderControls, BatchAudioPlaybackPanel, BatchModelSettingsBody, BatchSpeakerSelectionBody, BatchTimelineBody } from "../pages/batch/BatchPanels";
@@ -23,7 +26,8 @@ import { SpeakerModelBody, SpeakerSettingsBody } from "../pages/speaker/SpeakerP
 import { TaggingSchemaBody } from "../pages/tagging/TaggingPanels";
 import { TaggingSettingsBody } from "../pages/tagging/TaggingSettingsPanel";
 import { TrainingModelBody, TrainingPlanBody, TrainingPlanHeaderControl, TrainingSettingsBody } from "../pages/training/TrainingPanels";
-import { InferenceBrowserHeaderControls, InferenceModelBody, InferenceOutputBody, InferenceReferenceBody, InferenceReferenceHeaderControl, InferenceSettingsBody } from "../pages/inference/InferencePanels";
+import { InferenceModelBody, InferenceReferenceHeaderControl, InferenceSettingsBody } from "../pages/inference/InferencePanels";
+import { InferenceAudioComparisonPanel } from "../pages/inference/InferenceAudioComparisonPanel";
 import { WorkspaceAudioPlaybackPanel } from "../shared/WorkspaceAudioPlaybackPanel";
 import { BackendStatusBody, DetailFieldList } from "../shared/workspace-panel-primitives";
 import { findSelectedRow } from "../shared/workspace-ui-utils";
@@ -94,6 +98,83 @@ function resolveAutoCollapseSuppression(
   };
 }
 
+// ─── Panel Header Controls ───────────────────────────────────────────────────
+// Exported so TabbedPanelStack can render the active panel's controls
+// on the right side of its own unified tab-bar header.
+
+export function renderPanelHeaderControls(
+  workspaceId: WorkspaceId,
+  panel: WorkspacePanel,
+  runtime: WorkspaceRuntime,
+  expanded: boolean,
+  workspaceState: ReturnType<WorkspaceRuntime["getState"]>,
+): ReactNode {
+  const isBatchAudioPanel = workspaceId === "batch" && panel.id === "batch-audio";
+  const isInferenceAudioPanel = workspaceId === "inference" && panel.id === "inference-audio";
+  const isTablePanel = panel.kind === "table" || panel.kind === "progress";
+
+  return (
+    <>
+      {expanded && workspaceId === "training" && panel.id === "training-plan" ? <TrainingPlanHeaderControl runtime={runtime} /> : null}
+      {expanded && isTablePanel ? (
+        <>
+          <SheetSelectorDropdown workspaceId={workspaceId} runtime={runtime} />
+          {/* PageSizeDropdown and TableHeaderSearch are managed inside PanelCard which has access to pageSize state */}
+        </>
+      ) : null}
+      {expanded && isBatchAudioPanel ? <BatchAudioHeaderControls runtime={runtime} disabled={!workspaceState.selectedAudioPath} /> : null}
+      {expanded && isInferenceAudioPanel ? <InferenceReferenceHeaderControl runtime={runtime} /> : null}
+      {expanded && panel.kind === "browser" ? (
+        <BrowserHeaderDropdown workspaceId={workspaceId} runtime={runtime} />
+      ) : null}
+    </>
+  );
+}
+
+// ─── Selected File Info ──────────────────────────────────────────────────────
+// Renders the selected audio file name (truncated) + relative path below it.
+// Exported so TabbedPanelStack can embed the same display for all tab panels.
+
+export function PanelCardSelectedFileInfo({
+  selectedAudioPath,
+  inputPath,
+}: {
+  selectedAudioPath: string;
+  inputPath?: string;
+}) {
+  const filename = (() => {
+    const parts = selectedAudioPath.split(/[\\/]/).filter(Boolean);
+    return parts[parts.length - 1] ?? "";
+  })();
+  const relativePath = (() => {
+    let rel = selectedAudioPath;
+    if (inputPath && rel.startsWith(inputPath)) {
+      rel = rel.substring(inputPath.length);
+      if (rel.startsWith("/") || rel.startsWith("\\")) {
+        rel = rel.substring(1);
+      }
+    }
+    return rel.replace(/\\/g, "/");
+  })();
+
+  return (
+    <div className="flex flex-col min-w-0 shrink text-left gap-3">
+      <div className="flex items-center gap-2">
+        <h3 className="min-w-0 truncate whitespace-nowrap text-base font-semibold leading-5 text-[var(--primary-text)]">
+          {filename}
+        </h3>
+      </div>
+      <div
+        className="min-w-0 truncate text-xs text-[var(--secondary-text)]"
+        title={relativePath}
+      >
+        {relativePath}
+      </div>
+    </div>
+  );
+}
+
+
 export function PanelCard({
   layoutId,
   workspaceId,
@@ -104,6 +185,7 @@ export function PanelCard({
   collapseMode,
   contentSizing = false,
   autoCollapseSuppression,
+  cardMode = "standalone",
 }: {
   layoutId?: string;
   workspaceId: WorkspaceId;
@@ -114,6 +196,9 @@ export function PanelCard({
   collapseMode: PanelCollapseMode;
   contentSizing?: boolean;
   autoCollapseSuppression?: PanelAutoCollapseSuppression;
+  /** "standalone": normal card with border, radius, header (default).
+   *  "tabbed": no card chrome, no header row — intended for embedding inside TabbedPanelStack. */
+  cardMode?: "standalone" | "tabbed";
 }) {
   const Icon = panel.icon;
   const cardRef = useRef<HTMLElement | null>(null);
@@ -124,11 +209,25 @@ export function PanelCard({
   const resizeCollapseMode = useElementResizeCollapseMode(cardRef, layoutResizing, collapseMode, activeAutoCollapseSuppression);
   const isSliceEditor = workspaceId === "slice" && panel.kind === "waveform";
   const isBatchAudioPanel = workspaceId === "batch" && panel.id === "batch-audio";
-  const isInferenceBrowserPanel = workspaceId === "inference" && panel.id === "inference-browser";
-  const isInferenceReferencePanel = workspaceId === "inference" && panel.id === "inference-reference";
+  const isInferenceAudioPanel = workspaceId === "inference" && panel.id === "inference-audio";
   const persistence = useAppPersistence();
   const initialWorkspaceUiRef = useRef(persistence.getWorkspaceUiSnapshot(workspaceId));
   const [sliceEditorState, setSliceEditorState] = useState<SliceEditorViewState>(() => initialWorkspaceUiRef.current.sliceEditor);
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const snapshot = initialWorkspaceUiRef.current;
+    return snapshot.grid?.pageSize ?? 100;
+  });
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    const currentGrid = persistence.getWorkspaceUiSnapshot(workspaceId).grid ?? {};
+    persistence.recordWorkspaceUiSnapshot(workspaceId, {
+      grid: {
+        ...currentGrid,
+        pageSize: size,
+      }
+    });
+  };
   const sliceEditorActions = useMemo<SliceEditorViewActions>(
     () => ({
       setLoopPreview: (enabled) => setSliceEditorState((current) => ({ ...current, loopPreview: enabled })),
@@ -156,10 +255,13 @@ export function PanelCard({
     }
   }, [isSliceEditor, persistence, sliceEditorState, workspaceId]);
   const isTablePanel = panel.kind === "table" || panel.kind === "progress";
-  const measuredCollapseMode = resizeCollapseMode ?? resolveMeasuredPanelCollapseMode(collapseMode, cardSize, activeAutoCollapseSuppression);
-  const physicallyCollapsed = collapseMode !== "none" && measuredCollapseMode !== "none";
+  const isTableLikePanel = isTablePanel || panel.id === "batch-timeline";
+  // In tabbed mode the host TabbedCenterStack controls visibility; collapse logic is not needed.
+  const effectiveCollapseMode: PanelCollapseMode = cardMode === "tabbed" ? "none" : collapseMode;
+  const measuredCollapseMode = cardMode === "tabbed" ? "none" : (resizeCollapseMode ?? resolveMeasuredPanelCollapseMode(effectiveCollapseMode, cardSize, activeAutoCollapseSuppression));
+  const physicallyCollapsed = effectiveCollapseMode !== "none" && measuredCollapseMode !== "none";
   const expanded = measuredCollapseMode === "none";
-  const layoutAnimationEnabled = !layoutResizing && expanded;
+  const layoutAnimationEnabled = cardMode !== "tabbed" && !layoutResizing && expanded;
   const verticalCollapsed = measuredCollapseMode === "vertical";
   const horizontalCollapsed = measuredCollapseMode === "horizontal";
   const compactCollapsed = measuredCollapseMode === "compact";
@@ -171,8 +273,8 @@ export function PanelCard({
   const bodyScrollFillsAvailableSpace = bodyFillsAvailableSpace || contentSizing;
   const bodyGridRowsClass = expanded
     ? contentSizing
-      ? "mt-3 flex-auto grid-rows-[minmax(0,1fr)]"
-      : "mt-3 flex-1 grid-rows-[minmax(0,1fr)]"
+      ? cardMode === "tabbed" ? "flex-auto grid-rows-[minmax(0,1fr)]" : "mt-3 flex-auto grid-rows-[minmax(0,1fr)]"
+      : cardMode === "tabbed" ? "flex-1 grid-rows-[minmax(0,1fr)]" : "mt-3 flex-1 grid-rows-[minmax(0,1fr)]"
     : "mt-0 grid-rows-[0fr]";
   const motionLayoutId = layoutAnimationEnabled && layoutId ? `${workspaceId}:${layoutId}` : undefined;
   const collapsedClass =
@@ -185,6 +287,52 @@ export function PanelCard({
   useEffect(() => {
     previousMeasuredCollapseModeRef.current = measuredCollapseMode;
   }, [measuredCollapseMode]);
+
+  // In tabbed mode: render a plain div (no WpfCard chrome) and omit the header row.
+  // The host TabbedCenterStack is responsible for the card border, radius, and unified tab header.
+  if (cardMode === "tabbed") {
+    const tabbedPadding = detail
+      ? "p-5"
+      : panel.kind === "waveform"
+        ? "p-[15px]"
+        : isTableLikePanel
+          ? "px-0 pt-4 pb-0"
+          : "p-4";
+    return (
+      <div
+        ref={cardRef as React.RefObject<HTMLDivElement>}
+        className={cn(
+          "workspace-panel-card flex min-w-0 flex-col h-full",
+          panel.kind === "settings" && "workspace-panel-card-tabbed-settings",
+          className
+        )}
+        data-workspace-card-layout-id={layoutId}
+        data-collapse-mode="none"
+        data-app-tour-panel-id={panel.id}
+        data-app-tour-panel-kind={panel.kind}
+        data-app-tour-panel-region={panelTourRegion}
+      >
+        <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", tabbedPadding)}>
+          <div className={cn("grid min-h-0 min-w-0 flex-1", bodyGridRowsClass)}>
+            <div className="min-h-0 min-w-0 overflow-hidden">
+              <div className={cn("workspace-panel-body-scroll app-scrollbar min-h-0 min-w-0 overflow-auto", bodyScrollFillsAvailableSpace ? "h-full" : "max-h-full")}>
+                <div
+                  data-body-layout={effectiveBodyLayoutMode}
+                  className={cn("workspace-panel-body-content min-h-0 min-w-0", bodyFillsAvailableSpace ? "h-full" : "h-auto")}
+                  style={{
+                    minWidth: bodyMinSize.width > 0 ? bodyMinSize.width : undefined,
+                    minHeight: bodyMinSize.height > 0 ? bodyMinSize.height : undefined,
+                  }}
+                >
+                  {renderPanelBody(workspaceId, panel, runtime, isSliceEditor ? sliceEditorContext : undefined, layoutResizing, pageSize, handlePageSizeChange)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <WpfCard
@@ -199,31 +347,54 @@ export function PanelCard({
       data-app-tour-panel-kind={panel.kind}
       data-app-tour-panel-region={panelTourRegion}
     >
-      <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", detail ? "p-5" : panel.kind === "waveform" ? "p-[15px]" : "p-4", verticalCollapsed && "h-full items-center px-2 py-4", compactCollapsed && "items-center p-1", horizontalCollapsed && "justify-center")}>
-        <div className={cn("flex min-h-[24px] min-w-0 items-center justify-between gap-2 overflow-hidden", verticalCollapsed && "h-full min-h-0 flex-col justify-start gap-3 overflow-hidden", compactCollapsed && "flex-col justify-start gap-0.5 overflow-hidden")}>
+      <div className={cn(
+        "flex min-h-0 min-w-0 flex-1 flex-col",
+        detail 
+          ? "p-5" 
+          : panel.kind === "waveform" 
+            ? "p-[15px]" 
+            : isTableLikePanel
+              ? "px-0 pt-4 pb-0"
+              : "p-4",
+        verticalCollapsed && "h-full items-center px-2 py-4",
+        compactCollapsed && "items-center p-1",
+        horizontalCollapsed && "justify-center"
+      )}>
+        <div className={cn("flex min-h-[24px] min-w-0 items-center justify-between gap-2 overflow-hidden", verticalCollapsed && "h-full min-h-0 flex-col justify-start gap-3 overflow-hidden", compactCollapsed && "flex-col justify-start gap-0.5 overflow-hidden", isTableLikePanel && "px-4")}>
           <div className={cn("flex min-w-0 shrink items-center gap-2 text-left", verticalCollapsed && "min-h-0 flex-1 flex-col justify-start", compactCollapsed && "justify-center")}>
-            <Icon className="size-[18px] shrink-0 text-[var(--icon-brush)]" strokeWidth={1.65} />
-            {verticalCollapsed ? (
-              <h3 key="vertical-title" className="[writing-mode:vertical-rl] min-h-0 flex-1 truncate text-base font-normal leading-5 text-[var(--primary-text)]">{panel.title}</h3>
-            ) : compactCollapsed ? null : (
-              <h3 key="normal-title" className="min-w-0 truncate whitespace-nowrap text-base font-normal leading-5 text-[var(--primary-text)]">{panel.title}</h3>
+            {panel.kind === "playback" && workspaceState.selectedAudioPath && !verticalCollapsed && !compactCollapsed ? (
+              <PanelCardSelectedFileInfo
+                selectedAudioPath={workspaceState.selectedAudioPath}
+                inputPath={workspaceState.inputPath}
+              />
+            ) : (
+              <>
+                {verticalCollapsed ? (
+                  <h3 key="vertical-title" className="[writing-mode:vertical-rl] min-h-0 flex-1 truncate text-base font-semibold leading-5 text-[var(--primary-text)]">{panel.title}</h3>
+                ) : compactCollapsed ? null : (
+                  <h3 key="normal-title" className="min-w-0 truncate whitespace-nowrap text-base font-semibold leading-5 text-[var(--primary-text)]">{panel.title}</h3>
+                )}
+              </>
             )}
           </div>
           <div className={cn("flex min-w-max shrink-0 items-center gap-2", (verticalCollapsed || compactCollapsed) && "flex-col gap-1")}>
             {expanded && workspaceId === "training" && panel.id === "training-plan" ? <TrainingPlanHeaderControl runtime={runtime} /> : null}
-            {expanded && isTablePanel ? <TableHeaderSearch workspaceId={workspaceId} runtime={runtime} /> : null}
+            {expanded && isTablePanel ? (
+              <>
+                <SheetSelectorDropdown workspaceId={workspaceId} runtime={runtime} />
+                <PageSizeDropdown pageSize={pageSize} onChange={handlePageSizeChange} />
+                <TableHeaderSearch workspaceId={workspaceId} runtime={runtime} />
+                <div id={`workspace-header-widget-slot-${workspaceId}`} className="flex shrink-0 items-center empty:hidden" />
+              </>
+            ) : null}
             {expanded && isSliceEditor ? <SliceEditorHeaderControls view={sliceEditorContext.state} actions={sliceEditorContext.actions} disabled={!sliceEditorEnabled} /> : null}
             {expanded && isBatchAudioPanel ? <BatchAudioHeaderControls runtime={runtime} disabled={!workspaceState.selectedAudioPath} /> : null}
-            {expanded && isInferenceReferencePanel ? <InferenceReferenceHeaderControl runtime={runtime} /> : null}
-            <span
-              className="flex size-6 shrink-0 items-center justify-center"
-              data-app-tour-panel-tools="true"
-            >
-              <EllipsisVertical className="size-4 text-[var(--control-arrow)]" strokeWidth={1.9} />
-            </span>
+            {expanded && isInferenceAudioPanel ? <InferenceReferenceHeaderControl runtime={runtime} /> : null}
+            {expanded && panel.kind === "browser" ? (
+              <BrowserHeaderDropdown workspaceId={workspaceId} runtime={runtime} />
+            ) : null}
           </div>
         </div>
-        {expanded && isInferenceBrowserPanel ? <InferenceBrowserHeaderControls runtime={runtime} /> : null}
         <div aria-hidden={!expanded} className={cn("grid min-h-0 min-w-0", !expanded && "pointer-events-none", bodyGridRowsClass)}>
           <div className="min-h-0 min-w-0 overflow-hidden">
             <div className={cn("workspace-panel-body-scroll app-scrollbar min-h-0 min-w-0 overflow-auto", expanded ? "opacity-100" : "opacity-0", bodyScrollFillsAvailableSpace ? "h-full" : "max-h-full")}>
@@ -235,7 +406,7 @@ export function PanelCard({
                   minHeight: bodyMinSize.height > 0 ? bodyMinSize.height : undefined,
                 }}
               >
-                {renderPanelBody(workspaceId, panel, runtime, isSliceEditor ? sliceEditorContext : undefined, layoutResizing)}
+                {renderPanelBody(workspaceId, panel, runtime, isSliceEditor ? sliceEditorContext : undefined, layoutResizing, pageSize, handlePageSizeChange)}
               </div>
             </div>
           </div>
@@ -245,7 +416,7 @@ export function PanelCard({
   );
 }
 
-function renderPanelBody(workspaceId: WorkspaceId, panel: WorkspacePanel, runtime: WorkspaceRuntime, sliceEditorContext?: SliceEditorViewContext, layoutResizing = false) {
+function renderPanelBody(workspaceId: WorkspaceId, panel: WorkspacePanel, runtime: WorkspaceRuntime, sliceEditorContext?: SliceEditorViewContext, layoutResizing = false, pageSize?: number, onPageSizeChange?: (size: number) => void) {
   const state = runtime.getState(workspaceId);
   const table = runtime.getTable(workspaceId);
 
@@ -267,8 +438,36 @@ function renderPanelBody(workspaceId: WorkspaceId, panel: WorkspacePanel, runtim
               },
             }));
           },
+          onToggleNodes: (nodes, checked) => {
+            const paths = nodes.map((node) => node.path);
+            runtime.setSettings((current) => ({
+              ...current,
+              inference: {
+                ...current.inference,
+                batchReferenceAudioPaths: setInferenceReferencePathsChecked(current.inference.batchReferenceAudioPaths, paths, checked),
+              },
+            }));
+          },
         }
       : undefined;
+
+    const audioDurations = useMemo(() => {
+      const map: Record<string, string> = {};
+      for (const row of table.rows) {
+        const dur = row.cells.durationSec || row.raw?.durationSec || row.raw?.duration;
+        if (dur) {
+          const secs = parseFloat(String(dur));
+          if (!isNaN(secs)) {
+            map[row.id] = secs.toFixed(2) + "s";
+            const inputPath = row.raw?.originalPath || row.raw?.sourcePath || row.raw?.inputPath;
+            if (inputPath) {
+              map[inputPath.replace(/\\/g, "/").toLowerCase()] = secs.toFixed(2) + "s";
+            }
+          }
+        }
+      }
+      return map;
+    }, [table.rows]);
 
     return (
       <FileBrowser
@@ -291,6 +490,7 @@ function renderPanelBody(workspaceId: WorkspaceId, panel: WorkspacePanel, runtim
         outputActionLabel={workspaceId === "training" ? "체크포인트 폴더" : undefined}
         onRequestWindow={(purpose, direction, metrics, targetPath) => runtime.loadFileBrowserWindow(workspaceId, purpose, direction, metrics, targetPath)}
         onSelectNode={(node) => runtime.selectFileNode(workspaceId, node)}
+        audioDurations={audioDurations}
       />
     );
   }
@@ -304,7 +504,16 @@ function renderPanelBody(workspaceId: WorkspaceId, panel: WorkspacePanel, runtim
   }
 
   if (panel.kind === "table" || panel.kind === "progress") {
-    return <WorkspaceDataGrid workspaceId={workspaceId} runtime={runtime} table={table} suspendWidthTracking={layoutResizing} />;
+    return (
+      <WorkspaceDataGrid
+        workspaceId={workspaceId}
+        runtime={runtime}
+        table={table}
+        suspendWidthTracking={layoutResizing}
+        controlledPageSize={pageSize}
+        onPageSizeChange={onPageSizeChange}
+      />
+    );
   }
 
   if (panel.kind === "waveform") {
@@ -345,12 +554,8 @@ function renderPanelBody(workspaceId: WorkspaceId, panel: WorkspacePanel, runtim
     return <WorkspaceAudioPlaybackPanel row={findSelectedRow(state.table.rows, state.selectedRowId)} audioPath={state.selectedAudioPath} cropEnabled emptyText="오디오 행을 선택하세요." syncKey="tagging" audioEditScopeId={state.activeSheetId} />;
   }
 
-  if (workspaceId === "inference" && panel.id === "inference-reference") {
-    return <InferenceReferenceBody runtime={runtime} />;
-  }
-
-  if (workspaceId === "inference" && panel.id === "inference-output") {
-    return <InferenceOutputBody runtime={runtime} />;
+  if (workspaceId === "inference" && panel.id === "inference-audio") {
+    return <InferenceAudioComparisonPanel runtime={runtime} />;
   }
 
   if (workspaceId === "speaker" && panel.kind === "model") {
@@ -418,4 +623,176 @@ function renderPanelBody(workspaceId: WorkspaceId, panel: WorkspacePanel, runtim
   }
 
   return <BackendStatusBody status={state.statusText} />;
+}
+
+// ─── Header Dropdown Selectors ──────────────────────────────────────────────
+
+const tableToolbarDropdownClass = "w-[168px] min-w-[168px] shrink-0";
+
+function SheetSelectorDropdown({
+  workspaceId,
+  runtime,
+}: {
+  workspaceId: WorkspaceId;
+  runtime: WorkspaceRuntime;
+}) {
+  const state = runtime.getState(workspaceId);
+  const sheets = state.sheets ?? [];
+  const activeSheetId = state.activeSheetId;
+
+  if (sheets.length === 0) return null;
+
+  const options = sheets.map((s) => ({
+    value: s.id,
+    label: s.label,
+  }));
+
+  return (
+    <div className={tableToolbarDropdownClass}>
+      <SelectField
+        value={activeSheetId ?? ""}
+        options={options}
+        onChange={(sheetId) => runtime.selectSheet(workspaceId, sheetId)}
+        ariaLabel="시트 선택"
+      />
+    </div>
+  );
+}
+
+function PageSizeDropdown({
+  pageSize,
+  onChange,
+}: {
+  pageSize: number;
+  onChange: (size: number) => void;
+}) {
+  const options = [
+    { value: "10", label: "10개씩" },
+    { value: "20", label: "20개씩" },
+    { value: "50", label: "50개씩" },
+    { value: "100", label: "100개씩" },
+    { value: "200", label: "200개씩" },
+    { value: "500", label: "500개씩" },
+  ];
+
+  return (
+    <div className={tableToolbarDropdownClass}>
+      <SelectField
+        value={String(pageSize)}
+        options={options}
+        onChange={(val) => onChange(Number(val))}
+        ariaLabel="표시 행 수"
+      />
+    </div>
+  );
+}
+
+function BrowserHeaderDropdown({
+  workspaceId,
+  runtime,
+}: {
+  workspaceId: WorkspaceId;
+  runtime: WorkspaceRuntime;
+}) {
+  const [open, setOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [geometry, setGeometry] = useState<{ left: number; top: number; width: number } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const updateGeometry = () => {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setGeometry({
+        left: rect.right - 180,
+        top: rect.bottom + 4,
+        width: 180,
+      });
+    };
+    updateGeometry();
+    window.addEventListener("resize", updateGeometry);
+    window.addEventListener("scroll", updateGeometry, true);
+    return () => {
+      window.removeEventListener("resize", updateGeometry);
+      window.removeEventListener("scroll", updateGeometry, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target || buttonRef.current?.contains(target) || menuRef.current?.contains(target)) {
+        return;
+      }
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [open]);
+
+  const inputActionLabel = workspaceId === "training" ? "데이터셋 파일" : "입력 폴더";
+  const inputSecondaryActionLabel = workspaceId === "inference" ? "데이터셋 파일" : undefined;
+  const outputActionLabel = workspaceId === "training" ? "체크포인트 폴더" : "출력 폴더";
+
+  const options: { label: string; onClick: () => void }[] = [];
+  options.push({
+    label: inputActionLabel,
+    onClick: () => runtime.selectInputFolder(workspaceId),
+  });
+
+  if (inputSecondaryActionLabel) {
+    options.push({
+      label: inputSecondaryActionLabel,
+      onClick: () => runtime.selectInferenceDatasetFile(),
+    });
+  }
+
+  options.push({
+    label: outputActionLabel,
+    onClick: () => runtime.selectOutputFolder(workspaceId),
+  });
+
+  return (
+    <div className="relative shrink-0">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="wpf-button flex size-[38px] items-center justify-center text-[var(--control-arrow)]"
+        title="폴더 및 파일 설정"
+      >
+        <SlidersHorizontal className="size-4" />
+      </button>
+      {open && geometry
+        ? createPortal(
+            <DropdownMenuSurface
+              ref={menuRef}
+              style={{
+                left: geometry.left,
+                top: geometry.top,
+                width: geometry.width,
+                maxHeight: 260,
+              }}
+              className="z-[1000]"
+            >
+              <DropdownMenuHeader>브라우저 경로 설정</DropdownMenuHeader>
+              {options.map((option, idx) => (
+                <DropdownMenuOption
+                  key={idx}
+                  label={option.label}
+                  checkable={false}
+                  onClick={() => {
+                    option.onClick();
+                    setOpen(false);
+                  }}
+                />
+              ))}
+            </DropdownMenuSurface>,
+            document.body
+          )
+        : null}
+    </div>
+  );
 }

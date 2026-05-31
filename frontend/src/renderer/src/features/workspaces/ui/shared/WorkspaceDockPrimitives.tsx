@@ -26,7 +26,7 @@ export function WorkspaceDockShell({
     <motion.div
       layout={embedded ? false : true}
       className={cn(
-        "relative flex h-10 min-w-0 items-center gap-2 rounded-[5px] border border-[var(--panel-stroke)] bg-[#0d131c]/95 px-3 text-sm font-normal text-[var(--primary-text)] shadow-[0_16px_36px_rgba(0,0,0,.28)] backdrop-blur",
+        "relative flex h-10 min-w-0 items-center gap-2 rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--field-bg)]/95 px-3 text-sm font-normal text-[var(--primary-text)] shadow-[var(--workspace-dock-shadow)] backdrop-blur",
         compact && "h-7 px-2 shadow-none",
         embedded && "min-w-0 border-transparent bg-transparent px-0 shadow-none backdrop-blur-0",
         className,

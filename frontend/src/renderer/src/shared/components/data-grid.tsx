@@ -8,7 +8,7 @@ import { ColumnFilterMenu, DuplicatePasteDialog, GridContextMenu } from "./data-
 import { useDataGridResizeActions } from "./data-grid-resize-actions";
 import { countDuplicateRows, estimateRowHeight, resolveColumnWidths, scrollRowToViewportCenter } from "./data-grid-sizing";
 import { DataGridTable } from "./data-grid-table";
-import { defaultCheckWidth, defaultColumnWidth, defaultHeaderHeight, defaultRowHeight, defaultSheetTabs, gridRowWindowBufferScreens, type ColumnMenuState, type DataGridProps, type DuplicateDialogState, type DuplicatePasteMode, type GridMenuState, type RowRevealRequest, type RowScrollAnchor } from "./data-grid-types";
+import { defaultCheckWidth, defaultColumnWidth, defaultHeaderHeight, defaultRowHeight, gridRowWindowBufferScreens, type ColumnMenuState, type DataGridProps, type DuplicateDialogState, type DuplicatePasteMode, type GridMenuState, type RowRevealRequest, type RowScrollAnchor } from "./data-grid-types";
 
 export type { CellRenderContext, DataGridViewState } from "./data-grid-types";
 
@@ -31,21 +31,30 @@ export function DataGrid({
   onToggleRowCheck,
   onToggleAllRows,
   onToggleRowsCheck,
-  sheetToolbar,
   columnMenus = {},
   renderCell,
   onVisibleRowsChange,
   emptyText = "표시할 결과가 없습니다.",
-  showSheetTabs = true,
   showPagination = true,
   fillRemainingColumnKey,
   viewState,
   onViewStateChange,
   suspendWidthTracking = false,
   guideStepId,
+  footerWidget,
+  controlledPageSize,
+  onPageSizeChange,
 }: DataGridProps) {
-  const [pageSize, setPageSize] = useState(() => Math.max(1, Math.trunc(viewState?.pageSize ?? 50)));
+  const [pageSize, setPageSize] = useState(() => Math.max(1, Math.trunc(controlledPageSize ?? viewState?.pageSize ?? 50)));
   const [pageIndex, setPageIndex] = useState(() => Math.max(0, Math.trunc(viewState?.pageIndex ?? 0)));
+
+  // controlledPageSize가 변경되면 내부 pageSize state를 동기화하고 첫 페이지로 이동
+  useEffect(() => {
+    if (controlledPageSize === undefined) return;
+    const next = Math.max(1, Math.trunc(controlledPageSize));
+    setPageSize(next);
+    setPageIndex(0);
+  }, [controlledPageSize]);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => viewState?.columnWidths ?? {});
   const [autoFitColumns, setAutoFitColumns] = useState<Record<string, boolean>>(() => viewState?.autoFitColumns ?? {});
   const [rowHeights, setRowHeights] = useState<Record<string, number>>(() => viewState?.rowHeights ?? {});
@@ -81,9 +90,7 @@ export function DataGrid({
   const headerTargetRows = selectedRowSet.size > 1 ? table.rows.filter((row) => selectedRowSet.has(row.id)) : table.rows;
   const checkedCount = showsRowChecks ? headerTargetRows.filter((row) => rowChecks?.[row.id] !== false).length : 0;
   const allChecked = showsRowChecks && headerTargetRows.length > 0 && checkedCount === headerTargetRows.length;
-  const displaySheets = sheets.length > 0 ? sheets : defaultSheetTabs;
-  const displayActiveSheetId = activeSheetId ?? displaySheets[0]?.id;
-  const canDeleteSheet = Boolean(onDeleteSheet && sheets.length > 1 && displayActiveSheetId);
+  const canDeleteSheet = Boolean(onDeleteSheet && sheets.length > 1 && (activeSheetId ?? sheets[0]?.id));
   const { safePageSize, pageCount, safePageIndex } = resolveGridPagination({ rowCount: table.rows.length, pageSize, pageIndex, showPagination });
   const pageRows = table.rows.slice(safePageIndex * safePageSize, safePageIndex * safePageSize + safePageSize);
   const baseResolvedColumnWidths = useMemo(() => resolveColumnWidths(table, columnWidths, columnMenus, showsRowChecks, viewportWidth, isColumnResizing, fillRemainingColumnKey), [table, columnWidths, columnMenus, showsRowChecks, viewportWidth, isColumnResizing, fillRemainingColumnKey]);
@@ -427,11 +434,6 @@ export function DataGrid({
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <DataGridTable
         table={table}
-        sheets={sheets}
-        displaySheets={displaySheets}
-        displayActiveSheetId={displayActiveSheetId}
-        showSheetTabs={showSheetTabs}
-        sheetToolbar={sheetToolbar}
         selectedRowIds={selectedRowIds}
         selectedRowSet={selectedRowSet}
         headerTargetRows={headerTargetRows}
@@ -452,8 +454,6 @@ export function DataGrid({
         emptyText={emptyText}
         suppressNextRowClickRef={suppressNextRowClickRef}
         suppressNextRowClickTimerRef={suppressNextRowClickTimerRef}
-        onCreateSheet={onCreateSheet}
-        onSelectSheet={onSelectSheet}
         onSelectRow={onSelectRow}
         onToggleRowCheck={onToggleRowCheck}
         onToggleAllRows={onToggleAllRows}
@@ -475,15 +475,8 @@ export function DataGrid({
           pageSize={safePageSize}
           pageIndex={safePageIndex}
           pageCount={pageCount}
-          onPageSizeChange={(value) => {
-            const nextSize = Math.max(1, Math.trunc(value));
-            rowScrollAnchorRef.current = undefined;
-            pendingViewportScrollTopRef.current = 0;
-            setRowWindowStart(0);
-            setPageSize(nextSize);
-            setPageIndex(0);
-          }}
           onPageChange={goToPage}
+          widgetSlot={footerWidget}
         />
       ) : null}
 

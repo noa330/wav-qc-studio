@@ -48,7 +48,7 @@ export function GridContextMenu({
     <motion.div
       ref={refEl}
       {...menuMotion}
-      className="fixed z-[1100] min-w-[180px] rounded-[4px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] py-1 text-sm shadow-[0_14px_32px_rgba(0,0,0,.34)]"
+      className="fixed z-[1100] min-w-[180px] rounded-[4px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] py-1 text-sm shadow-[var(--app-menu-shadow)]"
       style={{ left: menu.x, top: menu.y }}
     >
       {onNewSheet ? <MenuItem icon={<Plus className="size-4" />} label="새 시트" onClick={onNewSheet} /> : null}
@@ -66,7 +66,7 @@ export function DuplicatePasteDialog({ count, onOverwrite, onSkip, onClose }: { 
   const [applyAll, setApplyAll] = useState(true);
   return createPortal(
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={menuMotion.transition} className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/45 px-4">
-      <motion.div {...dialogPanelMotion} className="w-[430px] rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--shell-chrome-card-bg)] p-4 shadow-[0_18px_44px_rgba(0,0,0,.45)]">
+      <motion.div {...dialogPanelMotion} className="w-[430px] rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--shell-chrome-card-bg)] p-4 shadow-[var(--app-dialog-shadow)]">
         <h4 className="text-base font-normal text-[var(--primary-text)]">같은 오디오가 있습니다</h4>
         <p className="mt-3 text-sm leading-5 text-[var(--secondary-text)]">같은 경로의 오디오 {count}개가 현재 시트에 이미 있습니다. 붙여넣을 행으로 덮어쓰거나 기존 행을 유지하고 건너뛸 수 있습니다.</p>
         <label className="mt-4 flex items-center gap-2 text-sm text-[var(--primary-text)]">

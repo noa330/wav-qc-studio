@@ -176,7 +176,9 @@ export type WorkspaceRuntime = {
   editBatchCell: (rowId: string, key: "editedTranscript" | "speaker" | "qcStatus", value: string) => void;
   toggleBatchSpeaker: (speaker: string) => void;
   runBatchSpeakerDiarization: () => Promise<void>;
-  mergeEnabledBatchSpeakers: () => void;
+  mergeEnabledBatchSpeakers: (speakerNames?: string[]) => void;
+  renameBatchSpeaker: (oldName: string, newName: string) => void;
+  runSelectedSpeakersDiarization: (selectedSpeakerNames: string[]) => Promise<void>;
   splitOrUnmergeSliceSegment: (workspaceId: WorkspaceId, sourceRow: DataTableRow, componentIds: string[]) => void;
   mergeSliceSegments: (workspaceId: WorkspaceId) => void;
   addSliceSegment: (workspaceId: WorkspaceId, sourceRow: DataTableRow | undefined, startSec?: number, endSec?: number) => void;
@@ -1419,9 +1421,9 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
     [setSettings, updateSheetState],
   );
 
-  const mergeEnabledBatchSpeakers = useCallback(() => {
+  const mergeEnabledBatchSpeakers = useCallback((speakerNames?: string[]) => {
     const state = statesRef.current.batch;
-    const speakers = collectBatchSpeakers(state.table.rows).filter((speaker) => state.batchSpeakerChecks[speaker] !== false);
+    const speakers = speakerNames ?? collectBatchSpeakers(state.table.rows).filter((speaker) => state.batchSpeakerChecks[speaker] !== false);
     if (speakers.length < 2) {
       return;
     }
@@ -1469,6 +1471,171 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       },
     }));
   }, [setSettings, updateSheetState, updateState]);
+
+  const renameBatchSpeaker = useCallback((oldName: string, newName: string) => {
+    const state = statesRef.current.batch;
+    const cleanOldName = oldName.trim();
+    const cleanNewName = newName.trim();
+    if (!cleanOldName || !cleanNewName || cleanOldName === cleanNewName) {
+      return;
+    }
+
+    const nextRows = state.table.rows.map((row) => {
+      const currentSpeaker = row.raw?.speaker || row.raw?.speaker_groups || row.cells.speaker || "";
+      if (currentSpeaker !== cleanOldName) {
+        return row;
+      }
+
+      return {
+        ...row,
+        raw: {
+          ...row.raw,
+          speaker: cleanNewName,
+          speaker_groups: cleanNewName,
+        },
+        cells: {
+          ...row.cells,
+          speaker: cleanNewName,
+        },
+      };
+    });
+
+    const selectedRow = nextRows.find((row) => row.id === state.selectedRowId);
+    const nextSpeakers = collectBatchSpeakers(nextRows);
+
+    updateSheetState("batch", {
+      table: {
+        ...state.table,
+        rows: nextRows,
+      },
+      batchSpeakerChecks: {
+        ...Object.fromEntries(nextSpeakers.map((speaker) => [speaker, state.batchSpeakerChecks[speaker] !== false])),
+        [cleanNewName]: state.batchSpeakerChecks[cleanOldName] !== false,
+      },
+      details: selectedRow ? state.table.columns.map((column) => ({ label: column.label, value: selectedRow.cells[column.key] || "" })) : state.details,
+    });
+
+    setSettings((current) => ({
+      ...current,
+      batch: {
+        ...current.batch,
+        jobs: buildBatchJobs({ ...state.table, rows: nextRows }),
+      },
+    }));
+  }, [setSettings, updateSheetState]);
+
+  const runSelectedSpeakersDiarization = useCallback(async (selectedSpeakerNames: string[]) => {
+    const workspaceId: WorkspaceId = "batch";
+    const state = statesRef.current.batch;
+    const sheet = activeSheet(state);
+    const settings = settingsRef.current;
+    if (!sheet || !state.inputPath || state.table.rows.length === 0 || state.isRunning || state.isExporting || state.isBatchSpeakerRunning || selectedSpeakerNames.length === 0) {
+      return;
+    }
+
+    const speakerSet = new Set(selectedSpeakerNames);
+    const filteredRows = state.table.rows.filter((row) => {
+      const spk = row.raw?.speaker || row.raw?.speaker_groups || row.cells.speaker || "";
+      return speakerSet.has(spk);
+    });
+
+    if (filteredRows.length === 0) {
+      return;
+    }
+
+    updateState(workspaceId, {
+      isBatchSpeakerRunning: true,
+      statusText: "화자 분리 중",
+      progressPercent: 0,
+      progress: undefined,
+      error: undefined,
+      terminal: createTerminalStartState("선택 화자 재분리 시작"),
+      terminalOpenRequestId: state.terminalOpenRequestId + 1,
+      browserPreferredSection: "input",
+    });
+    activeRunSessionRef.current[workspaceId] = { sheetId: sheet.id };
+
+    let result: WorkspaceRunResult;
+    try {
+      result = await studioBackend.runBatchSpeakerDiarization({
+        workspaceId,
+        paths: createWorkspacePaths(state.inputPath, state.outputPath),
+        settings,
+        table: {
+          ...state.table,
+          rows: filteredRows,
+        },
+      });
+    } catch (error) {
+      delete activeRunSessionRef.current[workspaceId];
+      updateState(workspaceId, {
+        isBatchSpeakerRunning: false,
+        statusText: "화자 분리 실패",
+        error: error instanceof Error ? error.message : String(error),
+        terminal: {
+          ...statesRef.current[workspaceId].terminal,
+          text: error instanceof Error ? error.message : String(error),
+          status: "failed",
+          updatedAt: new Date().toISOString(),
+        },
+      });
+      return;
+    }
+    delete activeRunSessionRef.current[workspaceId];
+
+    const latestState = statesRef.current.batch;
+    const latestSheet = latestState.sheets.find((item) => item.id === sheet.id) ?? sheet;
+
+    // Merge result rows back into the latestState table rows
+    const originalRows = latestState.table.rows;
+    const updatedRowsMap = new Map(result.table.rows.map((r) => [r.id, r]));
+    const mergedRows = originalRows.map((row) => {
+      const updated = updatedRowsMap.get(row.id);
+      return updated ? updated : row;
+    });
+    const mergedTable = {
+      ...latestState.table,
+      rows: mergedRows,
+    };
+
+    const selectionState = stateWithActiveSheet(latestState, latestSheet);
+    const selection = buildTableSelectionPatch(workspaceId, mergedTable, selectionState, selectionState.selectedAudioPath || findFirstAudioPath(result.inputTree ?? latestState.inputTree));
+    const nextBatchSpeakerChecks = Object.fromEntries(collectBatchSpeakers(mergedTable.rows).map((speaker) => [speaker, latestState.batchSpeakerChecks[speaker] !== false]));
+    const finalStatusText = result.cancelled ? "Stopped" : result.ok ? "화자 분리 완료" : "화자 분리 실패";
+    const finalError = result.cancelled || result.ok ? undefined : formatRunError(result);
+    const finalProgressPercent = result.cancelled ? latestState.progressPercent : result.progress?.percent ?? (result.ok ? 100 : latestState.progressPercent);
+
+    updateState(workspaceId, {
+      isBatchSpeakerRunning: false,
+      statusText: finalStatusText,
+      error: finalError,
+      progressPercent: finalProgressPercent,
+      progress: result.progress,
+      terminal: createTerminalFromResult(result, result.cancelled ? "cancelled" : result.ok ? "completed" : "failed"),
+    });
+    await nextAnimationFrame();
+
+    updateSheetByIdState(workspaceId, sheet.id, {
+      inputTree: result.inputTree ?? latestSheet.inputTree,
+      table: mergedTable,
+      details: selection.details.length > 0 ? selection.details : result.details,
+      selectedRowId: selection.selectedRowId,
+      selectedRowIds: selection.selectedRowIds,
+      selectedFilePath: selection.selectedFilePath,
+      selectedAudioPath: selection.selectedAudioPath,
+      selectedResultAudioPath: selection.selectedResultAudioPath,
+      browserPreferredSection: "input",
+      batchSpeakerChecks: nextBatchSpeakerChecks,
+      lastRun: { ...result, table: mergedTable },
+    });
+    setSettings((current) => ({
+      ...current,
+      batch: {
+        ...current.batch,
+        jobs: buildBatchJobs(mergedTable),
+      },
+    }));
+  }, [createWorkspacePaths, setSettings, updateSheetByIdState, updateState]);
 
   const runBatchSpeakerDiarization = useCallback(async () => {
     const workspaceId: WorkspaceId = "batch";
@@ -1974,6 +2141,8 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       toggleBatchSpeaker,
       runBatchSpeakerDiarization,
       mergeEnabledBatchSpeakers,
+      renameBatchSpeaker,
+      runSelectedSpeakersDiarization,
       splitOrUnmergeSliceSegment,
       mergeSliceSegments,
       addSliceSegment,
@@ -2022,6 +2191,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       rowsClipboard,
       run,
       runBatchSpeakerDiarization,
+      runSelectedSpeakersDiarization,
       runtimeEnvironmentInstalling,
       runtimeEnvironmentStatuses,
       selectAdjacentRow,
@@ -2044,6 +2214,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       syncTrainingModelCheckpoints,
       tagScoreRules,
       toggleBatchSpeaker,
+      renameBatchSpeaker,
       toggleRowExportCheck,
       updateSliceSegmentBounds,
       voiceModelRuntimeInstalling,

@@ -32,7 +32,7 @@ export function WorkspaceTerminalDialog({ terminal, title, onClear, onClose }: W
     >
       <motion.div
         {...dialogPanelMotion}
-        className="flex h-[min(780px,calc(100vh-48px))] w-[min(1240px,calc(100vw-48px))] min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-5 shadow-2xl"
+        className="flex h-[min(780px,calc(100vh-48px))] w-[min(1240px,calc(100vw-48px))] min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-5 shadow-[var(--app-dialog-shadow)]"
       >
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -40,7 +40,7 @@ export function WorkspaceTerminalDialog({ terminal, title, onClear, onClose }: W
               <Terminal className="size-4" strokeWidth={1.8} />
             </span>
             <div className="min-w-0">
-              <h4 className="truncate text-base font-normal leading-5 text-[var(--primary-text)]">{title}</h4>
+              <h4 className="truncate text-base font-semibold leading-5 text-[var(--primary-text)]">{title}</h4>
               <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[13px] font-normal leading-[18px] text-[var(--secondary-text)]">
                 <span className={cn("size-2 rounded-full", statusDotClass(terminal.status))} />
                 <span className="whitespace-nowrap">{statusLabel(terminal.status)}</span>
@@ -67,7 +67,7 @@ export function WorkspaceTerminalDialog({ terminal, title, onClear, onClose }: W
             {terminal.command}
           </div>
         ) : null}
-        <div className="min-h-0 flex-1 overflow-hidden rounded-[5px] border border-[var(--panel-stroke)] bg-[#0d131c]">
+        <div className="min-h-0 flex-1 overflow-hidden rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--field-bg)]">
           {terminal.text.trim() ? (
             <WorkspacePtyTerminal text={terminal.text} className="h-full w-full px-3 py-3" fontSize={13} />
           ) : (

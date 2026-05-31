@@ -35,7 +35,7 @@ export const DropdownMenuSurface = forwardRef<HTMLDivElement, {
       style={style}
       onMouseDown={onMouseDown}
       className={cn(
-        "app-scrollbar fixed origin-top overflow-auto rounded-[3px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] py-1 text-sm text-[var(--primary-text)] shadow-[0_14px_32px_rgba(0,0,0,.34)]",
+        "app-scrollbar fixed origin-top overflow-auto rounded-[3px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] py-1 text-sm text-[var(--primary-text)] shadow-[var(--app-menu-shadow)]",
         className,
       )}
     >

@@ -1,18 +1,23 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRef, type CSSProperties } from "react";
-import { Compass, Download, PanelLeftClose, PanelLeftOpen, Play, RotateCcw, Square } from "lucide-react";
+import { Compass, Download, Moon, PanelLeftClose, PanelLeftOpen, Play, RotateCcw, Square, Sun, Terminal } from "lucide-react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { AppCompositionRoot } from "@/app/AppCompositionRoot";
 import { AppTour } from "@/app/AppTour";
 import { createGuideRuntime } from "@/app/app-guide-runtime";
 import { useAppPersistence } from "@/app/app-persistence";
+import { useTheme } from "@/app/theme-provider";
 import { appTourSteps } from "@/app/app-tour-steps";
 import { createWorkspaceTransitionSurfaceHtml } from "@/app/workspace-transition-surface";
 import { cn } from "@/lib/utils";
-import { pressTap, quickEase, tightPressTap, uiSpring } from "@/shared/motion";
+import { pressTap, quickEase, softPressTap, tightPressTap, uiSpring } from "@/shared/motion";
 import { defaultWorkspaceId, workspaces, type WorkspaceDefinition } from "@/features/workspaces/model/workspace-config";
 import { useWorkspaceRuntime } from "@/features/workspaces/state/use-workspace-runtime";
+import { useWorkspaceAudioSync } from "@/features/workspaces/ui/shared/workspace-audio-sync";
+import { WorkspaceFloatingAudioPlayer } from "@/features/workspaces/ui/shared/WorkspaceFloatingAudioPlayer";
 import { WorkspaceFrame } from "@/features/workspaces/ui/frame/WorkspaceFrame";
+import { createWorkspaceHeaderStatusItems, useCompactWorkspaceHeader } from "@/features/workspaces/ui/frame/WorkspaceStatusWidget";
+import { ProjectSelector } from "@/features/workspaces/ui/shared/WorkspaceProjectSelector";
 import type { WorkspaceId } from "@shared/ipc";
 
 type WorkspaceTransitionRect = {
@@ -62,6 +67,7 @@ export function AppShell() {
 
 function AppShellContent() {
   const persistence = useAppPersistence();
+  const { theme, toggleTheme } = useTheme();
   const initialShellStateRef = useRef(persistence.initialState.shell);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<WorkspaceId>(initialShellStateRef.current.selectedWorkspaceId);
   const [appTourOpen, setAppTourOpen] = useState(false);
@@ -70,9 +76,32 @@ function AppShellContent() {
   const [guideAutoShown, setGuideAutoShown] = useState(initialShellStateRef.current.guideAutoShown);
   const [autoSidebarCollapsed, setAutoSidebarCollapsed] = useState(false);
   const [workspaceTransition, setWorkspaceTransition] = useState<WorkspaceTransitionState | null>(null);
+  const [terminalDockOpen, setTerminalDockOpen] = useState(false);
+  const [terminalBubblePinned, setTerminalBubblePinned] = useState(true);
   const workspaceTransitionIdRef = useRef(0);
   const initialGuideHandledRef = useRef(false);
   const runtime = useWorkspaceRuntime();
+  const clickCountRef = useRef(0);
+  const lastClickTimeRef = useRef(0);
+  const [menuBarVisible, setMenuBarVisible] = useState(false);
+
+  const handleTitleClick = () => {
+    const now = Date.now();
+    if (now - lastClickTimeRef.current < 500) {
+      clickCountRef.current += 1;
+    } else {
+      clickCountRef.current = 1;
+    }
+    lastClickTimeRef.current = now;
+
+    if (clickCountRef.current === 5) {
+      clickCountRef.current = 0;
+      const nextVisible = !menuBarVisible;
+      setMenuBarVisible(nextVisible);
+      window.studioShell.setMenuBarVisibility(nextVisible);
+    }
+  };
+  const compactHeader = useCompactWorkspaceHeader();
   const activeTourStep = appTourOpen ? appTourSteps[appTourStepIndex] : undefined;
   const visibleWorkspaceId = activeTourStep?.workspaceId ?? selectedWorkspaceId;
   const visibleRuntime = useMemo(() => (activeTourStep ? createGuideRuntime(runtime, activeTourStep) : runtime), [activeTourStep, runtime]);
@@ -86,9 +115,34 @@ function AppShellContent() {
   const canExport = visibleRuntime.canExport(visibleWorkspaceId);
   const isRunning = selectedState.isRunning;
   const isExporting = selectedState.isExporting;
+  const isBusy = selectedState.isRunning || selectedState.isExporting || selectedState.isBatchSpeakerRunning;
+  const progressPercent = Math.max(0, Math.min(100, Math.round(selectedState.progressPercent)));
   const sidebarCollapsed = sidebarCollapsedByUser || autoSidebarCollapsed;
-  const sidebarWidth = sidebarCollapsed ? 56 : 218;
+  const sidebarWidth = sidebarCollapsed ? 56 : 240;
   const sidebarGap = sidebarCollapsed ? 10 : 14;
+  const statusItems = createWorkspaceHeaderStatusItems(selectedState);
+  const syncState = useWorkspaceAudioSync(visibleWorkspaceId);
+  const isFloatingPlayerVisible = useMemo(() => {
+    const isSupported = visibleWorkspaceId === "tagging" || visibleWorkspaceId === "batch";
+    const hasAudio = Boolean(selectedState.selectedAudioPath || syncState.audioPath);
+    if (!isSupported || !hasAudio) return false;
+
+    if (!syncState.activeTabId) return false; // Default to active (hidden player)
+    if (visibleWorkspaceId === "tagging") {
+      return syncState.activeTabId === "tagging-queue";
+    }
+    if (visibleWorkspaceId === "batch") {
+      return syncState.activeTabId === "batch-timeline";
+    }
+    return false;
+  }, [visibleWorkspaceId, selectedState.selectedAudioPath, syncState.audioPath, syncState.activeTabId]);
+  const projectSwitchingDisabled = useMemo(() => {
+    if (visibleRuntime.guideMode) return true;
+    return workspaces.some((definition) => {
+      const workspaceState = visibleRuntime.getState(definition.id);
+      return workspaceState.isRunning || workspaceState.isExporting || workspaceState.isBatchSpeakerRunning || visibleRuntime.isVoiceModelRuntimeInstalling(definition.id);
+    });
+  }, [visibleRuntime]);
 
   useEffect(() => {
     const updateSidebarMode = () => {
@@ -104,8 +158,9 @@ function AppShellContent() {
       selectedWorkspaceId,
       sidebarCollapsedByUser,
       guideAutoShown,
+      theme,
     });
-  }, [guideAutoShown, persistence, selectedWorkspaceId, sidebarCollapsedByUser]);
+  }, [guideAutoShown, persistence, selectedWorkspaceId, sidebarCollapsedByUser, theme]);
 
   useEffect(() => {
     if (initialShellStateRef.current.guideAutoShown || initialGuideHandledRef.current) {
@@ -122,15 +177,9 @@ function AppShellContent() {
   }, []);
 
   const selectWorkspace = (workspaceId: WorkspaceId) => {
-    if (appTourOpen) {
-      return;
-    }
-    if (workspaceId === selectedWorkspaceId) {
-      return;
-    }
-    if (workspaceTransition) {
-      return;
-    }
+    if (appTourOpen) return;
+    if (workspaceId === selectedWorkspaceId) return;
+    if (workspaceTransition) return;
 
     const sourceCards = readWorkspaceTransitionCards();
     if (sourceCards.length === 0) {
@@ -156,9 +205,7 @@ function AppShellContent() {
     setSelectedWorkspaceId(workspaceId);
 
     afterAnimationFrames(workspaceTransitionSettleFrames, () => {
-      if (workspaceTransitionIdRef.current !== transitionId) {
-        return;
-      }
+      if (workspaceTransitionIdRef.current !== transitionId) return;
 
       const targetCards = readWorkspaceTransitionCards();
       setWorkspaceTransition({
@@ -184,15 +231,30 @@ function AppShellContent() {
     setAppTourStepIndex(0);
   };
 
+  const handleToggleTerminal = () => {
+    setTerminalDockOpen((current) => {
+      const next = !current;
+      if (next) setTerminalBubblePinned(true);
+      return next;
+    });
+  };
+
   return (
-    <main className={cn("min-h-screen overflow-hidden bg-[var(--window-background)] text-[var(--primary-text)]", workspaceTransition && "workspace-transition-active")}>
-      <div className="grid min-h-screen" style={{ gridTemplateColumns: `${sidebarWidth}px ${sidebarGap}px minmax(0,1fr)` }}>
-        <aside
-          className="flex min-h-screen overflow-hidden flex-col border-r border-[var(--panel-stroke)] bg-[var(--shell-chrome-card-bg)] pt-[14px]"
-          style={{ width: sidebarWidth }}
-          data-app-tour-target="sidebar"
+    <main className={cn("flex h-screen flex-col overflow-hidden bg-[var(--window-background)] text-[var(--primary-text)]", workspaceTransition && "workspace-transition-active")}>
+      {/* ── 상단바: 전체 너비, 사이드바와 동일 배경 ── */}
+      {!compactHeader ? (
+        <header
+          className="flex py-[15px] shrink-0 items-center border-b border-[var(--panel-stroke)] bg-[var(--shell-chrome-card-bg)]"
+          data-app-tour-target="workspace-header"
         >
-          <div className={cn("mx-4 mb-[18px] mt-1 flex h-[38px] items-center", sidebarCollapsed ? "justify-center" : "justify-between gap-2")}>
+          {/* 사이드바 너비만큼 앱 타이틀 + 토글 영역 */}
+          <div
+            className={cn(
+              "flex shrink-0 items-center",
+              sidebarCollapsed ? "w-[56px] justify-center px-2" : "justify-between gap-2 px-4",
+            )}
+            style={{ width: sidebarWidth }}
+          >
             <AnimatePresence initial={false}>
               {sidebarCollapsed ? null : (
                 <motion.h1
@@ -201,7 +263,8 @@ function AppShellContent() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={quickEase}
-                  className="min-w-0 truncate text-xl font-bold leading-[38px] text-[var(--primary-text)]"
+                  className="min-w-0 truncate text-xl font-bold text-[var(--primary-text)] cursor-pointer select-none"
+                  onClick={handleTitleClick}
                 >
                   WAV QC Studio
                 </motion.h1>
@@ -218,12 +281,120 @@ function AppShellContent() {
             </motion.button>
           </div>
 
+          {/* gap 영역 */}
+          <div style={{ width: sidebarGap }} className="shrink-0" aria-hidden="true" />
+
+          {/* 상단바 콘텐츠 */}
+          <div className="flex min-w-0 flex-1 items-center pl-[4px] pr-8">
+            <ProjectSelector disabled={projectSwitchingDisabled} />
+            <span className="mx-[18px] h-4 w-px shrink-0 bg-[var(--panel-stroke)] opacity-85" />
+            {isBusy ? (
+              <>
+                <div className="mr-3 h-2 w-[120px] overflow-hidden rounded bg-[var(--slider-rail)]">
+                  <div className="h-full rounded bg-[var(--accent-blue)] transition-[width] duration-300" style={{ width: `${progressPercent}%` }} />
+                </div>
+                <span className="mr-3 min-w-[38px] text-right text-sm font-normal text-[var(--primary-text)]">{progressPercent}%</span>
+                <span className="mr-[18px] h-4 w-px shrink-0 bg-[var(--panel-stroke)] opacity-85" />
+              </>
+            ) : null}
+            {statusItems.map((item, index) => (
+              <div key={item.label} className="flex items-center">
+                {index > 0 ? <span className="mx-[18px] h-4 w-px bg-[var(--panel-stroke)] opacity-85" /> : null}
+                <span className="mr-2 text-sm font-normal text-[var(--secondary-text)]">{item.label}</span>
+                <span className="max-w-36 truncate text-sm font-normal tabular-nums text-[var(--primary-text)]">{item.value}</span>
+              </div>
+            ))}
+            <div className="ml-auto flex items-center gap-4">
+              {/* Retry 버튼 */}
+              {(canRetry || selectedState.table.rows.length > 0 || selectedState.lastRun) ? (
+                <motion.button
+                  type="button"
+                  disabled={!canRetry}
+                  onClick={() => void visibleRuntime.retry(visibleWorkspaceId)}
+                  className={cn("wpf-button flex h-[38px] items-center gap-2 px-3 text-[13px]", !canRetry && "opacity-40")}
+                  aria-label="다시 실행"
+                  whileTap={canRetry ? softPressTap : undefined}
+                >
+                  <RotateCcw className="size-3.5" strokeWidth={1.7} />
+                  RETRY
+                </motion.button>
+              ) : null}
+              {/* Run Processing 버튼 */}
+              <motion.button
+                type="button"
+                disabled={!isRunning && !canRun}
+                onClick={() => void (isRunning ? visibleRuntime.cancelWorkspace(visibleWorkspaceId) : visibleRuntime.run(visibleWorkspaceId))}
+                className={cn(
+                  "flex h-[38px] items-center gap-2 px-3 text-[13px]",
+                  isRunning ? "wpf-danger-button" : "wpf-primary-button",
+                  !isRunning && !canRun && "opacity-40",
+                )}
+                aria-label={isRunning ? "실행 중지" : "Run Processing"}
+                whileTap={isRunning || canRun ? pressTap : undefined}
+              >
+                {isRunning
+                  ? <Square className="size-3.5" fill="currentColor" strokeWidth={1.7} />
+                  : <Play className="size-3.5" fill="currentColor" />}
+                {isRunning ? "STOP" : "Run Processing"}
+              </motion.button>
+              {/* Export 버튼 */}
+              <motion.button
+                type="button"
+                disabled={!isExporting && !canExport}
+                onClick={() => void (isExporting ? visibleRuntime.cancelWorkspace(visibleWorkspaceId) : visibleRuntime.exportWorkspace(visibleWorkspaceId))}
+                className={cn(
+                  "wpf-button flex h-[38px] items-center gap-2 px-3 text-[13px]",
+                  isExporting ? "wpf-danger-button" : "wpf-button",
+                  !isExporting && !canExport && "opacity-40",
+                )}
+                aria-label={isExporting ? "내보내기 중지" : "내보내기"}
+                whileTap={isExporting || canExport ? pressTap : undefined}
+              >
+                {isExporting
+                  ? <Square className="size-3.5" fill="currentColor" strokeWidth={1.7} />
+                  : <Download className="size-3.5" strokeWidth={1.7} />}
+                {isExporting ? "STOP" : "Export Results"}
+              </motion.button>
+              {/* 터미널 이모지 버튼 */}
+              <motion.button
+                type="button"
+                onClick={handleToggleTerminal}
+                whileTap={softPressTap}
+                data-app-tour-target="workspace-console-button"
+                className="flex size-[38px] items-center justify-center rounded-[4px] hover:bg-[var(--soft-selection-hover)] text-[var(--primary-text)]"
+                aria-label={terminalDockOpen ? "콘솔 닫기" : "콘솔 열기"}
+                title={terminalDockOpen ? "콘솔 닫기" : "콘솔 열기"}
+              >
+                <Terminal className="size-[18px]" strokeWidth={1.8} />
+              </motion.button>
+              {/* 가이드 이모지 버튼 */}
+              <motion.button
+                type="button"
+                onClick={openGuide}
+                className="flex size-[38px] items-center justify-center rounded-[4px] hover:bg-[var(--soft-selection-hover)] text-[var(--primary-text)]"
+                aria-label="기능 가이드 열기"
+                data-app-tour-target="guide-button"
+                whileTap={pressTap}
+              >
+                <Compass className="size-[18px]" strokeWidth={1.7} />
+              </motion.button>
+            </div>
+          </div>
+        </header>
+      ) : null}
+
+      {/* ── 본문: 사이드바 | gap | 콘텐츠 ── */}
+      <div className="grid min-h-0 flex-1" style={{ gridTemplateColumns: `${sidebarWidth}px ${sidebarGap}px minmax(0,1fr)` }}>
+        <aside
+          className="flex overflow-hidden flex-col border-r border-[var(--panel-stroke)] bg-[var(--shell-chrome-card-bg)] pt-3"
+          data-app-tour-target="sidebar"
+        >
           <nav
             className={cn("app-scrollbar min-h-0 flex-1 overflow-y-auto pb-4", sidebarCollapsed ? "px-2" : "px-4")}
             aria-label="작업 화면"
             data-app-tour-target="workspace-nav"
           >
-            <div className="space-y-1">
+            <div className="space-y-2">
               {workspaces.map((workspace) => (
                 <WorkspaceNavItem
                   key={workspace.id}
@@ -237,74 +408,56 @@ function AppShellContent() {
           </nav>
 
           <div
-            className={cn(sidebarCollapsed ? "mx-2 mb-4 mt-3 border-t border-[var(--panel-stroke)] pt-3" : "m-4 rounded-md border border-[var(--panel-stroke)] p-[14px]")}
+            className={cn(sidebarCollapsed ? "mx-2 mb-4 mt-3 border-t border-[var(--panel-stroke)] pt-3 flex justify-center" : "m-4 rounded-md border border-[var(--panel-stroke)] p-[14px] flex items-center justify-between")}
             data-app-tour-target="run-controls"
           >
-            {sidebarCollapsed ? null : (
-              <>
-                <p className="text-[13px] font-normal text-[var(--secondary-text)]">Work</p>
-                <p className="mb-[14px] mt-2 truncate text-base font-normal text-[var(--primary-text)]">{selectedState.statusText}</p>
-              </>
-            )}
-            <motion.button
-              type="button"
-              disabled={!isRunning && !canRun}
-              onClick={() => void (isRunning ? visibleRuntime.cancelWorkspace(visibleWorkspaceId) : visibleRuntime.run(visibleWorkspaceId))}
-              className={cn("flex w-full items-center justify-center text-sm font-normal", isRunning ? "wpf-danger-button" : "wpf-primary-button", sidebarCollapsed && "px-0", !isRunning && !canRun && "opacity-40")}
-              aria-label={isRunning ? "실행 중지" : "새 실행"}
-              whileTap={isRunning || canRun ? pressTap : undefined}
-            >
-              {isRunning ? <Square className={cn("size-3.5", !sidebarCollapsed && "mr-2")} fill="currentColor" strokeWidth={1.7} /> : <Play className={cn("size-3.5", !sidebarCollapsed && "mr-2")} fill="currentColor" />}
-              {sidebarCollapsed ? null : isRunning ? "STOP" : "NEW RUN"}
-            </motion.button>
-            {canRetry || selectedState.table.rows.length > 0 || selectedState.lastRun ? (
+            {sidebarCollapsed ? (
               <motion.button
                 type="button"
-                disabled={!canRetry}
-                onClick={() => void visibleRuntime.retry(visibleWorkspaceId)}
-                className={cn("mt-2 flex h-[38px] w-full items-center justify-center text-sm font-normal wpf-button", sidebarCollapsed && "px-0", !canRetry && "opacity-40")}
-                aria-label="다시 실행"
-                whileTap={canRetry ? pressTap : undefined}
+                onClick={toggleTheme}
+                whileTap={softPressTap}
+                className="flex size-8 items-center justify-center rounded-[4px] hover:bg-[var(--soft-selection-hover)] text-[var(--primary-text)]"
+                aria-label={theme === "light" ? "다크 모드로 전환" : "라이트 모드로 전환"}
+                title={theme === "light" ? "다크 모드" : "라이트 모드"}
               >
-                <RotateCcw className={cn("size-3.5", !sidebarCollapsed && "mr-2")} strokeWidth={1.7} />
-                {sidebarCollapsed ? null : "RETRY"}
+                {theme === "light" ? <Moon className="size-[18px]" strokeWidth={1.8} /> : <Sun className="size-[18px]" strokeWidth={1.8} />}
               </motion.button>
-            ) : null}
-            <motion.button
-              type="button"
-              disabled={!isExporting && !canExport}
-              onClick={() => void (isExporting ? visibleRuntime.cancelWorkspace(visibleWorkspaceId) : visibleRuntime.exportWorkspace(visibleWorkspaceId))}
-              className={cn("mt-2 flex h-[38px] w-full items-center justify-center text-sm font-normal", isExporting ? "wpf-danger-button" : "wpf-button", sidebarCollapsed && "px-0", !isExporting && !canExport && "opacity-40")}
-              aria-label={isExporting ? "내보내기 중지" : "내보내기"}
-              whileTap={isExporting || canExport ? pressTap : undefined}
-            >
-              {isExporting ? <Square className={cn("size-3.5", !sidebarCollapsed && "mr-2")} fill="currentColor" strokeWidth={1.7} /> : <Download className={cn("size-3.5", !sidebarCollapsed && "mr-2")} strokeWidth={1.7} />}
-              {sidebarCollapsed ? null : isExporting ? "STOP" : "EXPORT"}
-            </motion.button>
-            <motion.button
-              type="button"
-              onClick={openGuide}
-              className={cn("mt-2 flex h-[38px] w-full items-center justify-center text-sm font-normal wpf-button", sidebarCollapsed && "px-0")}
-              aria-label="기능 가이드 열기"
-              data-app-tour-target="guide-button"
-              whileTap={pressTap}
-            >
-              <Compass className={cn("size-3.5", !sidebarCollapsed && "mr-2")} strokeWidth={1.7} />
-              {sidebarCollapsed ? null : "GUIDE"}
-            </motion.button>
+            ) : (
+              <>
+                <span className="text-[13px] font-normal text-[var(--secondary-text)]">v0.1.3</span>
+                <motion.button
+                  type="button"
+                  onClick={toggleTheme}
+                  whileTap={softPressTap}
+                  className="flex size-8 items-center justify-center rounded-[4px] hover:bg-[var(--soft-selection-hover)] text-[var(--primary-text)]"
+                  aria-label={theme === "light" ? "다크 모드로 전환" : "라이트 모드로 전환"}
+                  title={theme === "light" ? "다크 모드" : "라이트 모드"}
+                >
+                  {theme === "light" ? <Moon className="size-[18px]" strokeWidth={1.8} /> : <Sun className="size-[18px]" strokeWidth={1.8} />}
+                </motion.button>
+              </>
+            )}
           </div>
         </aside>
 
         <div aria-hidden="true" />
 
-        <section className="min-w-0 px-0 py-3 pr-4">
-          <div className="h-full min-h-0">
-            <WorkspaceFrame key={selectedWorkspace.id} workspace={selectedWorkspace} runtime={visibleRuntime} />
-          </div>
+        <section className="min-h-0 min-w-0">
+          <WorkspaceFrame
+            key={selectedWorkspace.id}
+            workspace={selectedWorkspace}
+            runtime={visibleRuntime}
+            terminalDockOpen={terminalDockOpen}
+            terminalBubblePinned={terminalBubblePinned}
+            onTerminalDockOpenChange={setTerminalDockOpen}
+            onTerminalBubblePinnedChange={setTerminalBubblePinned}
+          />
         </section>
       </div>
+
       {workspaceTransition ? <WorkspaceTransitionOverlay transition={workspaceTransition} /> : null}
       <AppTour open={appTourOpen} onClose={closeGuide} onStepChange={(stepIndex) => setAppTourStepIndex(stepIndex)} />
+      <WorkspaceFloatingAudioPlayer workspaceId={visibleWorkspaceId} runtime={visibleRuntime} />
     </main>
   );
 }
@@ -413,15 +566,9 @@ function resolveWorkspaceTransitionCardVariant(element: HTMLElement): WorkspaceT
   }
 
   const rect = element.getBoundingClientRect();
-  if (rect.width <= 72 && rect.height <= 72) {
-    return "compact";
-  }
-  if (rect.width <= 72) {
-    return "vertical";
-  }
-  if (rect.height <= 72) {
-    return "horizontal";
-  }
+  if (rect.width <= 72 && rect.height <= 72) return "compact";
+  if (rect.width <= 72) return "vertical";
+  if (rect.height <= 72) return "horizontal";
   return "full";
 }
 
@@ -445,13 +592,15 @@ function WorkspaceNavItem({ workspace, selected, collapsed, onClick }: { workspa
       onClick={onClick}
       whileTap={pressTap}
       className={cn(
-        "relative flex w-full items-center overflow-hidden rounded-[5px] text-left text-sm font-normal text-[var(--primary-text)] transition-colors",
-        collapsed ? "justify-center px-0 py-[9px]" : "px-[10px] py-[9px]",
-        selected ? "bg-transparent" : "bg-transparent hover:bg-[var(--soft-selection-hover)]",
+        "relative flex w-full items-center overflow-hidden rounded-[5px] text-left text-sm font-normal transition-colors",
+        collapsed ? "justify-center px-0 py-[15px]" : "px-[16px] py-[15px]",
+        selected 
+          ? "bg-transparent text-[var(--accent-foreground)] font-semibold" 
+          : "bg-transparent text-[var(--primary-text)] hover:bg-[var(--soft-selection-hover)]",
       )}
     >
       {selected ? <motion.span layoutId="workspace-nav-selection" className="absolute inset-0 rounded-[5px] bg-[var(--nav-selected-bg)]" /> : null}
-      <Icon className="relative z-10 size-5 shrink-0 text-[var(--primary-text)]" strokeWidth={1.65} />
+      <Icon className={cn("relative z-10 size-5 shrink-0 transition-colors", selected ? "text-[var(--accent-foreground)]" : "text-[var(--primary-text)]")} strokeWidth={1.65} />
       {collapsed ? null : <span className="relative z-10 ml-3 min-w-0 truncate">{workspace.navLabel}</span>}
     </motion.button>
   );

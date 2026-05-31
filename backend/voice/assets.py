@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -61,8 +63,8 @@ def gpt_assets_ready(core: Any, version: str, install_deps: bool) -> bool:
     if not (Path(core.GPT_REPO) / ".git").exists() or not Path(core.GPT_HF).exists():
         return False
     pretrained = getattr(core, "GPT_PRETRAINED", {}).get(version, getattr(core, "GPT_PRETRAINED", {}).get("v2", {}))
-    required_files = [pretrained.get("gpt"), pretrained.get("s2g"), pretrained.get("s2d")]
-    if any(not file_name or not (Path(core.GPT_HF) / str(file_name)).exists() for file_name in required_files):
+    required_files = [pretrained.get(key) for key in ("gpt", "s2g", "s2d", "vocoder", "vocoder_config")]
+    if any(not (Path(core.GPT_HF) / str(file_name)).exists() for file_name in required_files if file_name):
         return False
     if not install_deps:
         return True
@@ -91,10 +93,20 @@ def ensure_gpt_sovits_repo_layout(core: Any, log: LogFn) -> None:
     hf = Path(core.GPT_HF)
     official_dir = repo / "GPT_SoVITS" / "pretrained_models"
     expected_files = [
+        ("s1bert25hz-2kh-longer-epoch=68e-step=50232.ckpt", "s1bert25hz-2kh-longer-epoch=68e-step=50232.ckpt"),
+        ("s1v3.ckpt", "s1v3.ckpt"),
+        ("s2G488k.pth", "s2G488k.pth"),
+        ("s2D488k.pth", "s2D488k.pth"),
+        ("s2Gv3.pth", "s2Gv3.pth"),
         ("sv/pretrained_eres2netv2w24s4ep4.ckpt", "sv/pretrained_eres2netv2w24s4ep4.ckpt"),
     ]
     expected_dirs = [
-        "fast_langdetect",
+        "chinese-hubert-base",
+        "chinese-roberta-wwm-ext-large",
+        "gsv-v2final-pretrained",
+        "gsv-v4-pretrained",
+        "models--nvidia--bigvgan_v2_24khz_100band_256x",
+        "v2Pro",
     ]
     for relative_target, relative_source in expected_files:
         target = official_dir / relative_target
@@ -102,10 +114,46 @@ def ensure_gpt_sovits_repo_layout(core: Any, log: LogFn) -> None:
         if target.exists() or not source.exists():
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, target)
-        log(f"[voice assets] copied GPT-SoVITS pretrained file: {target}")
+        link_or_copy_file(source, target, log)
     for relative_dir in expected_dirs:
         target_dir = official_dir / relative_dir
-        if not target_dir.exists():
-            target_dir.mkdir(parents=True, exist_ok=True)
-            log(f"[voice assets] prepared GPT-SoVITS cache directory: {target_dir}")
+        source_dir = hf / relative_dir
+        if target_dir.exists() or not source_dir.exists():
+            continue
+        target_dir.parent.mkdir(parents=True, exist_ok=True)
+        link_or_copy_dir(source_dir, target_dir, log)
+    fast_langdetect = official_dir / "fast_langdetect"
+    if not fast_langdetect.exists():
+        fast_langdetect.mkdir(parents=True, exist_ok=True)
+        log(f"[voice assets] prepared GPT-SoVITS cache directory: {fast_langdetect}")
+
+
+def link_or_copy_file(source: Path, target: Path, log: LogFn) -> None:
+    try:
+        os.link(source, target)
+        log(f"[voice assets] linked GPT-SoVITS pretrained file: {target}")
+        return
+    except Exception:
+        shutil.copy2(source, target)
+        log(f"[voice assets] copied GPT-SoVITS pretrained file: {target}")
+
+
+def link_or_copy_dir(source: Path, target: Path, log: LogFn) -> None:
+    if os.name == "nt":
+        completed = subprocess.run(
+            ["cmd", "/c", "mklink", "/J", str(target), str(source)],
+            cwd=str(target.parent),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if completed.returncode == 0 and target.exists():
+            log(f"[voice assets] linked GPT-SoVITS pretrained directory: {target}")
+            return
+    try:
+        os.symlink(source, target, target_is_directory=True)
+        log(f"[voice assets] linked GPT-SoVITS pretrained directory: {target}")
+        return
+    except Exception:
+        shutil.copytree(source, target)
+        log(f"[voice assets] copied GPT-SoVITS pretrained directory: {target}")

@@ -22,6 +22,30 @@ export function WorkspacePtyTerminal({ text, className, fontSize = 13, scrollbac
       return;
     }
 
+    const getTheme = (isLight: boolean) => ({
+      background: "rgba(0, 0, 0, 0)",
+      foreground: isLight ? "#1A1A24" : "#d7deea",
+      cursor: isLight ? "#1A1A24" : "#d7deea",
+      black: isLight ? "#FAFAFC" : "#0B1016",
+      brightBlack: isLight ? "#98A2B3" : "#5d6878",
+      red: "#ff8c96",
+      brightRed: "#ffabb2",
+      green: "#8ee6b0",
+      brightGreen: "#b5f4cc",
+      yellow: "#fbbf24",
+      brightYellow: "#ffd166",
+      blue: "#8fb7ff",
+      brightBlue: "#b6ceff",
+      magenta: "#b99cff",
+      brightMagenta: "#d1bdff",
+      cyan: "#7dd3fc",
+      brightCyan: "#a5e4ff",
+      white: isLight ? "#1A1A24" : "#d7deea",
+      brightWhite: isLight ? "#000000" : "#ffffff",
+    });
+
+    const isLightInitial = document.documentElement.classList.contains("light");
+
     const terminal = new XTerm({
       allowTransparency: true,
       convertEol: false,
@@ -31,28 +55,9 @@ export function WorkspacePtyTerminal({ text, className, fontSize = 13, scrollbac
       fontSize,
       lineHeight: 1.35,
       scrollback,
-      theme: {
-        background: "#0d131c",
-        foreground: "#d7deea",
-        cursor: "#d7deea",
-        black: "#0d131c",
-        brightBlack: "#5d6878",
-        red: "#ff8c96",
-        brightRed: "#ffabb2",
-        green: "#8ee6b0",
-        brightGreen: "#b5f4cc",
-        yellow: "#fbbf24",
-        brightYellow: "#ffd166",
-        blue: "#8fb7ff",
-        brightBlue: "#b6ceff",
-        magenta: "#b99cff",
-        brightMagenta: "#d1bdff",
-        cyan: "#7dd3fc",
-        brightCyan: "#a5e4ff",
-        white: "#d7deea",
-        brightWhite: "#ffffff",
-      },
+      theme: getTheme(isLightInitial),
     });
+
     const fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);
     terminal.open(host);
@@ -66,11 +71,22 @@ export function WorkspacePtyTerminal({ text, className, fontSize = 13, scrollbac
       }
     };
     fit();
-    const observer = new ResizeObserver(fit);
-    observer.observe(host);
+    const resizeObserver = new ResizeObserver(fit);
+    resizeObserver.observe(host);
+
+    // Watch for light/dark mode theme changes on html tag dynamically
+    const themeObserver = new MutationObserver(() => {
+      const isLight = document.documentElement.classList.contains("light");
+      terminal.options.theme = getTheme(isLight);
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
 
     return () => {
-      observer.disconnect();
+      resizeObserver.disconnect();
+      themeObserver.disconnect();
       terminal.dispose();
       terminalRef.current = null;
     };
@@ -96,5 +112,16 @@ export function WorkspacePtyTerminal({ text, className, fontSize = 13, scrollbac
     terminal.scrollToBottom();
   }, [text]);
 
-  return <div ref={hostRef} className={cn("min-h-0 min-w-0 overflow-hidden [&_.xterm]:h-full [&_.xterm-viewport]:bg-transparent", className)} />;
+  return (
+    <div ref={hostRef} className={cn("relative min-h-0 min-w-0 overflow-hidden [&_.xterm]:h-full", className)}>
+      <style>{`
+        .xterm,
+        .xterm .xterm-viewport,
+        .xterm .xterm-screen,
+        .xterm .xterm-rows {
+          background-color: transparent !important;
+        }
+      `}</style>
+    </div>
+  );
 }

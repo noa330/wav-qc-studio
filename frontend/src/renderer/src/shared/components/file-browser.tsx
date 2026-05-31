@@ -1,4 +1,4 @@
-﻿import { Check, File, FileAudio, Folder, FolderOpen } from "lucide-react";
+import { Check, File, FileAudio, Folder, FolderOpen, Minus, Music, Search, Filter } from "lucide-react";
 import { useEffect, useRef, useState, type UIEvent } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { FileTreeNode, FileTreeResult, WorkspaceId } from "@shared/ipc";
@@ -7,11 +7,13 @@ import { cn } from "@/lib/utils";
 import { ChevronGlyph } from "./controls";
 import { checkPopMotion, fadeSlideUpMotion, loadingSpinnerTransition, softPressTap, subtleSpring, tightPressTap } from "@/shared/motion";
 
-const fileBrowserRowExtent = 54;
+// 42px height for slim single-line rows with increased row-to-row spacing
+const fileBrowserRowExtent = 42;
 
 export type FileBrowserNodeChecks = {
   checkedPaths: string[];
   onToggleNode: (node: FileTreeNode) => void;
+  onToggleNodes?: (nodes: FileTreeNode[], checked: boolean) => void;
   isCheckable?: (node: FileTreeNode) => boolean;
 };
 
@@ -35,6 +37,8 @@ export function FileBrowser({
   onSelectNode,
   inputSecondaryActionLabel,
   onSelectInputSecondary,
+  audioDurations,
+  variant = "premium",
 }: {
   workspaceId: WorkspaceId;
   inputPath: string;
@@ -55,34 +59,43 @@ export function FileBrowser({
   onSelectInputSecondary?: () => void;
   onRequestWindow?: (purpose: "input" | "output", direction: "reveal" | "sync" | "up" | "down", metrics: ScrollWindowMetrics, targetPath?: string) => Promise<void> | void;
   onSelectNode: (node: FileTreeNode) => void;
+  audioDurations?: Record<string, string>;
+  variant?: "classic" | "premium";
 }) {
-  const inputAction = inputActionLabel;
-  const inputTitle = inputTree?.rootPath === "wqcs://mixed-input" ? "input" : inputPath || "input";
+  const inputTitle = inputTree?.rootPath === "wqcs://mixed-input" ? "오디오" : inputPath || "오디오";
   const selectionLayoutId = `file-browser-selection-${workspaceId}`;
   const [inputExpanded, setInputExpanded] = useState(true);
-  const [outputExpanded, setOutputExpanded] = useState(false);
-
-  useEffect(() => {
-    if (preferredSection === "output") {
-      setInputExpanded(false);
-      setOutputExpanded(true);
-      return;
-    }
-
-    if (preferredSection === "input") {
-      setInputExpanded(true);
-      setOutputExpanded(false);
-    }
-  }, [preferredSection, sectionRequestId]);
+  const isPremium = variant === "premium";
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col gap-0 overflow-hidden">
+      {/* Mock premium search box rendered at the very top of the browser panel */}
+      <div className={cn("relative flex items-center", isPremium ? "px-0 pb-3" : "px-1")}>
+        <Search className={cn("absolute size-4 text-[var(--secondary-text)]", isPremium ? "left-3" : "left-3.5")} />
+        <input
+          type="text"
+          disabled
+          placeholder="Filter files..."
+          className={cn(
+            "w-full bg-[var(--field-bg)] text-sm text-[var(--secondary-text)] outline-none opacity-80 border border-[var(--panel-stroke)] transition-all",
+            isPremium
+              ? "h-10 rounded-xl pl-9 pr-10"
+              : "h-9 rounded-[5px] pl-9 pr-3"
+          )}
+        />
+        {isPremium && (
+          <Filter className="absolute right-3 size-4 text-[var(--secondary-text)] opacity-70 cursor-not-allowed" />
+        )}
+      </div>
+
       <BrowserSection
         title={inputTitle}
-        action={inputAction}
+        action={inputActionLabel}
         onAction={onSelectInputFolder}
         secondaryAction={inputSecondaryActionLabel}
         onSecondaryAction={onSelectInputSecondary}
+        onSelectOutputFolder={onSelectOutputFolder}
+        outputActionLabel={outputActionLabel}
         nodes={inputTree?.nodes ?? []}
         windowState={inputTree?.window}
         selectedPath={selectedPath}
@@ -95,25 +108,8 @@ export function FileBrowser({
         onToggle={() => setInputExpanded((current) => !current)}
         fill={inputExpanded}
         selectionLayoutId={selectionLayoutId}
-      />
-      <BrowserSection
-        title={outputPath || "output"}
-        action={outputActionLabel}
-        onAction={onSelectOutputFolder}
-        secondaryAction={undefined}
-        onSecondaryAction={undefined}
-        nodes={outputTree?.nodes ?? []}
-        windowState={outputTree?.window}
-        selectedPath={selectedPath}
-        rowChecks={rowChecks}
-        nodeChecks={undefined}
-        revealRequestId={revealRequestId}
-        onSelectNode={onSelectNode}
-        onRequestWindow={(direction, metrics, targetPath) => onRequestWindow?.("output", direction, metrics, targetPath)}
-        expanded={outputExpanded}
-        onToggle={() => setOutputExpanded((current) => !current)}
-        fill={outputExpanded}
-        selectionLayoutId={selectionLayoutId}
+        audioDurations={audioDurations}
+        variant={variant}
       />
     </div>
   );
@@ -121,10 +117,6 @@ export function FileBrowser({
 
 function BrowserSection({
   title,
-  action,
-  onAction,
-  secondaryAction,
-  onSecondaryAction,
   nodes,
   windowState,
   selectedPath,
@@ -137,12 +129,16 @@ function BrowserSection({
   onToggle,
   fill,
   selectionLayoutId,
+  audioDurations,
+  variant = "premium",
 }: {
   title: string;
   action: string;
   onAction: () => void;
   secondaryAction?: string;
   onSecondaryAction?: () => void;
+  onSelectOutputFolder?: () => void;
+  outputActionLabel?: string;
   nodes: FileTreeNode[];
   windowState?: FileTreeResult["window"];
   selectedPath?: string;
@@ -155,11 +151,14 @@ function BrowserSection({
   onToggle: () => void;
   fill: boolean;
   selectionLayoutId: string;
+  audioDurations?: Record<string, string>;
+  variant?: "classic" | "premium";
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const loadingWindowRef = useRef(false);
   const handledRevealRequestRef = useRef<number | undefined>(undefined);
   const checkedPathSet = nodeChecks ? new Set(nodeChecks.checkedPaths.map(normalizePath)) : undefined;
+
   const resolveWindowMetrics = (element: HTMLDivElement | null) =>
     resolveScrollWindowMetrics({
       viewportExtent: element?.clientHeight ?? fileBrowserRowExtent,
@@ -232,25 +231,24 @@ function BrowserSection({
     }
   };
 
+  const isPremium = variant === "premium";
+
   return (
     <section className={cn("flex min-h-10 flex-col overflow-hidden", fill ? "flex-1" : "flex-none")}>
-      <div className="grid h-10 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2" data-app-tour-target="file-browser-section-header">
-        <motion.button type="button" onClick={onToggle} whileTap={softPressTap} className="grid min-w-0 grid-cols-[18px_24px_minmax(0,1fr)] items-center px-1 text-left">
+      <div className={cn("grid h-10 grid-cols-[minmax(0,1fr)_auto] items-center gap-2", isPremium ? "px-0 pb-1" : "px-1")} data-app-tour-target="file-browser-section-header">
+        <motion.button type="button" onClick={onToggle} whileTap={softPressTap} className="grid min-w-0 grid-cols-[18px_24px_minmax(0,1fr)] items-center text-left">
           <ChevronGlyph direction={expanded ? "down" : "right"} className="col-start-1" />
-          {expanded ? <FolderOpen className="col-start-2 size-[18px] text-[var(--icon-brush)]" strokeWidth={1.55} /> : <Folder className="col-start-2 size-[18px] text-[var(--icon-brush)]" strokeWidth={1.55} />}
-          <span className="col-start-3 min-w-0 truncate text-base font-normal text-[var(--primary-text)]">
+          {expanded ? (
+            <FolderOpen className={cn("col-start-2 size-[18px] shrink-0", isPremium ? "text-[var(--accent-foreground)]" : "text-[var(--icon-brush)]")} strokeWidth={1.55} />
+          ) : (
+            <Folder className={cn("col-start-2 size-[18px] shrink-0", isPremium ? "text-[var(--accent-foreground)]" : "text-[var(--icon-brush)]")} strokeWidth={1.55} />
+          )}
+          <span className={cn("col-start-3 min-w-0 truncate", isPremium ? "font-semibold text-sm text-[var(--primary-text)]" : "text-base font-normal text-[var(--primary-text)]")}>
             {compactPath(title)}
           </span>
         </motion.button>
-        <motion.button type="button" onClick={onAction} whileTap={softPressTap} data-app-tour-target="file-browser-folder-action" className="whitespace-nowrap text-[13px] font-normal text-[var(--secondary-text)] underline underline-offset-2">
-          {action}
-        </motion.button>
-        {secondaryAction && onSecondaryAction ? (
-          <motion.button type="button" onClick={onSecondaryAction} whileTap={softPressTap} data-app-tour-target="file-browser-folder-action" className="whitespace-nowrap text-[13px] font-normal text-[var(--secondary-text)] underline underline-offset-2">
-            {secondaryAction}
-          </motion.button>
-        ) : null}
       </div>
+
       <AnimatePresence initial={false}>
         {expanded ? (
           <motion.div ref={scrollRef} onScroll={handleScroll} {...fadeSlideUpMotion} data-app-tour-target="file-browser-list" className="scroll-window-viewport mt-0 min-h-0 flex-1 overflow-auto pb-3 pr-1">
@@ -271,6 +269,9 @@ function BrowserSection({
                   }}
                   onSelectNode={onSelectNode}
                   selectionLayoutId={selectionLayoutId}
+                  level={1}
+                  audioDurations={audioDurations}
+                  variant={variant}
                 />
               ))
             )}
@@ -292,6 +293,8 @@ function BrowserNodeRow({
   onSelectNode,
   selectionLayoutId,
   level = 0,
+  audioDurations,
+  variant = "premium",
 }: {
   node: FileTreeNode;
   selectedPath?: string;
@@ -303,9 +306,12 @@ function BrowserNodeRow({
   onSelectNode: (node: FileTreeNode) => void;
   selectionLayoutId: string;
   level?: number;
+  audioDurations?: Record<string, string>;
+  variant?: "classic" | "premium";
 }) {
   const hasChildren = Boolean(node.children?.length);
   const [expanded, setExpanded] = useState(true);
+  const isPremium = variant === "premium";
   const FolderIcon = expanded ? FolderOpen : Folder;
   const Icon = node.kind === "directory" ? FolderIcon : isAudioFile(node.path) ? FileAudio : File;
   const conversionStatus = node.kind === "file" ? readConversionStatus(node.meta) : undefined;
@@ -313,11 +319,14 @@ function BrowserNodeRow({
   const unchecked = Boolean(node.exportRowId && rowChecks?.[node.exportRowId] === false);
   const checkable = Boolean(nodeChecks && isNodeCheckable(node, nodeChecks));
   const checked = checkable && Boolean(checkedPathSet?.has(normalizePath(node.path)));
+  const checkableDescendantNodes = node.kind === "directory" && nodeChecks ? collectCheckableDescendantNodes(node, nodeChecks) : [];
+  const folderCheckable = checkableDescendantNodes.length > 0 && Boolean(nodeChecks?.onToggleNodes);
+  const folderCheckedCount = folderCheckable
+    ? checkableDescendantNodes.filter((item) => checkedPathSet?.has(normalizePath(item.path))).length
+    : 0;
+  const folderAllChecked = folderCheckable && folderCheckedCount === checkableDescendantNodes.length;
+  const folderSomeChecked = folderCheckable && folderCheckedCount > 0;
   const rowRef = useRef<HTMLDivElement | null>(null);
-  const chevronColumnClass = nodeChecks ? "col-start-2" : "col-start-1";
-  const iconColumnClass = nodeChecks ? "col-start-3" : "col-start-2";
-  const textColumnClass = nodeChecks ? "col-start-4" : "col-start-3";
-  const gridClass = nodeChecks ? "grid-cols-[24px_18px_24px_minmax(0,1fr)]" : "grid-cols-[18px_24px_minmax(0,1fr)]";
 
   useEffect(() => {
     if (!selected || revealRequestId === undefined) {
@@ -339,6 +348,34 @@ function BrowserNodeRow({
     onRevealHandled?.(revealRequestId);
   }, [onRevealHandled, revealRequestId, selected, selectedPath]);
 
+  const isFile = node.kind === "file";
+  const isAudio = isAudioFile(node.path) && isFile;
+
+  // Calculate actual duration
+  let durationStr = "";
+  if (isFile) {
+    if (node.exportRowId && audioDurations?.[node.exportRowId]) {
+      durationStr = audioDurations[node.exportRowId];
+    } else if (node.path && audioDurations?.[node.path.replace(/\\/g, "/").toLowerCase()]) {
+      durationStr = audioDurations[node.path.replace(/\\/g, "/").toLowerCase()];
+    } else if (node.meta && !isNaN(parseFloat(node.meta))) {
+      durationStr = parseFloat(node.meta).toFixed(2) + "s";
+    } else {
+      // Mock fallback duration for file nodes
+      durationStr = isAudio ? "5.00s" : "";
+    }
+  }
+
+  // Common wrapper styles: separate vertical padding and font size for file vs folder to maximize visual hierarchy
+  const wrapperClass = cn(
+    isPremium
+      ? (isFile
+          ? "relative mt-2 mb-0 block overflow-hidden rounded-lg px-1.5 py-2.5 text-left text-xs font-normal hover:bg-[var(--soft-selection-hover)]"
+          : "relative mt-2 mb-0 block overflow-hidden rounded-lg px-1.5 py-2.5 text-left text-sm font-semibold hover:bg-[var(--soft-selection-hover)]")
+      : "relative mt-2 mb-0 block w-full overflow-hidden rounded-[5px] px-1 py-1.5 text-left text-sm font-normal hover:bg-[var(--soft-selection-hover)]",
+    selected && "hover:bg-transparent"
+  );
+
   return (
     <div>
       <div
@@ -346,7 +383,7 @@ function BrowserNodeRow({
         role="button"
         tabIndex={0}
         onClick={() => {
-          if (node.kind === "file") {
+          if (isFile) {
             onSelectNode(node);
           }
           if (hasChildren) {
@@ -360,56 +397,220 @@ function BrowserNodeRow({
           event.preventDefault();
           event.currentTarget.click();
         }}
-        className={cn("relative my-0.5 block w-full overflow-hidden rounded-[5px] px-1 py-2 text-left text-sm font-normal hover:bg-[var(--soft-selection-hover)]", selected && "hover:bg-transparent")}
+        className={wrapperClass}
+        style={
+          isPremium
+            ? isFile
+              ? nodeChecks
+                ? { marginLeft: `${level * 18}px`, width: `calc(100% - ${level * 18}px)` }
+                : { marginLeft: `${level * 18 + 24}px`, width: `calc(100% - ${level * 18 + 24}px)` }
+              : { marginLeft: `${level * 18}px`, width: `calc(100% - ${level * 18}px)` }
+            : undefined
+        }
       >
-        {selected ? <motion.span layoutId={selectionLayoutId} transition={subtleSpring} className="absolute inset-0 rounded-[5px] bg-[var(--nav-selected-bg)]" /> : null}
-        <div className={cn("relative z-10 grid min-w-0 items-center", gridClass)} style={{ marginLeft: `${level * 14}px` }}>
-          {nodeChecks ? (
-            <span className="col-start-1 flex size-[18px] items-center justify-center">
-              {checkable ? (
+        {selected ? (
+          <motion.span
+            layoutId={selectionLayoutId}
+            transition={subtleSpring}
+            className={cn(
+              "absolute inset-0 pointer-events-none", // Crucial: prevent overriding click events
+              isPremium
+                ? "rounded-lg bg-[var(--soft-selection-hover)] border border-[var(--panel-stroke)]/30"
+                : "rounded-[5px] bg-[var(--nav-selected-bg)]"
+            )}
+          />
+        ) : null}
+
+        {isFile ? (
+          // Slim downscaled single-row layout for file nodes.
+          // Uses the same grid-cols structure as the folder section header for consistent hierarchy indentation.
+          // level spacers (18px each) push the content right to match the folder chevron+icon grid.
+          <div
+            className="relative z-10 grid min-w-0 items-center gap-x-1.5"
+            style={
+              isPremium
+                ? {
+                    gridTemplateColumns: nodeChecks
+                      ? "18px 20px minmax(0,1fr) auto"
+                      : "20px minmax(0,1fr) auto",
+                  }
+                : {
+                    gridTemplateColumns: `${level * 18}px 18px 20px minmax(0,1fr) auto`,
+                  }
+            }
+          >
+            {/* level indent spacer for classic */}
+            {!isPremium && <span />}
+
+            {/* Check button or empty spacer for classic */}
+            {!isPremium && (
+              nodeChecks && checkable ? (
+                <span className="flex size-[18px] shrink-0 items-center justify-center">
+                  <NodeCheckButton
+                    checked={checked}
+                    ariaLabel={`${node.name} 선택`}
+                    onToggle={() => nodeChecks?.onToggleNode(node)}
+                  />
+                </span>
+              ) : (
+                <span />
+              )
+            )}
+
+            {/* Check button for premium (only when nodeChecks is active) */}
+            {isPremium && nodeChecks && (
+              <span className="flex size-[18px] shrink-0 items-center justify-center">
                 <NodeCheckButton
                   checked={checked}
                   ariaLabel={`${node.name} 선택`}
                   onToggle={() => nodeChecks?.onToggleNode(node)}
                 />
-              ) : null}
+              </span>
+            )}
+
+            {/* Wrapped Icon Box: size-5 compact for premium files (box smaller, icon same), size-7 for classic */}
+            <div className={cn(
+              "flex shrink-0 items-center justify-center bg-[var(--music-icon-box-bg)] text-[var(--accent-foreground)] shadow-[0_1px_2px_rgba(0,0,0,0.03)]",
+              isPremium ? "size-5 rounded-[4px]" : "size-7 rounded-[6px] shadow-xs"
+            )}>
+              {isAudio ? (
+                <Music className={isPremium ? "size-3" : "size-3.5"} strokeWidth={isPremium ? 2.5 : 2.2} />
+              ) : (
+                <FileAudio className={isPremium ? "size-3" : "size-3.5"} strokeWidth={isPremium ? 2.5 : 2.2} />
+              )}
+            </div>
+
+            {/* File label: text-xs and font-normal for premium variant */}
+            <span
+              className={cn(
+                "min-w-0 truncate text-[var(--primary-text)]",
+                isPremium ? "text-xs font-normal" : "text-sm font-normal",
+                selected && "font-semibold text-[var(--accent-foreground)]",
+                unchecked && "line-through decoration-[var(--primary-text)]"
+              )}
+            >
+              {node.name}
             </span>
-          ) : null}
-          {hasChildren ? <ChevronGlyph direction={expanded ? "down" : "right"} className={chevronColumnClass} /> : <span className={chevronColumnClass} />}
-          {conversionStatus ? <ConversionStatusIcon status={conversionStatus} className={iconColumnClass} /> : <Icon className={cn(iconColumnClass, "size-[18px] text-[var(--icon-brush)]")} strokeWidth={1.55} />}
-          <div className={cn(textColumnClass, "min-w-0")}>
-            <p className={cn("truncate text-sm font-normal text-[var(--primary-text)]", unchecked && "line-through decoration-[var(--primary-text)]")}>{node.name}</p>
-            {node.meta ? <p className={cn("mt-0.5 truncate text-[13px] text-[var(--secondary-text)]", unchecked && "line-through decoration-[var(--secondary-text)]")}>{node.meta}</p> : null}
+
+            {/* Right side duration and status dot */}
+            <div className="flex shrink-0 items-center gap-2">
+              {durationStr && (
+                <span className={cn("font-normal text-[var(--secondary-text)]", isPremium ? "text-[11px]" : "text-[13px]")}>
+                  {durationStr}
+                </span>
+              )}
+              {/* Dynamic status dot: size-[6px] compact for premium */}
+              <span
+                className={cn(
+                  "rounded-full shrink-0",
+                  isPremium ? "size-[6px]" : "size-2",
+                  selected
+                    ? (isPremium ? "bg-[var(--accent-foreground)]" : "bg-emerald-500")
+                    : (isPremium
+                        ? (node.name.charCodeAt(Math.max(0, node.name.length - 5)) % 2 === 0
+                            ? "bg-emerald-500"
+                            : "bg-amber-500")
+                        : "bg-emerald-500")
+                )}
+              />
+            </div>
           </div>
-        </div>
+        ) : (
+          // Rich premium hierarchical directory (folder) layout.
+          // Uses the same grid-cols structure as the section header for consistent hierarchy.
+          // level spacers (18px each) push folder content to align with its depth.
+          <div
+            className="relative z-10 grid min-w-0 items-center gap-x-1.5"
+            style={{ gridTemplateColumns: isPremium ? "18px 18px minmax(0,1fr)" : `${level * 18}px 18px 18px minmax(0,1fr)` }}
+          >
+            {/* level indent spacer */}
+            {!isPremium && <span />}
+            {/* Check button (node) or empty spacer */}
+            {nodeChecks && checkable ? (
+              <span className="flex size-[18px] shrink-0 items-center justify-center">
+                <NodeCheckButton
+                  checked={checked}
+                  ariaLabel={`${node.name} 선택`}
+                  onToggle={() => nodeChecks?.onToggleNode(node)}
+                />
+              </span>
+            ) : folderCheckable ? (
+              <span className="flex size-[18px] shrink-0 items-center justify-center">
+                <NodeCheckButton
+                  checked={folderAllChecked}
+                  mixed={folderSomeChecked && !folderAllChecked}
+                  ariaLabel={`${node.name} 폴더 오디오 전체 선택`}
+                  onToggle={() => nodeChecks?.onToggleNodes?.(checkableDescendantNodes, !folderAllChecked)}
+                />
+              </span>
+            ) : hasChildren ? (
+              <ChevronGlyph direction={expanded ? "down" : "right"} className="shrink-0" />
+            ) : (
+              <span />
+            )}
+
+            {/* Folder icon (or conversion status spinner) */}
+            {conversionStatus ? (
+              <ConversionStatusIcon status={conversionStatus} className="shrink-0" />
+            ) : (
+              <Icon className={cn("size-[18px] shrink-0", isPremium ? "text-[var(--accent-foreground)]" : "text-[var(--icon-brush)]")} strokeWidth={1.55} />
+            )}
+
+            {/* Folder name and meta: One line for premium, Two lines for classic */}
+            <div className="min-w-0 flex items-baseline gap-1.5">
+              <p className="truncate text-sm text-[var(--primary-text)] font-semibold">
+                {node.name}
+              </p>
+              {isPremium && node.meta && (
+                <span className="text-xs text-[var(--secondary-text)] font-normal shrink-0">
+                  ({node.meta})
+                </span>
+              )}
+              {!isPremium && node.meta && (
+                <span
+                  className={cn(
+                    "truncate text-[13px] text-[var(--secondary-text)]",
+                    unchecked && "line-through decoration-[var(--primary-text)]"
+                  )}
+                >
+                  {node.meta}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
-      <AnimatePresence initial={false}>
-        {expanded ? node.children?.map((child) => (
-          <BrowserNodeRow
-            key={child.id}
-            node={child}
-            selectedPath={selectedPath}
-            rowChecks={rowChecks}
-            nodeChecks={nodeChecks}
-            checkedPathSet={checkedPathSet}
-            revealRequestId={revealRequestId}
-            onRevealHandled={onRevealHandled}
-            onSelectNode={onSelectNode}
-            selectionLayoutId={selectionLayoutId}
-            level={level + 1}
-          />
-        )) : null}
-      </AnimatePresence>
+
+      {/* Children rendering */}
+      {expanded
+        ? node.children?.map((child) => (
+            <BrowserNodeRow
+              key={child.id}
+              node={child}
+              selectedPath={selectedPath}
+              rowChecks={rowChecks}
+              nodeChecks={nodeChecks}
+              checkedPathSet={checkedPathSet}
+              revealRequestId={revealRequestId}
+              onRevealHandled={onRevealHandled}
+              onSelectNode={onSelectNode}
+              selectionLayoutId={selectionLayoutId}
+              level={level + 1}
+              audioDurations={audioDurations}
+              variant={variant}
+            />
+          ))
+        : null}
     </div>
   );
 }
 
-function NodeCheckButton({ checked, disabled = false, ariaLabel, onToggle }: { checked: boolean; disabled?: boolean; ariaLabel: string; onToggle: () => void }) {
+function NodeCheckButton({ checked, mixed = false, disabled = false, ariaLabel, onToggle }: { checked: boolean; mixed?: boolean; disabled?: boolean; ariaLabel: string; onToggle: () => void }) {
   return (
     <motion.button
       type="button"
       aria-label={ariaLabel}
-      aria-pressed={checked}
+      aria-pressed={mixed ? "mixed" : checked}
       disabled={disabled}
       whileTap={disabled ? undefined : tightPressTap}
       onClick={(event) => {
@@ -418,14 +619,18 @@ function NodeCheckButton({ checked, disabled = false, ariaLabel, onToggle }: { c
       }}
       className={cn(
         "flex size-[18px] shrink-0 items-center justify-center rounded-[3px] border border-[var(--secondary-text)]",
-        checked && "border-[var(--accent-blue)] bg-[var(--accent-blue)]",
+        (checked || mixed) && "border-[var(--accent-blue)] bg-[var(--accent-blue)]",
         disabled && "opacity-45",
       )}
     >
       <AnimatePresence initial={false}>
         {checked ? (
           <motion.span {...checkPopMotion}>
-            <Check className="size-3 text-[var(--primary-text)]" strokeWidth={1.9} />
+            <Check className="size-3 text-white" strokeWidth={1.9} />
+          </motion.span>
+        ) : mixed ? (
+          <motion.span {...checkPopMotion}>
+            <Minus className="size-3 text-white" strokeWidth={2.1} />
           </motion.span>
         ) : null}
       </AnimatePresence>
@@ -464,6 +669,7 @@ function readConversionStatus(meta: string | undefined): "pending" | "running" |
   return undefined;
 }
 
+// Helper functions (same as classic)
 function compactPath(value: string): string {
   if (value.length <= 34) {
     return value;
@@ -489,6 +695,16 @@ function treeContainsPath(nodes: FileTreeNode[], targetPath: string): boolean {
 
 function isNodeCheckable(node: FileTreeNode, nodeChecks: FileBrowserNodeChecks): boolean {
   return node.kind === "file" && (nodeChecks.isCheckable?.(node) ?? isAudioFile(node.path));
+}
+
+function collectCheckableDescendantNodes(node: FileTreeNode, nodeChecks: FileBrowserNodeChecks): FileTreeNode[] {
+  const children = node.children ?? [];
+  return children.flatMap((child) => {
+    if (isNodeCheckable(child, nodeChecks)) {
+      return [child];
+    }
+    return child.children ? collectCheckableDescendantNodes(child, nodeChecks) : [];
+  });
 }
 
 function normalizePath(path: string | undefined): string {

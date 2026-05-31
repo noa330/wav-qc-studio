@@ -80,4 +80,5 @@ contextBridge.exposeInMainWorld("studioBackend", studioBackend);
 
 contextBridge.exposeInMainWorld("studioShell", {
   getAppInfo: studioBackend.getAppInfo,
+  setMenuBarVisibility: (visible: boolean) => ipcRenderer.send("set-menu-bar-visibility", visible),
 });

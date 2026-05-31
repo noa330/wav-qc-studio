@@ -157,7 +157,7 @@ export function WorkspaceStatusWidget({
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
         whileTap={softPressTap}
-        className="relative flex h-10 max-w-[min(860px,calc(100vw-40px))] cursor-move select-none items-center overflow-visible rounded-[5px] border border-[var(--panel-stroke)] bg-[#0d131c]/95 px-2 shadow-[0_16px_36px_rgba(0,0,0,.28)] backdrop-blur"
+        className="relative flex h-10 max-w-[min(860px,calc(100vw-40px))] cursor-move select-none items-center overflow-visible rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--field-bg)]/95 px-2 shadow-[var(--workspace-dock-shadow)] backdrop-blur"
       >
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-[5px]">
           <motion.span className="absolute left-0 top-0 h-[2px] w-full origin-left bg-[var(--accent-blue)]" initial={false} animate={{ scaleX: edgeProgress.top }} transition={progressSpring} />

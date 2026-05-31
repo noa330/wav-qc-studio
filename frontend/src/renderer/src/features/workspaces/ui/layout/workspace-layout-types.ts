@@ -34,6 +34,8 @@ export type WorkspacePanelRenderProps = {
   collapseMode: PanelCollapseMode;
   contentSizing?: boolean;
   autoCollapseSuppression?: PanelAutoCollapseSuppression;
+  /** "tabbed": panel is embedded inside a TabbedPanelStack — no card chrome or header row. */
+  cardMode?: "standalone" | "tabbed";
 };
 
 export type WorkspacePanelRenderer = (props: WorkspacePanelRenderProps) => ReactNode;

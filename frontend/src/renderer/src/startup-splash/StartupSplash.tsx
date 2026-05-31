@@ -17,19 +17,26 @@ const defaultProgress: StartupSplashProgress = {
   steps: defaultSteps,
 };
 
-const waveformHeights = [
-  14, 22, 34, 28, 48, 70, 44, 30, 22, 18, 26, 46, 76, 104, 70, 38, 24, 30, 50, 90, 136, 86, 48, 34, 24, 30, 66,
-  118, 178, 132, 76, 44, 34, 52, 90, 150, 214, 122, 72, 42, 28, 36, 66, 126, 210, 258, 162, 94, 44, 28, 46, 82, 154,
-  236, 186, 110, 54, 30,
-];
 
 export function StartupSplash() {
   const [progress, setProgress] = useState<StartupSplashProgress>(defaultProgress);
   const [closing, setClosing] = useState(false);
   const appVersion = useMemo(() => new URLSearchParams(window.location.search).get("appVersion") ?? "0.1.0", []);
+  const theme = useMemo(() => new URLSearchParams(window.location.search).get("theme") ?? "dark", []);
   const presentation = useStartupSplashPresentation(progress, defaultSteps);
   const progressPercent = presentation.progressPercent;
   const steps = presentation.steps;
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "light") {
+      root.classList.add("light");
+      root.classList.remove("dark");
+    } else {
+      root.classList.add("dark");
+      root.classList.remove("light");
+    }
+  }, [theme]);
 
   useEffect(() => {
     const handleProgress = (event: Event) => {
@@ -91,21 +98,6 @@ export function StartupSplash() {
 
         </div>
 
-        <div className="startup-splash__wave-panel" aria-hidden="true">
-          <div className="startup-splash__wave-line" />
-          <div className="startup-splash__wave-bars">
-            {waveformHeights.map((height, index) => (
-              <span
-                key={`${height}-${index}`}
-                className="startup-splash__wave-bar"
-                style={{
-                  height: `${height}px`,
-                  animationDelay: `${index * 38}ms`,
-                }}
-              />
-            ))}
-          </div>
-        </div>
 
         <footer className="startup-splash__footer">
           <span className="startup-splash__footer-group">

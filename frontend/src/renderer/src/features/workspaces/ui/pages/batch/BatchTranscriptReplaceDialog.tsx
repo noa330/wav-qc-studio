@@ -4,7 +4,7 @@ import { Pencil, Search, X } from "lucide-react";
 import { motion } from "motion/react";
 import type { DataTableRow } from "@shared/ipc";
 import type { PersistedBatchReplaceState } from "@/app/app-persistence";
-import { NumericField, ToggleSwitch } from "@/shared/components/controls";
+import { NumericField, ToggleSwitch, SelectField } from "@/shared/components/controls";
 import { DataGrid, type CellRenderContext } from "@/shared/components/data-grid";
 import { MotionUnderlineTab } from "@/shared/components/motion-tabs";
 import { dialogPanelMotion, menuMotion, tightPressTap } from "@/shared/motion";
@@ -61,6 +61,7 @@ export function BatchTranscriptReplaceDialog({
     return Math.max(0, persistedThreshold !== undefined && persistedThreshold >= 0 ? persistedThreshold : defaultTimelineScoreThreshold);
   });
   const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>(() => initialState?.selectedIds ?? {});
+  const [pageSize, setPageSize] = useState<number>(() => initialState?.pageSize ?? 50);
 
   const scopedRows = useMemo(() => {
     const displayedIds = new Set(displayedRows.map((row) => row.id));
@@ -137,8 +138,9 @@ export function BatchTranscriptReplaceDialog({
       timelineScoreFilterEnabled,
       timelineScoreThreshold,
       selectedIds,
+      pageSize,
     });
-  }, [caseSensitive, mode, onStateChange, query, replacement, scopes, selectedIds, timelineScoreFilterEnabled, timelineScoreThreshold, wholeWord]);
+  }, [caseSensitive, mode, onStateChange, query, replacement, scopes, selectedIds, timelineScoreFilterEnabled, timelineScoreThreshold, wholeWord, pageSize]);
 
   const applyRows = (rowIds: string[]) => {
     const targets = new Set(rowIds);
@@ -150,13 +152,13 @@ export function BatchTranscriptReplaceDialog({
   };
   return createPortal(
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={menuMotion.transition} className="fixed inset-0 z-[1200] flex items-center justify-center bg-[#05080dcc] px-6 py-6">
-	      <motion.div {...dialogPanelMotion} data-app-tour-target="batch-replace-dialog" className="flex h-[min(780px,calc(100vh-48px))] w-[min(1240px,calc(100vw-48px))] min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-5 shadow-2xl">
+	      <motion.div {...dialogPanelMotion} data-app-tour-target="batch-replace-dialog" className="flex h-[min(780px,calc(100vh-48px))] w-[min(1240px,calc(100vw-48px))] min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-5 shadow-[var(--app-dialog-shadow)]">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-[5px] bg-[var(--table-header-bg)] text-[var(--primary-text)]">
               <Search className="size-4" strokeWidth={1.8} />
             </span>
-            <h4 className="min-w-0 truncate text-base font-normal leading-5 text-[var(--primary-text)]">내용 검색 및 바꾸기</h4>
+            <h4 className="min-w-0 truncate text-base font-semibold leading-5 text-[var(--primary-text)]">내용 검색 및 바꾸기</h4>
           </div>
           <motion.button type="button" onClick={onClose} whileTap={tightPressTap} className="flex size-8 items-center justify-center rounded-[5px] bg-[var(--table-header-bg)] text-[var(--primary-text)]" aria-label="닫기">
             <X className="size-4" />
@@ -165,7 +167,7 @@ export function BatchTranscriptReplaceDialog({
 
 	        <div className="grid min-h-0 flex-1 grid-cols-[322px_16px_minmax(0,1fr)]">
 	          <div className="flex min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-transparent p-5">
-	            <div className="border-b border-[var(--panel-stroke)]">
+	            <div className="border-b border-[var(--panel-stroke)] -mx-5 px-5">
 	              <div className="grid grid-cols-2">
 	                <BatchReplaceTab label="일괄 수정" active={mode === "bulk"} onClick={() => setMode("bulk")} />
                 <BatchReplaceTab label="개별 수정" active={mode === "single"} onClick={() => setMode("single")} />
@@ -209,7 +211,7 @@ export function BatchTranscriptReplaceDialog({
                 </div>
               </div>
             </div>
-            <div className="mt-4 border-t border-[var(--panel-stroke)] pt-4">
+            <div className="mt-4 border-t border-[var(--panel-stroke)] pt-4 -mx-5 px-5">
               <div className="grid grid-cols-[1fr_12px_1fr]">
             <motion.button type="button" className="wpf-primary-button text-sm font-normal" disabled={activeIds.length === 0} whileTap={activeIds.length === 0 ? undefined : tightPressTap} onClick={() => applyRows(activeIds)}>모두 바꾸기</motion.button>
                 <div />
@@ -220,20 +222,50 @@ export function BatchTranscriptReplaceDialog({
 
           <div />
 
-	          <div className="flex min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-transparent p-4">
+	          <div className="flex min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-transparent pt-4 px-4 pb-0">
 	            <div className="mb-3 flex items-center justify-between gap-3">
 	              <div className="flex items-center gap-3">
 	                <h5 className="text-sm font-normal leading-5 text-[var(--primary-text)]">검색 결과</h5>
 	              </div>
-	              <span className="text-[13px] text-[var(--secondary-text)]">현재 시트 {allRows.length}개 행</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  {sheets.length > 0 && (
+                    <div className="w-[168px] min-w-[168px] shrink-0">
+                      <SelectField
+                        value={activeSheetId ?? ""}
+                        options={sheets.map((s) => ({ value: s.id, label: s.label }))}
+                        onChange={onSelectSheet}
+                        ariaLabel="시트 선택"
+                        dropdownClassName="z-[1300]"
+                      />
+                    </div>
+                  )}
+                  <div className="w-[168px] min-w-[168px] shrink-0">
+                    <SelectField
+                      value={String(pageSize)}
+                      options={[
+                        { value: "10", label: "10개씩" },
+                        { value: "20", label: "20개씩" },
+                        { value: "50", label: "50개씩" },
+                        { value: "100", label: "100개씩" },
+                        { value: "200", label: "200개씩" },
+                        { value: "500", label: "500개씩" },
+                      ]}
+                      onChange={(val) => setPageSize(Number(val))}
+                      ariaLabel="표시 행 수"
+                      dropdownClassName="z-[1300]"
+                    />
+                  </div>
+                </div>
 	            </div>
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden -mx-4">
                 <DataGrid
                   table={resultTable}
                   sheets={sheets}
                   activeSheetId={activeSheetId}
                   fillRemainingColumnKey="preview"
                   onSelectSheet={onSelectSheet}
+                  controlledPageSize={pageSize}
+                  onPageSizeChange={setPageSize}
                   rowChecks={selectedIds}
                   onToggleRowCheck={(row) => setSelectedIds((current) => ({ ...current, [row.id]: current[row.id] === false }))}
                   onToggleAllRows={(checked) => setSelectedIds(Object.fromEntries(matches.map((match) => [match.row.id, checked])))}

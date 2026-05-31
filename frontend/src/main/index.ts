@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell } from "electron";
+import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { join } from "node:path";
 import { getAppIconPath } from "./app-icon";
 import { initAppUpdater } from "./app-updater";
@@ -27,6 +27,15 @@ function createMainWindow(): void {
 
   attachStartupMainWindow(mainWindow);
   initAppUpdater(mainWindow.webContents);
+
+  mainWindow.setMenuBarVisibility(false);
+
+  ipcMain.removeAllListeners("set-menu-bar-visibility");
+  ipcMain.on("set-menu-bar-visibility", (_event, visible: boolean) => {
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.setMenuBarVisibility(visible);
+    }
+  });
 
   mainWindow.once("ready-to-show", () => {
     markStartupMainWindowReady();

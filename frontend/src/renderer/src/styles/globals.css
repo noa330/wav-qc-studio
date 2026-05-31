@@ -47,37 +47,38 @@
 }
 
 :root {
-  --background: #0f151f;
+  --background: #12161A;
   --foreground: #f2f7ff;
-  --card: #131924;
+  --card: #14191D;
   --card-foreground: #f2f7ff;
-  --popover: #131924;
+  --popover: #14191D;
   --popover-foreground: #f2f7ff;
-  --primary: #7954d1;
+  --primary: #835EE1;
   --primary-foreground: #f2f7ff;
   --secondary: #1c222f;
   --secondary-foreground: #f2f7ff;
   --muted: #242a39;
   --muted-foreground: #89909f;
-  --accent: #392872;
-  --accent-foreground: #f2f7ff;
+  --accent: #2C1E55;
+  --accent-foreground: #835EE1;
+  --music-icon-box-bg: #2F2849;
   --destructive: #e45961;
-  --border: #19202a;
-  --input: #0d131c;
-  --ring: #7954d1;
+  --border: #1F242A;
+  --input: #181C21;
+  --ring: #835EE1;
 
-  --window-background: #0f151f;
-  --panel-bg: #131924;
-  --field-bg: #0d131c;
-  --shell-chrome-card-bg: #0b111a;
-  --panel-stroke: #19202a;
-  --table-header-bg: #1c222f;
-  --table-row-hover: #252b36;
-  --soft-selection-hover: #252b36;
-  --soft-selection-selected: #392872;
-  --nav-selected-bg: #392872;
-  --slider-rail: #242a39;
-  --accent-blue: #7954d1;
+  --window-background: #12161A;
+  --panel-bg: #14191D;
+  --field-bg: #181C21;
+  --shell-chrome-card-bg: #14191D;
+  --panel-stroke: #1F242A;
+  --table-header-bg: #1A1E23;
+  --table-row-hover: #191E23;
+  --soft-selection-hover: #221E36;
+  --soft-selection-selected: #221E36;
+  --nav-selected-bg: #221E36;
+  --slider-rail: #1C2125;
+  --accent-blue: #835EE1;
   --primary-text: #f2f7ff;
   --secondary-text: #89909f;
   --icon-brush: #9ca3af;
@@ -86,31 +87,221 @@
   --chip-checked-bg: #304765;
   --chip-checked-dot: #9bc0ff;
   --chip-positive-bg: #2b436f;
-  --chip-positive-border: #19202a;
+  --chip-positive-border: #1F242A;
   --chip-positive-dot: #a9c5ff;
   --chip-negative-bg: #5a2d34;
-  --chip-negative-border: #19202a;
+  --chip-negative-border: #1F242A;
   --chip-negative-dot: #ff8c96;
-  --neutral-button: #1b222d;
-  --neutral-button-stroke: #232a35;
-  --purple-start: #833bd3;
-  --purple-end: #582cc0;
-  --startup-widget-bg: #0b111a;
-  --startup-widget-surface: #101625;
-  --startup-widget-stroke: #283145;
+  --neutral-button: #181C21;
+  --neutral-button-stroke: #1F242A;
+  --model-option-accent: var(--primary);
+  --model-option-selected-bg: var(--soft-selection-selected);
+  --purple-start: #835EE1;
+  --purple-end: #835EE1;
+  --purple-hover: #987CE7;
+  --purple-active: #6E40DB;
+  --startup-widget-bg: #14191D;
+  --startup-widget-surface: #14191D;
+  --startup-widget-stroke: #1F242A;
   --startup-widget-shadow: rgba(0, 0, 0, .46);
-  --startup-widget-glow: rgba(121, 84, 209, .32);
+  --startup-widget-glow: rgba(131, 94, 225, .3);
   --startup-widget-highlight: rgba(255, 255, 255, .05);
   --startup-widget-mask: #000;
-  --startup-widget-wave: #33216f;
+  --startup-widget-wave: #1D192F;
   --startup-widget-step-pending: #4f5870;
-  --waveform-base: #d9ffffff;
-  --waveform-selection-fill: #36276a;
-  --waveform-selected-wave: #846cc3;
-  --waveform-ruler-minor: #19202a;
-  --waveform-ruler-major: #19202a;
-  --waveform-ruler-axis: #19202a;
+  --app-light-floating-shadow: 0 6px 18px rgba(15, 23, 42, .08);
+  --app-menu-shadow: 0 14px 32px rgba(0, 0, 0, .34);
+  --app-popover-shadow: 0 16px 36px rgba(0, 0, 0, .42);
+  --app-dock-shadow: 0 16px 36px rgba(0, 0, 0, .28);
+  --app-dialog-shadow: 0 18px 44px rgba(0, 0, 0, .45);
+  --app-spotlight-shadow: 0 20px 54px rgba(0, 0, 0, .48);
+  --app-tour-backdrop: 0 0 0 9999px rgba(0, 0, 0, .88), 0 20px 58px rgba(0, 0, 0, .6);
+  --compare-arrow-shadow: 0 2px 8px rgba(0, 0, 0, .45);
+  --terminal-dock-bubble-bg: rgba(21, 24, 28, .96);
+  --terminal-dock-bubble-border: var(--panel-stroke);
+  --terminal-dock-bubble-shadow: var(--app-popover-shadow);
+  --terminal-dock-preview-bg: #1C2024;
+  --workspace-dock-shadow: var(--app-dock-shadow);
+  --waveform-base: #835EE1;
+  --waveform-selection-fill: #231C3D;
+  --waveform-selected-wave: #D7C2FA;
+  --waveform-ruler-minor: #222529;
+  --waveform-ruler-major: #222529;
+  --waveform-ruler-axis: #222529;
   --waveform-ruler-text: #89909f;
+  --scrollbar-thumb: #5a6275;
+  --wpf-slider-thumb-size: 14px;
+
+  /* Danger/Stop Button */
+  --danger-bg: #922e3a;
+  --danger-border: #c2525f;
+  --danger-hover: #a53745;
+  --danger-text: #ffffff;
+
+  /* Transcript Tokens */
+  --token-extra-bg: #363b46;
+  --token-extra-text: #d8dde8;
+  --token-negative-bg: #5b1b1b;
+  --token-negative-text: #ffb4b4;
+  --token-warning-bg: #5a4310;
+  --token-warning-text: #ffe08a;
+  --token-positive-bg: #145232;
+  --token-positive-text: #93f5b6;
+
+  /* Tagging Category Chips */
+  --chip-electronics-bg: #123a63;
+  --chip-electronics-text: #9bd4ff;
+  --chip-env-bg: #145232;
+  --chip-env-text: #93f5b6;
+  --chip-office-bg: #3c216b;
+  --chip-office-text: #d6c2ff;
+  --chip-human-bg: #5a4310;
+  --chip-human-text: #ffe08a;
+  --chip-music-bg: #5d1f3f;
+  --chip-music-text: #ffb7d5;
+  --chip-animal-bg: #3f2d14;
+  --chip-animal-text: #f9c878;
+  --chip-transport-bg: #153f4f;
+  --chip-transport-text: #91e3f4;
+  --chip-home-bg: #4a2f24;
+  --chip-home-text: #ffc0a8;
+  --chip-machine-bg: #353b45;
+  --chip-machine-text: #cbd5e1;
+  --chip-impact-bg: #5b1b1b;
+  --chip-impact-text: #ffb4b4;
+  --chip-signal-bg: #4c2f0d;
+  --chip-signal-text: #ffd27a;
+  --chip-sports-bg: #173b2f;
+  --chip-sports-text: #a7f3d0;
+}
+
+html.light {
+  --background: #F7F8FA;
+  --foreground: #1A1A24;
+  --card: #FEFEFE;
+  --card-foreground: #1A1A24;
+  --popover: #FEFEFE;
+  --popover-foreground: #1A1A24;
+  --primary: #6424F2;
+  --primary-foreground: #ffffff;
+  --secondary: #F4F5F8;
+  --secondary-foreground: #1A1A24;
+  --muted: #F5F7F9;
+  --muted-foreground: #79808E;
+  --accent: #F5EDFE;
+  --accent-foreground: #6424F2;
+  --destructive: #e45961;
+  --border: #ECEFF3;
+  --input: #FFFFFF;
+  --ring: #6424F2;
+
+  --window-background: #F7F8FA;
+  --panel-bg: #FEFEFE;
+  --field-bg: #F5F7F9;
+  --shell-chrome-card-bg: #FEFEFE;
+  --panel-stroke: #ECEFF3;
+  --table-header-bg: #F4F5F8;
+  --table-row-hover: #F5EDFE;
+  --soft-selection-hover: #F5EDFE;
+  --soft-selection-selected: #F5EDFE;
+  --nav-selected-bg: #F5EDFE;
+  --slider-rail: #E4E7EC;
+  --accent-blue: #6424F2;
+  --primary-text: #1A1A24;
+  --secondary-text: #79808E;
+  --icon-brush: #79808E;
+  --control-arrow: #1A1A24;
+  --chip-dot: #98A2B3;
+  --chip-checked-bg: #E6DAFD;
+  --chip-checked-dot: #6424F2;
+  --chip-positive-bg: #E6F4EA;
+  --chip-positive-border: #ECEFF3;
+  --chip-positive-dot: #137333;
+  --chip-negative-bg: #FCE8E6;
+  --chip-negative-border: #ECEFF3;
+  --chip-negative-dot: #C5221F;
+  --neutral-button: #FEFEFE;
+  --neutral-button-stroke: #ECEFF3;
+  --model-option-accent: var(--primary);
+  --model-option-selected-bg: var(--soft-selection-selected);
+  --purple-start: #6424F2;
+  --purple-end: #6424F2;
+  --purple-hover: #783ff5;
+  --purple-active: #5012e0;
+  --music-icon-box-bg: #E6DAFD;
+  --startup-widget-bg: #FEFEFE;
+  --startup-widget-surface: #F7F8FA;
+  --startup-widget-stroke: #ECEFF3;
+  --startup-widget-shadow: rgba(0, 0, 0, 0.05);
+  --startup-widget-glow: rgba(100, 36, 242, 0.15);
+  --startup-widget-highlight: rgba(255, 255, 255, 0.8);
+  --startup-widget-mask: #ffffff;
+  --startup-widget-wave: #E6DAFD;
+  --startup-widget-step-pending: #98A2B3;
+  --app-light-floating-shadow: 0 6px 18px rgba(15, 23, 42, .08);
+  --app-menu-shadow: var(--app-light-floating-shadow);
+  --app-popover-shadow: var(--app-light-floating-shadow);
+  --app-dock-shadow: var(--app-light-floating-shadow);
+  --app-dialog-shadow: var(--app-light-floating-shadow);
+  --app-spotlight-shadow: var(--app-light-floating-shadow);
+  --app-tour-backdrop: 0 0 0 9999px rgba(0, 0, 0, .55), 0 20px 58px rgba(0, 0, 0, .44);
+  --compare-arrow-shadow: 0 2px 8px rgba(0, 0, 0, .06);
+  --terminal-dock-bubble-bg: rgba(246, 248, 250, .98);
+  --terminal-dock-bubble-border: var(--panel-stroke);
+  --terminal-dock-bubble-shadow: var(--app-popover-shadow);
+  --terminal-dock-preview-bg: #F5F7F9;
+  --workspace-dock-shadow: var(--app-dock-shadow);
+  --waveform-base: var(--primary);
+  --waveform-selection-fill: #F5EDFE;
+  --waveform-selected-wave: #6424F2;
+  --waveform-ruler-minor: #ECEFF3;
+  --waveform-ruler-major: #ECEFF3;
+  --waveform-ruler-axis: #ECEFF3;
+  --waveform-ruler-text: #79808E;
+  --scrollbar-thumb: #BAC0CD;
+  --wpf-slider-thumb-size: 14px;
+
+  /* Danger/Stop Button */
+  --danger-bg: #E53E3E;
+  --danger-border: #E53E3E;
+  --danger-hover: #C53030;
+  --danger-text: #ffffff;
+
+  /* Transcript Tokens */
+  --token-extra-bg: #F1F5F9;
+  --token-extra-text: #475569;
+  --token-negative-bg: #FEE2E2;
+  --token-negative-text: #991B1B;
+  --token-warning-bg: #FEF3C7;
+  --token-warning-text: #92400E;
+  --token-positive-bg: #D1FAE5;
+  --token-positive-text: #065F46;
+
+  /* Tagging Category Chips */
+  --chip-electronics-bg: #E0F2FE;
+  --chip-electronics-text: #0369A1;
+  --chip-env-bg: #E6F4EA;
+  --chip-env-text: #137333;
+  --chip-office-bg: #F3E8FF;
+  --chip-office-text: #7E22CE;
+  --chip-human-bg: #FEF3C7;
+  --chip-human-text: #B45309;
+  --chip-music-bg: #FCE7F3;
+  --chip-music-text: #BE185D;
+  --chip-animal-bg: #FFEDD5;
+  --chip-animal-text: #C2410C;
+  --chip-transport-bg: #CCFBF1;
+  --chip-transport-text: #0F766E;
+  --chip-home-bg: #FFE4E6;
+  --chip-home-text: #BE123C;
+  --chip-machine-bg: #F1F5F9;
+  --chip-machine-text: #475569;
+  --chip-impact-bg: #FEE2E2;
+  --chip-impact-text: #B91C1C;
+  --chip-signal-bg: #FEF9C3;
+  --chip-signal-text: #A16207;
+  --chip-sports-bg: #D1FAE5;
+  --chip-sports-text: #047857;
 }
 
 @layer base {
@@ -189,23 +380,77 @@
     color: var(--primary-text);
   }
 
+  .wpf-action-button {
+    height: 38px;
+    border-radius: 5px;
+    border: 1px solid var(--panel-stroke);
+    background: #242935;
+    color: var(--primary-text);
+    cursor: pointer;
+    transition: all 120ms ease;
+  }
+
+  .wpf-action-button:not(:disabled):hover {
+    background: #2E3445;
+    border-color: rgba(131, 94, 225, 0.8);
+  }
+
+  .wpf-action-button:disabled {
+    background: #1E222A;
+    border-color: rgba(255, 255, 255, 0.05);
+    color: rgba(137, 144, 159, 0.35);
+    cursor: not-allowed;
+  }
+
+  html.light .wpf-action-button {
+    background: #FFFFFF;
+    border-color: var(--panel-stroke);
+  }
+
+  html.light .wpf-action-button:not(:disabled):hover {
+    background: #F4F6F7;
+    border-color: rgba(100, 36, 242, 0.7);
+  }
+
+  html.light .wpf-action-button:disabled {
+    background: #EDEFF2;
+    border-color: rgba(0, 0, 0, 0.05);
+    color: rgba(121, 128, 142, 0.38);
+  }
+
   .wpf-primary-button {
     height: 38px;
     border-radius: 5px;
-    background: linear-gradient(90deg, var(--purple-start), var(--purple-end));
-    color: var(--primary-text);
+    background: var(--primary);
+    color: var(--primary-foreground);
+    border: none;
+    cursor: pointer;
+  }
+
+  .wpf-primary-button:not(:disabled):hover {
+    background: var(--purple-hover, #693EC4);
+  }
+
+  .wpf-primary-button:not(:disabled):active {
+    background: var(--purple-active, #44248B);
   }
 
   .wpf-danger-button {
     height: 38px;
-    border: 1px solid #c2525f;
+    border: 1px solid var(--danger-border);
     border-radius: 5px;
-    background: #922e3a;
-    color: var(--primary-text);
+    background: var(--danger-bg);
+    color: var(--danger-text);
   }
 
   .wpf-danger-button:hover {
-    background: #a53745;
+    background: var(--danger-hover);
+  }
+
+  .wpf-slider-thumb {
+    width: var(--wpf-slider-thumb-size, 14px);
+    height: var(--wpf-slider-thumb-size, 14px);
+    border-radius: 9999px;
   }
 
   .app-scrollbar,
@@ -239,7 +484,7 @@
   .scroll-window-viewport::-webkit-scrollbar-thumb {
     border: 3px solid transparent;
     border-radius: 999px;
-    background: #5a6275;
+    background: var(--scrollbar-thumb);
     background-clip: content-box;
   }
 
@@ -309,5 +554,11 @@
 
   .workspace-transition-shell .sticky {
     position: static !important;
+  }
+
+  /* Tabbed settings card styling overrides */
+  .workspace-panel-card-tabbed-settings .workspace-panel-body-content > div > div:first-child {
+    border-top: none !important;
+    padding-top: 0 !important;
   }
 }

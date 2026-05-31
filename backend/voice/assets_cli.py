@@ -136,7 +136,7 @@ def gpt_missing_items(core: Any, version: str, install_deps: bool) -> list[str]:
     if not Path(core.GPT_HF).exists():
         missing.append("GPT-SoVITS model cache")
     pretrained = getattr(core, "GPT_PRETRAINED", {}).get(version, getattr(core, "GPT_PRETRAINED", {}).get("v2", {}))
-    for file_name in [pretrained.get("gpt"), pretrained.get("s2g"), pretrained.get("s2d")]:
+    for file_name in [pretrained.get(key) for key in ("gpt", "s2g", "s2d", "vocoder", "vocoder_config")]:
         if file_name and not core.is_download_complete(Path(core.GPT_HF) / str(file_name), reject_git_lfs_pointer=True):
             missing.append(str(file_name))
     if install_deps:

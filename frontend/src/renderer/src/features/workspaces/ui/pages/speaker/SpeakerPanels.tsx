@@ -1,10 +1,7 @@
 import type { SpeakerInferenceSettings } from "@shared/ipc";
-import { motion } from "motion/react";
-import { cn } from "@/lib/utils";
 import { SelectField } from "@/shared/components/controls";
-import { softPressTap } from "@/shared/motion";
 import type { WorkspaceRuntime } from "../../../state/use-workspace-runtime";
-import { NumberSetting, SelectSetting, SettingGroup } from "../../shared/workspace-panel-primitives";
+import { NumberSetting, SelectSetting, SettingGroup, ModelSelectionPanel, ModelOptionItem } from "../../shared/workspace-panel-primitives";
 
 const deviceOptions = [
   { value: "auto", label: "auto" },
@@ -55,38 +52,45 @@ export function SpeakerModelBody({ runtime }: { runtime: WorkspaceRuntime }) {
     }));
   };
 
-  return (
-    <div className="app-scrollbar h-full min-h-0 min-w-0 space-y-3 overflow-auto pr-1">
-      <ModelOption title="Sidon" subtitle="고품질 음성 복원 추론 프로필" checked={settings.useSidon} onSelect={() => selectModel("sidon")} />
-      <ModelOption title="Resemble Enhance" subtitle="Resemble Enhance 기반 음성 향상 프로필" checked={settings.useResemble} onSelect={() => selectModel("resemble")} />
-      <ModelOption title="VoiceFixer" subtitle="보이스 보정과 소음 제거 통합 프로필" checked={settings.useVoiceFixer} onSelect={() => selectModel("voicefixer")} />
-    </div>
-  );
-}
+  const options: ModelOptionItem<"sidon" | "resemble" | "voicefixer">[] = [
+    {
+      value: "sidon",
+      title: "Sidon",
+      description: "고품질 음성 복원에 최적화된 모델입니다.",
+      badgeText: "고품질",
+      badgeType: "purple",
+      tags: ["고품질", "범용"],
+    },
+    {
+      value: "resemble",
+      title: "Resemble Enhance",
+      description: "음질 향상과 선명도 개선에 특화된 모델입니다.",
+      badgeText: "음질 향상",
+      badgeType: "green",
+      tags: ["선명도 향상", "자연스러움"],
+    },
+    {
+      value: "voicefixer",
+      title: "VoiceFixer",
+      description: "보이스 보정과 소음 제거에 특화된 모델입니다.",
+      badgeText: "노이즈 제거",
+      badgeType: "blue",
+      tags: ["노이즈 제거", "보이스 보정"],
+    },
+  ];
 
-function ModelOption({ title, subtitle, checked, onSelect }: { title: string; subtitle: string; checked: boolean; onSelect: () => void }) {
+  const currentSelectedValue = settings.useSidon ? "sidon" : settings.useResemble ? "resemble" : "voicefixer";
+
   return (
-    <motion.button
-      type="button"
-      role="radio"
-      aria-checked={checked}
-      onClick={onSelect}
-      whileTap={softPressTap}
-      className={cn(
-        "grid w-full min-w-0 grid-cols-[18px_minmax(0,1fr)] items-center gap-2 rounded-[5px] bg-transparent px-2 py-2.5 text-left transition-[background-color,border-color] focus-visible:outline-none",
-        checked
-          ? "border-2 border-[var(--nav-selected-bg)]"
-          : "border border-[var(--panel-stroke)] hover:bg-[var(--soft-selection-hover)] focus-visible:border-2 focus-visible:border-[var(--nav-selected-bg)] focus-visible:bg-[var(--soft-selection-hover)]",
-      )}
-    >
-      <span className={cn("relative size-[18px] rounded-full border border-[var(--panel-stroke)]", checked && "border-[var(--accent-blue)]")}>
-        {checked ? <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--accent-blue)]" /> : null}
-      </span>
-      <div className="min-w-0">
-        <span className="text-sm font-normal text-[var(--primary-text)]">{title}</span>
-        <p className="mt-1 text-[13px] leading-[18px] text-[var(--secondary-text)]">{subtitle}</p>
-      </div>
-    </motion.button>
+    <ModelSelectionPanel
+      title="디노이즈 모델"
+      subtitle="디노이즈에 사용할 모델을 선택하세요."
+      options={options}
+      selectedValue={currentSelectedValue}
+      onSelect={selectModel}
+      helpText="모델에 대한 자세한 정보는 도움말을 참고하세요."
+      helpHref="https://github.com"
+    />
   );
 }
 

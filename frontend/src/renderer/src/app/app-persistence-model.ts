@@ -32,6 +32,7 @@ export type PersistedShellState = {
   selectedWorkspaceId: WorkspaceId;
   sidebarCollapsedByUser: boolean;
   guideAutoShown: boolean;
+  theme?: "light" | "dark";
 };
 
 export type PersistedDataGridState = {
@@ -63,6 +64,7 @@ export type PersistedBatchReplaceState = {
   timelineScoreFilterEnabled: boolean;
   timelineScoreThreshold: number;
   selectedIds: Record<string, boolean>;
+  pageSize?: number;
 };
 
 export type PersistedWorkspaceUiState = {
@@ -112,6 +114,7 @@ export function createDefaultShellState(): PersistedShellState {
     selectedWorkspaceId: defaultWorkspaceId,
     sidebarCollapsedByUser: false,
     guideAutoShown: false,
+    theme: "dark",
   };
 }
 
@@ -122,8 +125,8 @@ export function createDefaultWorkspaceUiStore(): Record<WorkspaceId, PersistedWo
 export function createDefaultWorkspaceUiState(): PersistedWorkspaceUiState {
   return {
     outerLayoutSizes: {
-      left: 292,
-      right: 322,
+      left: 350,
+      right: 350,
     },
     sliceEditor: {
       viewStart: 0,
@@ -151,6 +154,7 @@ export function createDefaultWorkspaceUiState(): PersistedWorkspaceUiState {
       timelineScoreFilterEnabled: false,
       timelineScoreThreshold: -1,
       selectedIds: {},
+      pageSize: 50,
     },
   };
 }

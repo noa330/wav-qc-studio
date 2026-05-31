@@ -16,13 +16,13 @@ type TensorBoardPanelState =
 export function VoiceTensorBoardDialog({ settings, autoStart = true, onClose }: { settings: VoiceTrainingSettings; autoStart?: boolean; onClose: () => void }) {
   return createPortal(
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={menuMotion.transition} className="fixed inset-0 z-[1200] flex items-center justify-center bg-[#05080dcc] px-6 py-6">
-      <motion.div {...dialogPanelMotion} data-app-tour-target="training-tensorboard-dialog" className="flex h-[min(780px,calc(100vh-48px))] w-[min(1240px,calc(100vw-48px))] min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-5 shadow-2xl">
+      <motion.div {...dialogPanelMotion} data-app-tour-target="training-tensorboard-dialog" className="flex h-[min(780px,calc(100vh-48px))] w-[min(1240px,calc(100vw-48px))] min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-5 shadow-[var(--app-dialog-shadow)]">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-[5px] bg-[var(--table-header-bg)] text-[var(--primary-text)]">
               <ChartNoAxesColumnIncreasing className="size-4" strokeWidth={1.8} />
             </span>
-            <h4 className="min-w-0 truncate text-base font-normal leading-5 text-[var(--primary-text)]">TensorBoard</h4>
+            <h4 className="min-w-0 truncate text-base font-semibold leading-5 text-[var(--primary-text)]">TensorBoard</h4>
           </div>
           <motion.button type="button" onClick={onClose} whileTap={tightPressTap} className="flex size-8 shrink-0 items-center justify-center rounded-[5px] bg-[var(--table-header-bg)] text-[var(--primary-text)]" aria-label="닫기">
             <X className="size-4" />

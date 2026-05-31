@@ -124,9 +124,9 @@ export const workspaces: WorkspaceDefinition[] = [
     metricLabels: ["소스 행", "표시 행", "화자 그룹", "활성 화자"],
     left: { id: "batch-browser", title: "파일 브라우저", icon: FolderTree, kind: "browser" },
     center: [
+      { id: "batch-audio", title: "오디오 재생", icon: AudioLines, kind: "playback" },
       { id: "batch-table", title: "스크립트 편집", icon: ClipboardCheck, kind: "table" },
       { id: "batch-timeline", title: "타임라인", icon: Activity, kind: "queue" },
-      { id: "batch-audio", title: "오디오 재생", icon: AudioLines, kind: "playback" },
     ],
     right: [
       { id: "batch-speakers", title: "화자 선택", icon: UsersRound, kind: "filter" },
@@ -159,9 +159,8 @@ export const workspaces: WorkspaceDefinition[] = [
     metricLabels: ["모델", "모드", "출력", "상태"],
     left: { id: "inference-browser", title: "레퍼런스 브라우저", icon: FolderTree, kind: "browser" },
     center: [
-      { id: "inference-reference", title: "레퍼런스 오디오", icon: AudioLines, kind: "playback" },
-      { id: "inference-output", title: "출력 오디오", icon: Waves, kind: "playback" },
       { id: "inference-results", title: "추론 결과", icon: ClipboardCheck, kind: "table" },
+      { id: "inference-audio", title: "오디오 비교", icon: AudioLines, kind: "playback" },
     ],
     right: [
       { id: "inference-model", title: "모델 선택", icon: Boxes, kind: "model" },

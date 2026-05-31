@@ -44,7 +44,7 @@ export function SegmentedTagRuleFilter({ value, onChange }: { value: TagRuleFilt
   return (
     <div className="grid h-8 grid-cols-3 overflow-hidden rounded-[5px] border border-[var(--panel-stroke)]">
       {items.map((item) => (
-        <button key={item.value} type="button" onClick={() => onChange(item.value)} className={cn("min-w-[68px] px-3 text-sm font-normal leading-5 text-[var(--secondary-text)] hover:text-[var(--primary-text)]", value === item.value && "bg-[var(--accent-blue)] text-[var(--primary-text)]")}>
+        <button key={item.value} type="button" onClick={() => onChange(item.value)} className={cn("min-w-[68px] px-3 text-sm font-normal leading-5 text-[var(--secondary-text)] hover:text-[var(--primary-text)]", value === item.value && "bg-[var(--accent-blue)] !text-white")}>
           {item.label}
         </button>
       ))}
@@ -117,31 +117,31 @@ function CategoryChip({ category }: { category: string }) {
 function categoryChipClass(category: string): string {
   switch (category) {
     case "전자기기":
-      return "bg-[#123a63] text-[#9bd4ff]";
+      return "bg-[var(--chip-electronics-bg)] text-[var(--chip-electronics-text)]";
     case "환경":
     case "자연/날씨":
-      return "bg-[#145232] text-[#93f5b6]";
+      return "bg-[var(--chip-env-bg)] text-[var(--chip-env-text)]";
     case "사무/작업":
-      return "bg-[#3c216b] text-[#d6c2ff]";
+      return "bg-[var(--chip-office-bg)] text-[var(--chip-office-text)]";
     case "인간 소리":
     case "말소리":
-      return "bg-[#5a4310] text-[#ffe08a]";
+      return "bg-[var(--chip-human-bg)] text-[var(--chip-human-text)]";
     case "음악":
-      return "bg-[#5d1f3f] text-[#ffb7d5]";
+      return "bg-[var(--chip-music-bg)] text-[var(--chip-music-text)]";
     case "동물":
-      return "bg-[#3f2d14] text-[#f9c878]";
+      return "bg-[var(--chip-animal-bg)] text-[var(--chip-animal-text)]";
     case "교통":
-      return "bg-[#153f4f] text-[#91e3f4]";
+      return "bg-[var(--chip-transport-bg)] text-[var(--chip-transport-text)]";
     case "생활/가정":
-      return "bg-[#4a2f24] text-[#ffc0a8]";
+      return "bg-[var(--chip-home-bg)] text-[var(--chip-home-text)]";
     case "기계/도구":
-      return "bg-[#353b45] text-[#cbd5e1]";
+      return "bg-[var(--chip-machine-bg)] text-[var(--chip-machine-text)]";
     case "충격/파열":
-      return "bg-[#5b1b1b] text-[#ffb4b4]";
+      return "bg-[var(--chip-impact-bg)] text-[var(--chip-impact-text)]";
     case "알림/신호":
-      return "bg-[#4c2f0d] text-[#ffd27a]";
+      return "bg-[var(--chip-signal-bg)] text-[var(--chip-signal-text)]";
     case "스포츠/놀이":
-      return "bg-[#173b2f] text-[#a7f3d0]";
+      return "bg-[var(--chip-sports-bg)] text-[var(--chip-sports-text)]";
     default:
       return "bg-[rgba(148,163,184,.16)] text-[var(--secondary-text)]";
   }

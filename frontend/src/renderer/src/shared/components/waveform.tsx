@@ -23,6 +23,7 @@ export function WaveformSurface({
   muted = false,
   revision = 0,
   showRuler = false,
+  rulerPosition = "top",
   selectionStart,
   selectionEnd,
   selectionHandleStyle = "grip",
@@ -33,6 +34,7 @@ export function WaveformSurface({
   viewStart = 0,
   viewEnd = 1,
   playhead = 0,
+  isPlaying = false,
   onData,
   onMarkerSelect,
   onMarkerContextMenu,
@@ -41,6 +43,7 @@ export function WaveformSurface({
   onRangeCreate,
   onSelectionChange,
   onWheelZoom,
+  useMarkerStyleForSelection = false,
 }: WaveformSurfaceProps) {
   const waveform = useWaveform(audioPath, Math.max(bucketCount, 2048), revision);
   const clipId = useId().replace(/:/gu, "");
@@ -311,7 +314,12 @@ export function WaveformSurface({
   return (
     <div
       ref={surfaceRef}
-      className={cn("relative grid h-full min-h-[22px] overflow-hidden", showRuler ? "grid-rows-[24px_minmax(0,1fr)]" : "grid-rows-[minmax(0,1fr)]", muted && "opacity-35", className)}
+      className={cn(
+        "relative grid h-full min-h-[22px] overflow-visible",
+        showRuler ? (rulerPosition === "bottom" ? "grid-rows-[minmax(0,1fr)_24px]" : "grid-rows-[24px_minmax(0,1fr)]") : "grid-rows-[minmax(0,1fr)]",
+        muted && "opacity-35",
+        className
+      )}
       onWheel={(event) => {
         if (!hasWaveform || !onWheelZoom) {
           return;
@@ -323,11 +331,13 @@ export function WaveformSurface({
         onWheelZoom(anchor, event.deltaY);
       }}
     >
-      {showRuler && waveform.data.durationSeconds > 0 ? <TimeRuler durationSeconds={waveform.data.durationSeconds} viewStart={safeViewStart} viewEnd={safeViewEnd} /> : null}
+      {showRuler && rulerPosition === "top" && waveform.data.durationSeconds > 0 ? (
+        <TimeRuler durationSeconds={waveform.data.durationSeconds} viewStart={safeViewStart} viewEnd={safeViewEnd} position="top" />
+      ) : null}
       {hasWaveform ? (
-        <div className={cn("relative h-full min-h-0 w-full overflow-hidden", framedTrack && "rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--field-bg)]")}>
+        <div className={cn("relative h-full min-h-0 w-full overflow-visible", framedTrack && "border-t border-b border-[var(--panel-stroke)]")}>
           <svg className="block h-full w-full min-h-0" preserveAspectRatio="none" viewBox={`0 0 100 ${viewBoxHeight}`} role="img" aria-label="WAV waveform" onMouseDown={beginSelectionDrag}>
-          <rect x="0" y={trackTop} width="100" height={trackHeight} rx="1.6" fill="var(--field-bg)" />
+          <rect x="0" y={trackTop} width="100" height={trackHeight} fill="transparent" />
           <path d={wavePath} fill="var(--waveform-base)" opacity="0.88" />
           {displayedMarkers.map(({ marker, selection: markerSelection, parts }) => (
             <g
@@ -345,26 +355,30 @@ export function WaveformSurface({
                 opacity={marker.selected ? 0.86 : 0.72}
                 style={markerTransitionStyle}
               />
-              <line
-                x1={markerSelection.x}
-                x2={markerSelection.x}
-                y1={trackTop}
-                y2={trackTop + trackHeight}
-                stroke={marker.selected ? "var(--accent-blue)" : "rgba(242,247,255,.42)"}
-                strokeWidth={marker.selected ? selectedMarkerHandleWidth : markerHandleWidth}
-                vectorEffect="non-scaling-stroke"
-                style={markerHandleTransitionStyle}
-              />
-              <line
-                x1={markerSelection.x + markerSelection.width}
-                x2={markerSelection.x + markerSelection.width}
-                y1={trackTop}
-                y2={trackTop + trackHeight}
-                stroke={marker.selected ? "var(--accent-blue)" : "rgba(242,247,255,.42)"}
-                strokeWidth={marker.selected ? selectedMarkerHandleWidth : markerHandleWidth}
-                vectorEffect="non-scaling-stroke"
-                style={markerHandleTransitionStyle}
-              />
+              {marker.selected ? (
+                <>
+                  <line
+                    x1={markerSelection.x}
+                    x2={markerSelection.x}
+                    y1={trackTop}
+                    y2={trackTop + trackHeight}
+                    stroke="var(--accent-blue)"
+                    strokeWidth={selectedMarkerHandleWidth}
+                    vectorEffect="non-scaling-stroke"
+                    style={markerHandleTransitionStyle}
+                  />
+                  <line
+                    x1={markerSelection.x + markerSelection.width}
+                    x2={markerSelection.x + markerSelection.width}
+                    y1={trackTop}
+                    y2={trackTop + trackHeight}
+                    stroke="var(--accent-blue)"
+                    strokeWidth={selectedMarkerHandleWidth}
+                    vectorEffect="non-scaling-stroke"
+                    style={markerHandleTransitionStyle}
+                  />
+                </>
+              ) : null}
               {parts.map(({ part, selection: partSelection }) => (
                 <rect
                   key={`hit-${part.id}`}
@@ -398,11 +412,48 @@ export function WaveformSurface({
           ))}
           {displayedSelection ? (
             <>
-              <rect x={displayedSelection.x} y={trackTop} width={displayedSelection.width} height={trackHeight} fill="var(--waveform-selection-fill)" opacity={displayedSelectionOverlayOpacity} pointerEvents="none" />
-              <clipPath id={clipId}>
-                <rect x={displayedSelection.x} y={trackTop} width={displayedSelection.width} height={trackHeight} />
-              </clipPath>
-              <path d={wavePath} clipPath={`url(#${clipId})`} fill="var(--waveform-selected-wave)" opacity={displayedSelectionWaveOpacity} pointerEvents="none" />
+              {useMarkerStyleForSelection ? (
+                <>
+                  <rect
+                    x={displayedSelection.x}
+                    y={trackTop}
+                    width={displayedSelection.width}
+                    height={trackHeight}
+                    fill="rgba(132,108,195,.32)"
+                    opacity={0.72}
+                    pointerEvents="none"
+                    style={markerTransitionStyle}
+                  />
+                  <line
+                    x1={displayedSelection.x}
+                    x2={displayedSelection.x}
+                    y1={trackTop}
+                    y2={trackTop + trackHeight}
+                    stroke="var(--accent-blue)"
+                    strokeWidth={selectedMarkerHandleWidth}
+                    vectorEffect="non-scaling-stroke"
+                    style={markerHandleTransitionStyle}
+                  />
+                  <line
+                    x1={displayedSelection.x + displayedSelection.width}
+                    x2={displayedSelection.x + displayedSelection.width}
+                    y1={trackTop}
+                    y2={trackTop + trackHeight}
+                    stroke="var(--accent-blue)"
+                    strokeWidth={selectedMarkerHandleWidth}
+                    vectorEffect="non-scaling-stroke"
+                    style={markerHandleTransitionStyle}
+                  />
+                </>
+              ) : (
+                <>
+                  <rect x={displayedSelection.x} y={trackTop} width={displayedSelection.width} height={trackHeight} fill="var(--waveform-selection-fill)" opacity={displayedSelectionOverlayOpacity} pointerEvents="none" />
+                  <clipPath id={clipId}>
+                    <rect x={displayedSelection.x} y={trackTop} width={displayedSelection.width} height={trackHeight} />
+                  </clipPath>
+                  <path d={wavePath} clipPath={`url(#${clipId})`} fill="var(--waveform-selected-wave)" opacity={displayedSelectionWaveOpacity} pointerEvents="none" />
+                </>
+              )}
             </>
           ) : null}
           {displayedMarkerParts.map(({ part, selection: partSelection }) =>
@@ -426,21 +477,24 @@ export function WaveformSurface({
             ) : null,
           )}
           {displayedSelection ? <SelectionHandles selection={displayedSelection} trackTop={trackTop} trackHeight={trackHeight} style={selectionHandleStyle} /> : null}
-          {playheadX !== null ? (
+          {isPlaying && playheadX !== null ? (
             <g>
               <line x1={playheadX} x2={playheadX} y1={trackTop} y2={viewBoxHeight} stroke="rgba(0,0,0,.55)" strokeWidth="0.45" />
               <line x1={playheadX} x2={playheadX} y1={trackTop} y2={viewBoxHeight} stroke="var(--primary-text)" strokeWidth="0.16" />
             </g>
           ) : null}
-          <rect x="0.1" y={trackTop + 0.1} width="99.8" height={trackHeight - 0.2} rx="1.6" fill="none" stroke="var(--panel-stroke)" strokeWidth="0.25" />
+          {!framedTrack && <rect x="0.1" y={trackTop + 0.1} width="99.8" height={trackHeight - 0.2} rx="1.6" fill="none" stroke="var(--panel-stroke)" strokeWidth="0.25" />}
           </svg>
           <WaveformBadgeLayer anchors={markerBadgeAnchors} />
         </div>
       ) : (
-        <div className={cn("row-start-1 row-end-[-1] flex h-full min-h-[86px] items-center justify-center px-4 text-center text-sm text-[var(--secondary-text)]", framedTrack && "rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--field-bg)]")}>
+        <div className={cn("row-start-1 row-end-[-1] flex h-full min-h-[86px] items-center justify-center px-4 text-center text-sm text-[var(--secondary-text)]", framedTrack && "border-t border-b border-[var(--panel-stroke)]")}>
           {waveform.loading ? "파형을 읽는 중입니다." : waveform.data.error || emptyText}
         </div>
       )}
+      {showRuler && rulerPosition === "bottom" && waveform.data.durationSeconds > 0 ? (
+        <TimeRuler durationSeconds={waveform.data.durationSeconds} viewStart={safeViewStart} viewEnd={safeViewEnd} position="bottom" />
+      ) : null}
     </div>
   );
 }

@@ -29,6 +29,9 @@ export function WorkspaceAudioPlaybackPanel({
       muteIntervals={muteIntervals}
       muteIntervalsEnabled={muteIntervalsEnabled}
       audioEditScopeId={audioEditScopeId}
+      showRuler={true}
+      rulerPosition="bottom"
+      layout="playback"
     />
   );
 }

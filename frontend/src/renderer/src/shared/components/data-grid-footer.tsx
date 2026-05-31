@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { motion } from "motion/react";
 import { ChevronFirst, ChevronLast, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NumericField } from "@/shared/components/controls";
 import { tightPressTap, uiSpring } from "@/shared/motion";
 
 export function GridFooter({
@@ -11,49 +10,30 @@ export function GridFooter({
   pageSize,
   pageIndex,
   pageCount,
-  onPageSizeChange,
   onPageChange,
+  widgetSlot,
 }: {
   instanceId?: string;
   totalRows: number;
   pageSize: number;
   pageIndex: number;
   pageCount: number;
-  onPageSizeChange: (value: number) => void;
   onPageChange: (index: number) => void;
+  widgetSlot?: ReactNode;
 }) {
-  const footerRef = useRef<HTMLDivElement | null>(null);
-  const [compact, setCompact] = useState(false);
   const pageNumbers = buildPageNumbers(pageIndex, pageCount);
-
-  useEffect(() => {
-    const footer = footerRef.current;
-    if (!footer) {
-      return;
-    }
-
-    const updateCompact = () => {
-      setCompact(footer.getBoundingClientRect().width < 430);
-    };
-    updateCompact();
-    const observer = new ResizeObserver(updateCompact);
-    observer.observe(footer);
-    return () => observer.disconnect();
-  }, []);
+  const start = totalRows === 0 ? 0 : pageIndex * pageSize + 1;
+  const end = Math.min(pageIndex * pageSize + pageSize, totalRows);
 
   return (
-    <div
-      ref={footerRef}
-      className={cn(
-        "mt-2 grid shrink-0 items-center gap-x-3 px-4 text-[13px] text-[var(--secondary-text)]",
-        compact ? "h-[76px] grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[38px_38px]" : "h-[38px] grid-cols-[auto_minmax(0,1fr)_auto]",
-      )}
-    >
-      <div className={cn("grid grid-cols-[auto_82px] items-center gap-2", compact && "col-start-1 row-start-1")}>
-        <span>페이지당</span>
-        <NumericField value={pageSize} min={1} step={1} wheelStep={1} ariaLabel="페이지당 행 수" onChange={onPageSizeChange} />
-      </div>
-      <div className={cn("flex min-w-0 items-center justify-center gap-2 overflow-hidden", compact && "col-span-3 col-start-1 row-start-2")}>
+    <div className="my-2 flex h-[32px] shrink-0 items-center justify-between px-4 text-[13px] text-[var(--secondary-text)]">
+      {/* 왼쪽: Showing 1-8 of 12,842 */}
+      <span className="shrink-0 whitespace-nowrap font-medium text-[var(--secondary-text)]">
+        {totalRows === 0 ? "Showing 0-0 of 0" : `Showing ${start.toLocaleString()}-${end.toLocaleString()} of ${totalRows.toLocaleString()}`}
+      </span>
+
+      {/* 오른쪽: 원래의 페이지 네비게이션 디자인 복구 + 우측 이동 */}
+      <div className="flex items-center gap-1">
         <FooterButton disabled={pageIndex === 0} onClick={() => onPageChange(0)} label="처음">
           <ChevronFirst className="size-[18px]" strokeWidth={1.9} />
         </FooterButton>
@@ -72,8 +52,8 @@ export function GridFooter({
               onClick={() => onPageChange(page)}
               whileTap={tightPressTap}
               className={cn(
-                "relative flex h-7 min-w-7 items-center justify-center overflow-hidden rounded-[3px] px-2 text-[13px] font-medium text-[var(--primary-text)]",
-                page === pageIndex ? "bg-[var(--accent-blue)]" : "bg-transparent hover:text-[var(--primary-text)]",
+                "relative flex h-7 min-w-7 items-center justify-center overflow-hidden rounded-[3px] px-2 text-[13px] font-medium transition-colors",
+                page === pageIndex ? "bg-[var(--accent-blue)] text-white" : "bg-transparent text-[var(--primary-text)] hover:text-[var(--primary-text)]",
               )}
             >
               {page === pageIndex ? <motion.span layoutId={`grid-active-page-${instanceId}`} transition={uiSpring} className="absolute inset-0 rounded-[3px] bg-[var(--accent-blue)]" /> : null}
@@ -87,8 +67,10 @@ export function GridFooter({
         <FooterButton disabled={pageIndex >= pageCount - 1} onClick={() => onPageChange(pageCount - 1)} label="끝">
           <ChevronLast className="size-[18px]" strokeWidth={1.9} />
         </FooterButton>
+
+        {/* 하위 호환용 위젯 슬롯 */}
+        {widgetSlot ? <div className="ml-3 flex shrink-0 items-center gap-2">{widgetSlot}</div> : null}
       </div>
-      <div className={cn("justify-self-end whitespace-nowrap", compact && "col-start-3 row-start-1")}>전체 {totalRows}개 행</div>
     </div>
   );
 }
