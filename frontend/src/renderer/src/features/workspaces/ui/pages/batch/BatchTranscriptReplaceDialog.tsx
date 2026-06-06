@@ -4,7 +4,7 @@ import { Pencil, Search, X } from "lucide-react";
 import { motion } from "motion/react";
 import type { DataTableRow } from "@shared/ipc";
 import type { PersistedBatchReplaceState } from "@/app/app-persistence";
-import { NumericField, ToggleSwitch, SelectField } from "@/shared/components/controls";
+import { NumericField, SelectionCheck, SelectField } from "@/shared/components/controls";
 import { DataGrid, type CellRenderContext } from "@/shared/components/data-grid";
 import { MotionUnderlineTab } from "@/shared/components/motion-tabs";
 import { dialogPanelMotion, menuMotion, tightPressTap } from "@/shared/motion";
@@ -21,6 +21,8 @@ type BatchReplaceScopes = {
   checked: boolean;
   displayed: boolean;
 };
+
+const batchReplaceTableSelectorClass = "w-[clamp(7.5rem,12vw,10.5rem)] min-w-0 shrink";
 
 export function BatchTranscriptReplaceDialog({
   allRows,
@@ -152,12 +154,9 @@ export function BatchTranscriptReplaceDialog({
   };
   return createPortal(
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={menuMotion.transition} className="fixed inset-0 z-[1200] flex items-center justify-center bg-[#05080dcc] px-6 py-6">
-	      <motion.div {...dialogPanelMotion} data-app-tour-target="batch-replace-dialog" className="flex h-[min(780px,calc(100vh-48px))] w-[min(1240px,calc(100vw-48px))] min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-5 shadow-[var(--app-dialog-shadow)]">
+	      <motion.div {...dialogPanelMotion} data-app-tour-target="batch-replace-dialog" className="flex h-[min(780px,calc(100vh-48px))] w-[min(1240px,calc(100vw-48px))] min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-4 shadow-[var(--app-dialog-shadow)]">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-[5px] bg-[var(--table-header-bg)] text-[var(--primary-text)]">
-              <Search className="size-4" strokeWidth={1.8} />
-            </span>
+          <div className="flex min-w-0 items-center">
             <h4 className="min-w-0 truncate text-base font-semibold leading-5 text-[var(--primary-text)]">내용 검색 및 바꾸기</h4>
           </div>
           <motion.button type="button" onClick={onClose} whileTap={tightPressTap} className="flex size-8 items-center justify-center rounded-[5px] bg-[var(--table-header-bg)] text-[var(--primary-text)]" aria-label="닫기">
@@ -166,14 +165,14 @@ export function BatchTranscriptReplaceDialog({
         </div>
 
 	        <div className="grid min-h-0 flex-1 grid-cols-[322px_16px_minmax(0,1fr)]">
-	          <div className="flex min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-transparent p-5">
-	            <div className="border-b border-[var(--panel-stroke)] -mx-5 px-5">
+	          <div className="flex min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-transparent px-4 pb-0 pt-0">
+	            <div className="-mx-4 border-b border-[var(--panel-stroke)] px-4 pt-[10px]">
 	              <div className="grid grid-cols-2">
 	                <BatchReplaceTab label="일괄 수정" active={mode === "bulk"} onClick={() => setMode("bulk")} />
                 <BatchReplaceTab label="개별 수정" active={mode === "single"} onClick={() => setMode("single")} />
               </div>
             </div>
-	            <div className="app-scrollbar min-h-0 flex-1 overflow-auto pt-4">
+	            <div className="app-scrollbar app-scrollbar-tight min-h-0 flex-1 overflow-auto pt-4">
 	              <div className="mb-5">
 	                <p className="mb-3 text-sm font-normal text-[var(--primary-text)]">검색할 내용</p>
 	                <div className="relative">
@@ -190,17 +189,17 @@ export function BatchTranscriptReplaceDialog({
 	              <div className="mb-5 border-t border-[var(--panel-stroke)] pt-3">
 	                <p className="mb-3 text-sm font-normal text-[var(--primary-text)]">검색 범위</p>
 	                <div className="space-y-3">
-	                  <BatchReplaceToggleRow label="현재 화면" checked={scopes.visible} onChange={(checked) => setScopes((current) => ({ ...current, visible: checked }))} />
-                  <BatchReplaceToggleRow label="체크된 행" checked={scopes.checked} onChange={(checked) => setScopes((current) => ({ ...current, checked }))} />
-                  <BatchReplaceToggleRow label="표시 내용" checked={scopes.displayed} onChange={(checked) => setScopes((current) => ({ ...current, displayed: checked }))} />
+	                  <BatchReplaceCheckRow label="현재 화면" checked={scopes.visible} onChange={(checked) => setScopes((current) => ({ ...current, visible: checked }))} />
+                  <BatchReplaceCheckRow label="체크된 행" checked={scopes.checked} onChange={(checked) => setScopes((current) => ({ ...current, checked }))} />
+                  <BatchReplaceCheckRow label="표시 내용" checked={scopes.displayed} onChange={(checked) => setScopes((current) => ({ ...current, displayed: checked }))} />
                 </div>
               </div>
 
 		              <div className="border-t border-[var(--panel-stroke)] pt-3">
 		                <p className="mb-3 text-sm font-normal text-[var(--primary-text)]">옵션</p>
 		                <div className="space-y-3">
-                  <BatchReplaceToggleRow label="대소문자 구분" checked={caseSensitive} onChange={setCaseSensitive} />
-                  <BatchReplaceToggleRow label="전체 단어 일치" checked={wholeWord} onChange={setWholeWord} />
+                  <BatchReplaceCheckRow label="대소문자 구분" checked={caseSensitive} onChange={setCaseSensitive} />
+                  <BatchReplaceCheckRow label="전체 단어 일치" checked={wholeWord} onChange={setWholeWord} />
                   <BatchReplaceScoreFilterRow
                     label="타임라인 점수 이상"
                     value={timelineScoreThreshold}
@@ -211,7 +210,7 @@ export function BatchTranscriptReplaceDialog({
                 </div>
               </div>
             </div>
-            <div className="mt-4 border-t border-[var(--panel-stroke)] pt-4 -mx-5 px-5">
+            <div className="-mx-4 mt-4 border-t border-[var(--panel-stroke)] px-4 py-4">
               <div className="grid grid-cols-[1fr_12px_1fr]">
             <motion.button type="button" className="wpf-primary-button text-sm font-normal" disabled={activeIds.length === 0} whileTap={activeIds.length === 0 ? undefined : tightPressTap} onClick={() => applyRows(activeIds)}>모두 바꾸기</motion.button>
                 <div />
@@ -222,24 +221,25 @@ export function BatchTranscriptReplaceDialog({
 
           <div />
 
-	          <div className="flex min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-transparent pt-4 px-4 pb-0">
-	            <div className="mb-3 flex items-center justify-between gap-3">
+	          <div className="flex min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-transparent px-4 pb-0 pt-4">
+	            <div className="mb-4 flex min-h-8 items-center justify-between gap-3">
 	              <div className="flex items-center gap-3">
-	                <h5 className="text-sm font-normal leading-5 text-[var(--primary-text)]">검색 결과</h5>
+	                <h5 className="text-base font-semibold leading-5 text-[var(--primary-text)]">검색 결과</h5>
 	              </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex min-w-0 shrink items-center justify-end gap-2">
                   {sheets.length > 0 && (
-                    <div className="w-[168px] min-w-[168px] shrink-0">
+                    <div className={batchReplaceTableSelectorClass}>
                       <SelectField
                         value={activeSheetId ?? ""}
                         options={sheets.map((s) => ({ value: s.id, label: s.label }))}
                         onChange={onSelectSheet}
                         ariaLabel="시트 선택"
                         dropdownClassName="z-[1300]"
+                        density="header"
                       />
                     </div>
                   )}
-                  <div className="w-[168px] min-w-[168px] shrink-0">
+                  <div className={batchReplaceTableSelectorClass}>
                     <SelectField
                       value={String(pageSize)}
                       options={[
@@ -253,6 +253,7 @@ export function BatchTranscriptReplaceDialog({
                       onChange={(val) => setPageSize(Number(val))}
                       ariaLabel="표시 행 수"
                       dropdownClassName="z-[1300]"
+                      density="header"
                     />
                   </div>
                 </div>
@@ -295,16 +296,23 @@ export function BatchTranscriptReplaceDialog({
 
 function BatchReplaceTab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
-    <MotionUnderlineTab label={label} active={active} onClick={onClick} className="px-4 pb-2 pt-0" underlineId="batch-replace-mode-tabs" />
+    <MotionUnderlineTab label={label} active={active} onClick={onClick} underlineId="batch-replace-mode-tabs" />
   );
 }
 
-function BatchReplaceToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
+function BatchReplaceCheckRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+    <motion.button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      whileTap={tightPressTap}
+      className="group flex w-full min-w-0 items-center gap-2.5 text-left"
+    >
+      <SelectionCheck checked={checked} />
       <span className="min-w-0 whitespace-normal break-words text-[13px] leading-[18px] text-[var(--secondary-text)]">{label}</span>
-      <ToggleSwitch checked={checked} onChange={onChange} />
-    </div>
+    </motion.button>
   );
 }
 
@@ -322,12 +330,19 @@ function BatchReplaceScoreFilterRow({
   onEnabledChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_minmax(88px,116px)_auto] items-stretch gap-3">
-      <span className="flex min-w-0 items-center whitespace-normal break-words text-[13px] leading-[18px] text-[var(--secondary-text)]">{label}</span>
+    <div className="inline-grid max-w-full grid-cols-[minmax(0,max-content)_116px] items-stretch gap-3">
+      <motion.button
+        type="button"
+        role="checkbox"
+        aria-checked={enabled}
+        onClick={() => onEnabledChange(!enabled)}
+        whileTap={tightPressTap}
+        className="group flex min-w-0 items-center gap-2.5 text-left"
+      >
+        <SelectionCheck checked={enabled} />
+        <span className="min-w-0 whitespace-normal break-words text-[13px] leading-[18px] text-[var(--secondary-text)]">{label}</span>
+      </motion.button>
       <NumericField value={value} min={0} step={0.01} onChange={onValueChange} ariaLabel={label} />
-      <div className="flex items-center justify-end">
-        <ToggleSwitch checked={enabled} onChange={onEnabledChange} />
-      </div>
     </div>
   );
 }

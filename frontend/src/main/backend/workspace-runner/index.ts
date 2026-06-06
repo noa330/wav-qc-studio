@@ -90,7 +90,10 @@ async function executeWorkspacePlan(
     stopProgressPolling();
   }
   const rawTable = await readWorkspaceTable(workspaceId, plan.outputPath, plan.manifestPath, plan.outputCsvPath);
-  const table = restoreOriginalAudioSources(workspaceId, rawTable, plan.audioSourceMappings);
+  const restoredTable = restoreOriginalAudioSources(workspaceId, rawTable, plan.audioSourceMappings);
+  const table = workspaceId === "batch" && plan.args.includes("diarize")
+    ? settleBatchSpeakerTable(restoredTable, outcome.exitCode === 130)
+    : restoredTable;
   const details = await readWorkspaceDetails(workspaceId, table);
   const progress = await readWorkspaceProgress(plan, table);
   const inputTreePath = plan.displayInputPath ?? plan.inputPath;
@@ -114,6 +117,34 @@ async function executeWorkspacePlan(
     inputTree,
     outputTree: undefined,
     progress,
+  };
+}
+
+function settleBatchSpeakerTable(table: DataTable, cancelled: boolean): DataTable {
+  return {
+    ...table,
+    rows: table.rows.map((row) => {
+      const activeStage = (row.raw?.activeStage || row.raw?.active_stage || "").trim().toLowerCase();
+      if (activeStage !== "diarizing" && activeStage !== "preparing_diarization") {
+        return row;
+      }
+
+      const speaker = row.raw?.speaker || row.raw?.speaker_groups || "speaker_unknown";
+      return {
+        ...row,
+        raw: {
+          ...row.raw,
+          status: "failed",
+          activeStage: cancelled ? "cancelled" : "failed",
+          active_stage: cancelled ? "cancelled" : "failed",
+          error: cancelled ? "Cancelled by user." : row.raw?.error || "Speaker separation stopped before completion.",
+        },
+        cells: {
+          ...row.cells,
+          speaker,
+        },
+      };
+    }),
   };
 }
 

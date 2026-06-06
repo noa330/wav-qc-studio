@@ -209,9 +209,11 @@ export function useSliceSegmentActions({ statesRef, updateSheetState, updateStat
           fileName,
           startSec: formatSecondsCell(startSec),
           endSec: formatSecondsCell(endSec),
+          rangeSec: formatRangeCell(startSec, endSec),
           durationSec: `${durationSec.toFixed(2)}s`,
           markerCount: "1",
           status: "편집됨",
+          remarks: "-",
           outputPath: "",
         },
       };
@@ -319,6 +321,7 @@ export function useSliceSegmentActions({ statesRef, updateSheetState, updateStat
             ...row.cells,
             startSec: formatSecondsCell(safeStartSec),
             endSec: formatSecondsCell(safeEndSec),
+            rangeSec: formatRangeCell(safeStartSec, safeEndSec),
             durationSec: `${durationSec.toFixed(2)}s`,
             markerCount: retimedComponents ? `${retimedComponents.length}` : row.cells.markerCount,
           },
@@ -359,4 +362,8 @@ export function useSliceSegmentActions({ statesRef, updateSheetState, updateStat
     deleteSliceSegment,
     updateSliceSegmentBounds,
   };
+}
+
+function formatRangeCell(startSec: number, endSec: number): string {
+  return `${formatSecondsCell(startSec)} - ${formatSecondsCell(endSec)}`;
 }

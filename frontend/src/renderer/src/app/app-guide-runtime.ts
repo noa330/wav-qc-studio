@@ -3,6 +3,7 @@ import type { DataTable, DataTableRow, FileTreeNode, WorkspaceId, WorkspaceSetti
 import { createDefaultOverviewFilterState, type OverviewFilterState } from "@/features/workspaces/model/overview-filter";
 import type { TagScoreRule } from "@/features/workspaces/model/pretrained-sed-tagging";
 import type { WorkspaceRuntime } from "@/features/workspaces/state/use-workspace-runtime";
+import type { SpotlightTourTarget } from "@/shared/components/spotlight-tour";
 import type { AppGuideStepId, AppGuideTourStep } from "./app-tour-steps";
 import {
   createGuideMetrics,
@@ -22,13 +23,24 @@ export function createGuideRuntime(base: WorkspaceRuntime, step: AppGuideTourSte
   const settings = createGuideSettings(base.settings);
   const overviewFilter = createDefaultOverviewFilterState();
   const activeStepId = step.id as AppGuideStepId;
+  const guideStateCache = new Map<WorkspaceId, ReturnType<typeof createGuideWorkspaceState>>();
 
-  const getGuideState = (workspaceId: WorkspaceId) => createGuideWorkspaceState(workspaceId, activeStepId);
+  const getGuideState = (workspaceId: WorkspaceId) => {
+    const cached = guideStateCache.get(workspaceId);
+    if (cached) {
+      return cached;
+    }
+
+    const nextState = createGuideWorkspaceState(workspaceId, activeStepId);
+    guideStateCache.set(workspaceId, nextState);
+    return nextState;
+  };
 
   return {
     ...base,
     guideMode: {
       activeStepId,
+      focusPanelId: step.focusPanelId ?? inferGuideFocusPanelId(step.target),
       terminalOpen: Boolean(step.terminalOpen),
     },
     settings,
@@ -80,4 +92,30 @@ export function createGuideRuntime(base: WorkspaceRuntime, step: AppGuideTourSte
     exportWorkspace: noopAsync,
     syncTrainingModelCheckpoints: noop,
   };
+}
+
+function inferGuideFocusPanelId(target: SpotlightTourTarget): string | undefined {
+  const selectors = getGuideTargetSelectors(target);
+
+  for (const selector of selectors) {
+    const match = selector.match(/\[data-app-tour-panel-id=(?:"([^"]+)"|'([^']+)')\]/);
+    const panelId = match?.[1] ?? match?.[2];
+    if (panelId) {
+      return panelId;
+    }
+  }
+
+  return undefined;
+}
+
+function getGuideTargetSelectors(target: SpotlightTourTarget): readonly string[] {
+  if (typeof target === "string") {
+    return [target];
+  }
+
+  if ("selectors" in target) {
+    return typeof target.selectors === "string" ? [target.selectors] : target.selectors;
+  }
+
+  return target;
 }

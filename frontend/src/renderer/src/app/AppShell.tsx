@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRef, type CSSProperties } from "react";
-import { Compass, Download, Moon, PanelLeftClose, PanelLeftOpen, Play, RotateCcw, Square, Sun, Terminal } from "lucide-react";
+import { Compass, Download, Moon, PanelLeftClose, PanelLeftOpen, Play, RotateCcw, Square, Sun, Terminal, type LucideIcon } from "lucide-react";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { AppCompositionRoot } from "@/app/AppCompositionRoot";
 import { AppTour } from "@/app/AppTour";
@@ -12,12 +12,13 @@ import { createWorkspaceTransitionSurfaceHtml } from "@/app/workspace-transition
 import { cn } from "@/lib/utils";
 import { pressTap, quickEase, softPressTap, tightPressTap, uiSpring } from "@/shared/motion";
 import { defaultWorkspaceId, workspaces, type WorkspaceDefinition } from "@/features/workspaces/model/workspace-config";
-import { useWorkspaceRuntime } from "@/features/workspaces/state/use-workspace-runtime";
-import { useWorkspaceAudioSync } from "@/features/workspaces/ui/shared/workspace-audio-sync";
+import { useWorkspaceRuntime, type WorkspaceRuntime } from "@/features/workspaces/state/use-workspace-runtime";
 import { WorkspaceFloatingAudioPlayer } from "@/features/workspaces/ui/shared/WorkspaceFloatingAudioPlayer";
+import { useWorkspaceAudioSync } from "@/features/workspaces/ui/shared/workspace-audio-sync";
 import { WorkspaceFrame } from "@/features/workspaces/ui/frame/WorkspaceFrame";
 import { createWorkspaceHeaderStatusItems, useCompactWorkspaceHeader } from "@/features/workspaces/ui/frame/WorkspaceStatusWidget";
 import { ProjectSelector } from "@/features/workspaces/ui/shared/WorkspaceProjectSelector";
+import appIconUrl from "@/assets/brand/wav-qc-studio-circle.png";
 import type { WorkspaceId } from "@shared/ipc";
 
 type WorkspaceTransitionRect = {
@@ -110,32 +111,20 @@ function AppShellContent() {
     [visibleWorkspaceId],
   );
   const selectedState = visibleRuntime.getState(visibleWorkspaceId);
+  const audioSync = useWorkspaceAudioSync(visibleWorkspaceId);
+  const floatingAudioPlayerVisible = Boolean(selectedState.selectedAudioPath ?? audioSync.audioPath) && audioSync.activeTabIsPlayback === false;
   const canRun = visibleRuntime.canRun(visibleWorkspaceId);
   const canRetry = visibleRuntime.canRetry(visibleWorkspaceId);
   const canExport = visibleRuntime.canExport(visibleWorkspaceId);
   const isRunning = selectedState.isRunning;
   const isExporting = selectedState.isExporting;
   const isBusy = selectedState.isRunning || selectedState.isExporting || selectedState.isBatchSpeakerRunning;
+  const showRetry = canRetry || selectedState.table.rows.length > 0 || Boolean(selectedState.lastRun);
   const progressPercent = Math.max(0, Math.min(100, Math.round(selectedState.progressPercent)));
   const sidebarCollapsed = sidebarCollapsedByUser || autoSidebarCollapsed;
   const sidebarWidth = sidebarCollapsed ? 56 : 240;
-  const sidebarGap = sidebarCollapsed ? 10 : 14;
+  const sidebarGap = 14;
   const statusItems = createWorkspaceHeaderStatusItems(selectedState);
-  const syncState = useWorkspaceAudioSync(visibleWorkspaceId);
-  const isFloatingPlayerVisible = useMemo(() => {
-    const isSupported = visibleWorkspaceId === "tagging" || visibleWorkspaceId === "batch";
-    const hasAudio = Boolean(selectedState.selectedAudioPath || syncState.audioPath);
-    if (!isSupported || !hasAudio) return false;
-
-    if (!syncState.activeTabId) return false; // Default to active (hidden player)
-    if (visibleWorkspaceId === "tagging") {
-      return syncState.activeTabId === "tagging-queue";
-    }
-    if (visibleWorkspaceId === "batch") {
-      return syncState.activeTabId === "batch-timeline";
-    }
-    return false;
-  }, [visibleWorkspaceId, selectedState.selectedAudioPath, syncState.audioPath, syncState.activeTabId]);
   const projectSwitchingDisabled = useMemo(() => {
     if (visibleRuntime.guideMode) return true;
     return workspaces.some((definition) => {
@@ -251,9 +240,9 @@ function AppShellContent() {
           <div
             className={cn(
               "flex shrink-0 items-center",
-              sidebarCollapsed ? "w-[56px] justify-center px-2" : "justify-between gap-2 px-4",
+              sidebarCollapsed ? "w-[56px] justify-center px-2" : "w-fit max-w-[min(40vw,320px)] justify-start gap-2 px-4",
             )}
-            style={{ width: sidebarWidth }}
+            style={sidebarCollapsed ? { width: sidebarWidth } : undefined}
           >
             <AnimatePresence initial={false}>
               {sidebarCollapsed ? null : (
@@ -263,10 +252,17 @@ function AppShellContent() {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={quickEase}
-                  className="min-w-0 truncate text-xl font-bold text-[var(--primary-text)] cursor-pointer select-none"
+                  className="flex min-w-0 cursor-pointer select-none items-center gap-3 text-xl font-bold text-[var(--primary-text)]"
                   onClick={handleTitleClick}
                 >
-                  WAV QC Studio
+                  <img
+                    src={appIconUrl}
+                    alt=""
+                    aria-hidden="true"
+                    draggable={false}
+                    className="size-9 shrink-0 rounded-[8px] object-contain shadow-[0_8px_20px_rgba(100,36,242,0.18)]"
+                  />
+                  <span className="min-w-0 truncate">WAV QC Studio</span>
                 </motion.h1>
               )}
             </AnimatePresence>
@@ -304,81 +300,20 @@ function AppShellContent() {
                 <span className="max-w-36 truncate text-sm font-normal tabular-nums text-[var(--primary-text)]">{item.value}</span>
               </div>
             ))}
-            <div className="ml-auto flex items-center gap-4">
-              {/* Retry 버튼 */}
-              {(canRetry || selectedState.table.rows.length > 0 || selectedState.lastRun) ? (
-                <motion.button
-                  type="button"
-                  disabled={!canRetry}
-                  onClick={() => void visibleRuntime.retry(visibleWorkspaceId)}
-                  className={cn("wpf-button flex h-[38px] items-center gap-2 px-3 text-[13px]", !canRetry && "opacity-40")}
-                  aria-label="다시 실행"
-                  whileTap={canRetry ? softPressTap : undefined}
-                >
-                  <RotateCcw className="size-3.5" strokeWidth={1.7} />
-                  RETRY
-                </motion.button>
-              ) : null}
-              {/* Run Processing 버튼 */}
-              <motion.button
-                type="button"
-                disabled={!isRunning && !canRun}
-                onClick={() => void (isRunning ? visibleRuntime.cancelWorkspace(visibleWorkspaceId) : visibleRuntime.run(visibleWorkspaceId))}
-                className={cn(
-                  "flex h-[38px] items-center gap-2 px-3 text-[13px]",
-                  isRunning ? "wpf-danger-button" : "wpf-primary-button",
-                  !isRunning && !canRun && "opacity-40",
-                )}
-                aria-label={isRunning ? "실행 중지" : "Run Processing"}
-                whileTap={isRunning || canRun ? pressTap : undefined}
-              >
-                {isRunning
-                  ? <Square className="size-3.5" fill="currentColor" strokeWidth={1.7} />
-                  : <Play className="size-3.5" fill="currentColor" />}
-                {isRunning ? "STOP" : "Run Processing"}
-              </motion.button>
-              {/* Export 버튼 */}
-              <motion.button
-                type="button"
-                disabled={!isExporting && !canExport}
-                onClick={() => void (isExporting ? visibleRuntime.cancelWorkspace(visibleWorkspaceId) : visibleRuntime.exportWorkspace(visibleWorkspaceId))}
-                className={cn(
-                  "wpf-button flex h-[38px] items-center gap-2 px-3 text-[13px]",
-                  isExporting ? "wpf-danger-button" : "wpf-button",
-                  !isExporting && !canExport && "opacity-40",
-                )}
-                aria-label={isExporting ? "내보내기 중지" : "내보내기"}
-                whileTap={isExporting || canExport ? pressTap : undefined}
-              >
-                {isExporting
-                  ? <Square className="size-3.5" fill="currentColor" strokeWidth={1.7} />
-                  : <Download className="size-3.5" strokeWidth={1.7} />}
-                {isExporting ? "STOP" : "Export Results"}
-              </motion.button>
-              {/* 터미널 이모지 버튼 */}
-              <motion.button
-                type="button"
-                onClick={handleToggleTerminal}
-                whileTap={softPressTap}
-                data-app-tour-target="workspace-console-button"
-                className="flex size-[38px] items-center justify-center rounded-[4px] hover:bg-[var(--soft-selection-hover)] text-[var(--primary-text)]"
-                aria-label={terminalDockOpen ? "콘솔 닫기" : "콘솔 열기"}
-                title={terminalDockOpen ? "콘솔 닫기" : "콘솔 열기"}
-              >
-                <Terminal className="size-[18px]" strokeWidth={1.8} />
-              </motion.button>
-              {/* 가이드 이모지 버튼 */}
-              <motion.button
-                type="button"
-                onClick={openGuide}
-                className="flex size-[38px] items-center justify-center rounded-[4px] hover:bg-[var(--soft-selection-hover)] text-[var(--primary-text)]"
-                aria-label="기능 가이드 열기"
-                data-app-tour-target="guide-button"
-                whileTap={pressTap}
-              >
-                <Compass className="size-[18px]" strokeWidth={1.7} />
-              </motion.button>
-            </div>
+            <WorkspaceShellActions
+              placement="header"
+              workspaceId={visibleWorkspaceId}
+              runtime={visibleRuntime}
+              canRun={canRun}
+              canRetry={canRetry}
+              canExport={canExport}
+              showRetry={showRetry}
+              isRunning={isRunning}
+              isExporting={isExporting}
+              terminalDockOpen={terminalDockOpen}
+              onToggleTerminal={handleToggleTerminal}
+              onOpenGuide={openGuide}
+            />
           </div>
         </header>
       ) : null}
@@ -408,35 +343,80 @@ function AppShellContent() {
           </nav>
 
           <div
-            className={cn(sidebarCollapsed ? "mx-2 mb-4 mt-3 border-t border-[var(--panel-stroke)] pt-3 flex justify-center" : "m-4 rounded-md border border-[var(--panel-stroke)] p-[14px] flex items-center justify-between")}
-            data-app-tour-target="run-controls"
+            className={cn(
+              sidebarCollapsed
+                ? "mx-2 mb-4 mt-3 flex flex-col items-center gap-2 border-t border-[var(--panel-stroke)] pt-3"
+                : "m-4 flex flex-col gap-3 rounded-md border border-[var(--panel-stroke)] p-[14px]",
+            )}
           >
-            {sidebarCollapsed ? (
-              <motion.button
+            {compactHeader && sidebarCollapsed ? (
+              <WorkspaceShellActions
+                placement="sidebar"
+                group="utility"
+                collapsed={sidebarCollapsed}
+                workspaceId={visibleWorkspaceId}
+                runtime={visibleRuntime}
+                canRun={canRun}
+                canRetry={canRetry}
+                canExport={canExport}
+                showRetry={showRetry}
+                isRunning={isRunning}
+                isExporting={isExporting}
+                onOpenGuide={openGuide}
+              />
+            ) : null}
+            <div className={cn(sidebarCollapsed ? "flex w-full justify-center" : "flex items-center justify-between gap-2")}>
+              {sidebarCollapsed ? null : (
+                <span className="text-[13px] font-normal text-[var(--secondary-text)]">v0.1.3</span>
+              )}
+              <div className={cn(sidebarCollapsed ? "w-full" : "flex shrink-0 items-center gap-1")}>
+                {compactHeader && !sidebarCollapsed ? (
+                  <motion.button
+                    type="button"
+                    onClick={openGuide}
+                    className="flex size-8 items-center justify-center rounded-[4px] text-[var(--primary-text)] hover:bg-[var(--soft-selection-hover)]"
+                    aria-label="Open guide"
+                    title="Guide"
+                    data-app-tour-target="guide-button"
+                    whileTap={softPressTap}
+                  >
+                    <Compass className="size-[18px]" strokeWidth={1.7} />
+                  </motion.button>
+                ) : null}
+                <motion.button
                 type="button"
                 onClick={toggleTheme}
                 whileTap={softPressTap}
-                className="flex size-8 items-center justify-center rounded-[4px] hover:bg-[var(--soft-selection-hover)] text-[var(--primary-text)]"
+                className={cn(
+                  "flex items-center justify-center rounded-[4px] text-[var(--primary-text)] hover:bg-[var(--soft-selection-hover)]",
+                  sidebarCollapsed ? "aspect-square w-full p-0" : "size-8",
+                )}
                 aria-label={theme === "light" ? "다크 모드로 전환" : "라이트 모드로 전환"}
                 title={theme === "light" ? "다크 모드" : "라이트 모드"}
               >
-                {theme === "light" ? <Moon className="size-[18px]" strokeWidth={1.8} /> : <Sun className="size-[18px]" strokeWidth={1.8} />}
-              </motion.button>
-            ) : (
-              <>
-                <span className="text-[13px] font-normal text-[var(--secondary-text)]">v0.1.3</span>
-                <motion.button
-                  type="button"
-                  onClick={toggleTheme}
-                  whileTap={softPressTap}
-                  className="flex size-8 items-center justify-center rounded-[4px] hover:bg-[var(--soft-selection-hover)] text-[var(--primary-text)]"
-                  aria-label={theme === "light" ? "다크 모드로 전환" : "라이트 모드로 전환"}
-                  title={theme === "light" ? "다크 모드" : "라이트 모드"}
-                >
-                  {theme === "light" ? <Moon className="size-[18px]" strokeWidth={1.8} /> : <Sun className="size-[18px]" strokeWidth={1.8} />}
+                {theme === "light" ? <Moon className={sidebarCollapsed ? "size-5" : "size-[18px]"} strokeWidth={1.8} /> : <Sun className={sidebarCollapsed ? "size-5" : "size-[18px]"} strokeWidth={1.8} />}
                 </motion.button>
+              </div>
+            </div>
+            {compactHeader ? (
+              <>
+                <div className="h-px w-full bg-[var(--panel-stroke)]" aria-hidden="true" />
+                <WorkspaceShellActions
+                  placement="sidebar"
+                  group="primary"
+                  collapsed={sidebarCollapsed}
+                  workspaceId={visibleWorkspaceId}
+                  runtime={visibleRuntime}
+                  canRun={canRun}
+                  canRetry={canRetry}
+                  canExport={canExport}
+                  showRetry={showRetry}
+                  isRunning={isRunning}
+                  isExporting={isExporting}
+                  onOpenGuide={openGuide}
+                />
               </>
-            )}
+            ) : null}
           </div>
         </aside>
 
@@ -449,6 +429,7 @@ function AppShellContent() {
             runtime={visibleRuntime}
             terminalDockOpen={terminalDockOpen}
             terminalBubblePinned={terminalBubblePinned}
+            floatingAudioPlayerVisible={floatingAudioPlayerVisible}
             onTerminalDockOpenChange={setTerminalDockOpen}
             onTerminalBubblePinnedChange={setTerminalBubblePinned}
           />
@@ -460,6 +441,182 @@ function AppShellContent() {
       <WorkspaceFloatingAudioPlayer workspaceId={visibleWorkspaceId} runtime={visibleRuntime} />
     </main>
   );
+}
+
+type WorkspaceShellActionsProps = {
+  placement: "header" | "sidebar";
+  group?: "all" | "primary" | "utility";
+  collapsed?: boolean;
+  workspaceId: WorkspaceId;
+  runtime: WorkspaceRuntime;
+  canRun: boolean;
+  canRetry: boolean;
+  canExport: boolean;
+  showRetry: boolean;
+  isRunning: boolean;
+  isExporting: boolean;
+  terminalDockOpen?: boolean;
+  onToggleTerminal?: () => void;
+  onOpenGuide: () => void;
+};
+
+type WorkspaceShellAction = {
+  id: "retry" | "run" | "export" | "terminal" | "guide";
+  group: "primary" | "utility";
+  label: string;
+  shortLabel: string;
+  title: string;
+  disabled?: boolean;
+  variant?: "default" | "primary" | "danger" | "ghost";
+  tourTarget?: string;
+  icon: LucideIcon;
+  fillIcon?: boolean;
+  onClick: () => void;
+};
+
+function WorkspaceShellActions({
+  placement,
+  group = "all",
+  collapsed = false,
+  workspaceId,
+  runtime,
+  canRun,
+  canRetry,
+  canExport,
+  showRetry,
+  isRunning,
+  isExporting,
+  terminalDockOpen = false,
+  onToggleTerminal,
+  onOpenGuide,
+}: WorkspaceShellActionsProps) {
+  const actions = useMemo<WorkspaceShellAction[]>(() => {
+    const next: WorkspaceShellAction[] = [];
+
+    if (showRetry) {
+      next.push({
+        id: "retry",
+        group: "primary",
+        label: "RETRY",
+        shortLabel: "RETRY",
+        title: "Retry",
+        disabled: !canRetry,
+        icon: RotateCcw,
+        onClick: () => void runtime.retry(workspaceId),
+      });
+    }
+
+    next.push({
+      id: "run",
+      group: "primary",
+      label: isRunning ? "STOP" : "Run Processing",
+      shortLabel: isRunning ? "STOP" : "Run Processing",
+      title: isRunning ? "Stop" : "Run Processing",
+      disabled: !isRunning && !canRun,
+      variant: isRunning ? "danger" : "primary",
+      icon: isRunning ? Square : Play,
+      fillIcon: true,
+      onClick: () => void (isRunning ? runtime.cancelWorkspace(workspaceId) : runtime.run(workspaceId)),
+    });
+
+    next.push({
+      id: "export",
+      group: "primary",
+      label: isExporting ? "STOP" : "Export Results",
+      shortLabel: isExporting ? "STOP" : "EXPORT",
+      title: isExporting ? "Stop export" : "Export Results",
+      disabled: !isExporting && !canExport,
+      variant: isExporting ? "danger" : "default",
+      icon: isExporting ? Square : Download,
+      fillIcon: isExporting,
+      onClick: () => void (isExporting ? runtime.cancelWorkspace(workspaceId) : runtime.exportWorkspace(workspaceId)),
+    });
+
+    if (placement === "header" && onToggleTerminal) {
+      next.push({
+        id: "terminal",
+        group: "utility",
+        label: "Console",
+        shortLabel: "CONSOLE",
+        title: terminalDockOpen ? "Close console" : "Open console",
+        variant: "ghost",
+        tourTarget: "workspace-console-button",
+        icon: Terminal,
+        onClick: onToggleTerminal,
+      });
+    }
+
+    next.push({
+      id: "guide",
+      group: "utility",
+      label: "Guide",
+      shortLabel: "GUIDE",
+      title: "Open guide",
+      variant: "ghost",
+      tourTarget: "guide-button",
+      icon: Compass,
+      onClick: onOpenGuide,
+    });
+
+    return next;
+  }, [canExport, canRetry, canRun, isExporting, isRunning, onOpenGuide, onToggleTerminal, placement, runtime, showRetry, terminalDockOpen, workspaceId]);
+
+  const iconOnly = placement === "sidebar" && collapsed;
+  const visibleActions = group === "all" ? actions : actions.filter((action) => action.group === group);
+  const containsPrimaryActions = visibleActions.some((action) => action.group === "primary");
+
+  return (
+    <div
+      className={cn(
+        placement === "header" ? "ml-auto flex items-center gap-4" : collapsed ? "flex w-full flex-col items-stretch gap-2" : "flex w-full flex-col gap-2",
+      )}
+      data-app-tour-target={containsPrimaryActions ? "run-controls" : undefined}
+    >
+      {visibleActions.map((action) => (
+        <WorkspaceShellActionButton key={action.id} action={action} iconOnly={iconOnly} placement={placement} />
+      ))}
+    </div>
+  );
+}
+
+function WorkspaceShellActionButton({ action, iconOnly, placement }: { action: WorkspaceShellAction; iconOnly: boolean; placement: "header" | "sidebar" }) {
+  const Icon = action.icon;
+  const disabled = Boolean(action.disabled);
+  const buttonClass = cn(
+    shellActionVariantClass(action.variant),
+    "flex items-center justify-center",
+    placement === "header"
+      ? iconOnly && action.variant === "ghost"
+        ? "size-[38px] rounded-[4px] text-[var(--primary-text)] hover:bg-[var(--soft-selection-hover)]"
+        : "h-[38px] gap-2 px-3 text-[13px]"
+      : iconOnly
+        ? "!h-auto !w-full aspect-square rounded-[4px] p-0 text-[var(--primary-text)] hover:bg-[var(--soft-selection-hover)]"
+        : "!h-9 w-full min-w-0 gap-2 px-3 text-[12px]",
+    disabled && "opacity-40",
+  );
+
+  return (
+    <motion.button
+      type="button"
+      disabled={disabled}
+      onClick={action.onClick}
+      className={buttonClass}
+      aria-label={action.title}
+      title={action.title}
+      data-app-tour-target={action.tourTarget}
+      whileTap={disabled ? undefined : action.variant === "primary" || action.variant === "danger" ? pressTap : softPressTap}
+    >
+      <Icon className={cn(iconOnly ? "size-5" : placement === "header" && action.variant === "ghost" ? "size-[18px]" : "size-3.5", "shrink-0")} fill={action.fillIcon ? "currentColor" : "none"} strokeWidth={1.7} />
+      {iconOnly ? null : <span className="min-w-0 truncate">{action.shortLabel}</span>}
+    </motion.button>
+  );
+}
+
+function shellActionVariantClass(variant: WorkspaceShellAction["variant"] = "default"): string {
+  if (variant === "primary") return "wpf-primary-button";
+  if (variant === "danger") return "wpf-danger-button";
+  if (variant === "ghost") return "";
+  return "wpf-button";
 }
 
 function WorkspaceTransitionOverlay({ transition }: { transition: WorkspaceTransitionState }) {
@@ -593,7 +750,7 @@ function WorkspaceNavItem({ workspace, selected, collapsed, onClick }: { workspa
       whileTap={pressTap}
       className={cn(
         "relative flex w-full items-center overflow-hidden rounded-[5px] text-left text-sm font-normal transition-colors",
-        collapsed ? "justify-center px-0 py-[15px]" : "px-[16px] py-[15px]",
+        collapsed ? "aspect-square justify-center p-0" : "px-[16px] py-[15px]",
         selected 
           ? "bg-transparent text-[var(--accent-foreground)] font-semibold" 
           : "bg-transparent text-[var(--primary-text)] hover:bg-[var(--soft-selection-hover)]",

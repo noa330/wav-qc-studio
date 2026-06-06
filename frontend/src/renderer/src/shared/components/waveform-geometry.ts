@@ -1,27 +1,50 @@
 import type { ViewportSelection } from "./waveform-types";
 
 export function createWavePath(peaks: number[], x: number, y: number, width: number, height: number): string {
-  if (peaks.length === 0) {
+  return createEnvelopePath(peaks.map((peak) => -peak), peaks, x, y, width, height);
+}
+
+export function createEnvelopePath(minPeaks: number[], maxPeaks: number[], x: number, y: number, width: number, height: number): string {
+  const pointCount = Math.min(minPeaks.length, maxPeaks.length);
+  if (pointCount === 0) {
     return "";
   }
 
   const centerY = y + height / 2;
   const maxHalf = Math.max(2, height / 2);
-  const step = peaks.length > 1 ? width / (peaks.length - 1) : width;
-  const topPoints = peaks.map((peak, index) => {
+  const step = pointCount > 1 ? width / (pointCount - 1) : width;
+  const topPoints = maxPeaks.slice(0, pointCount).map((peak, index) => {
     const px = Math.min(x + width, x + index * step);
-    const py = centerY - clamp(peak, 0, 1) * maxHalf;
+    const py = centerY - clamp(peak, -1, 1) * maxHalf;
     return `${px.toFixed(3)} ${py.toFixed(3)}`;
   });
-  const bottomPoints = peaks
+  const bottomPoints = minPeaks
+    .slice(0, pointCount)
     .map((peak, index) => {
       const px = Math.min(x + width, x + index * step);
-      const py = centerY + clamp(peak, 0, 1) * maxHalf;
+      const py = centerY - clamp(peak, -1, 1) * maxHalf;
       return `${px.toFixed(3)} ${py.toFixed(3)}`;
     })
     .reverse();
 
-  return `M ${x} ${centerY.toFixed(3)} L ${topPoints.join(" L ")} L ${bottomPoints.join(" L ")} Z`;
+  return `M ${topPoints.join(" L ")} L ${bottomPoints.join(" L ")} Z`;
+}
+
+export function createSamplePath(samples: number[], x: number, y: number, width: number, height: number): string {
+  if (samples.length === 0) {
+    return "";
+  }
+
+  const centerY = y + height / 2;
+  const maxHalf = Math.max(2, height / 2);
+  const step = samples.length > 1 ? width / (samples.length - 1) : width;
+  const points = samples.map((sample, index) => {
+    const px = Math.min(x + width, x + index * step);
+    const py = centerY - clamp(sample, -1, 1) * maxHalf;
+    return `${px.toFixed(3)} ${py.toFixed(3)}`;
+  });
+
+  return `M ${points.join(" L ")}`;
 }
 
 export function normalizeSelection(start: number | undefined, end: number | undefined, viewStart: number, viewEnd: number): ViewportSelection | null {
@@ -47,7 +70,7 @@ export function progressToViewportX(progress: number | undefined, viewStart: num
     return null;
   }
 
-  const span = Math.max(0.001, viewEnd - viewStart);
+  const span = Math.max(0.0000001, viewEnd - viewStart);
   return clamp(((progress - viewStart) / span) * 100, 0, 100);
 }
 
@@ -63,7 +86,7 @@ export function resamplePeaks(source: number[], start: number, end: number, targ
 
   const result = new Array<number>(Math.max(16, targetCount));
   const startIndex = clamp(start, 0, 1) * (source.length - 1);
-  const endIndex = clamp(end, start + 0.001, 1) * (source.length - 1);
+  const endIndex = clamp(end, start + 0.0000001, 1) * (source.length - 1);
   const span = Math.max(1, endIndex - startIndex);
 
   for (let index = 0; index < result.length; index += 1) {

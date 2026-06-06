@@ -25,27 +25,36 @@ export function SelectionHandles({
 
   if (style === "markerBadge") {
     return (
-      <>
-        <MarkerBadgeHandle x={selection.x} trackTop={trackTop} trackHeight={trackHeight} side="left" />
-        <MarkerBadgeHandle x={selection.x + selection.width} trackTop={trackTop} trackHeight={trackHeight} side="right" />
-      </>
+      <div className="absolute inset-0 pointer-events-none z-10">
+        <MarkerBadgeHandle x={selection.x} side="left" />
+        <MarkerBadgeHandle x={selection.x + selection.width} side="right" />
+      </div>
+    );
+  }
+
+  if (style === "dumbbell") {
+    return (
+      <div className="absolute inset-0 pointer-events-none z-10">
+        <DumbbellHandle x={selection.x} side="left" />
+        <DumbbellHandle x={selection.x + selection.width} side="right" />
+      </div>
     );
   }
 
   if (style === "trimHandles") {
     return (
-      <>
-        <TrimRangeHandle x={selection.x} trackTop={trackTop} trackHeight={trackHeight} side="left" />
-        <TrimRangeHandle x={selection.x + selection.width} trackTop={trackTop} trackHeight={trackHeight} side="right" />
-      </>
+      <div className="absolute inset-0 pointer-events-none z-10">
+        <TrimRangeHandle x={selection.x} side="left" />
+        <TrimRangeHandle x={selection.x + selection.width} side="right" />
+      </div>
     );
   }
 
   return (
-    <>
-      <line x1={selection.x} x2={selection.x} y1={trackTop} y2={trackTop + trackHeight} stroke="var(--primary-text)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-      <line x1={selection.x + selection.width} x2={selection.x + selection.width} y1={trackTop} y2={trackTop + trackHeight} stroke="var(--primary-text)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-    </>
+    <div className="absolute inset-0 pointer-events-none z-10">
+      <div className="absolute top-0 bottom-0 w-[2px] bg-[var(--accent-blue)]" style={{ left: `${selection.x}%`, transform: 'translateX(-50%)' }} />
+      <div className="absolute top-0 bottom-0 w-[2px] bg-[var(--accent-blue)]" style={{ left: `${selection.x + selection.width}%`, transform: 'translateX(-50%)' }} />
+    </div>
   );
 }
 
@@ -55,7 +64,7 @@ export function WaveformBadgeLayer({ anchors }: { anchors: WaveformBadgeAnchor[]
   }
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-[3]" aria-hidden="true">
+    <div className="pointer-events-none absolute inset-0 z-20" aria-hidden="true">
       {anchors.map((anchor) => (
         <svg
           key={anchor.id}
@@ -83,28 +92,60 @@ export function WaveformBadgeLayer({ anchors }: { anchors: WaveformBadgeAnchor[]
   );
 }
 
-function TrimRangeHandle({ x, trackTop, trackHeight, side }: { x: number; trackTop: number; trackHeight: number; side: "left" | "right" }) {
-  const handleWidth = 1.35;
-  const hitWidth = 3.2;
-  const handleTop = trackTop;
-  const handleHeight = trackHeight;
-  const handleLeft = side === "left" ? x : x - handleWidth;
-  const hitLeft = x - hitWidth / 2;
-
+function TrimRangeHandle({ x, side }: { x: number; side: "left" | "right" }) {
+  const hitWidthPx = 16;
+  const isLeft = side === "left";
   return (
-    <g className="cursor-ew-resize" data-selection-handle={side}>
-      <rect x={hitLeft} y={trackTop} width={hitWidth} height={trackHeight} fill="transparent" />
-      <rect x={handleLeft} y={handleTop} width={handleWidth} height={handleHeight} rx="0.25" fill="var(--primary-text)" opacity="0.96" vectorEffect="non-scaling-stroke" />
-    </g>
+    <div 
+      className="absolute top-0 bottom-0 cursor-ew-resize pointer-events-auto" 
+      data-selection-handle={side}
+      style={{ 
+        left: `${x}%`, 
+        width: `${hitWidthPx}px`, 
+        transform: isLeft ? 'translateX(-50%)' : 'translateX(-50%)' 
+      }}
+    >
+      <div 
+        className="absolute top-0 bottom-0 bg-[var(--primary-text)] opacity-96 rounded-[1px]" 
+        style={{ 
+          width: '4px', 
+          left: isLeft ? '50%' : 'calc(50% - 4px)',
+          transform: isLeft ? 'none' : 'none'
+        }} 
+      />
+    </div>
   );
 }
 
-function MarkerBadgeHandle({ x, trackTop, trackHeight, side }: { x: number; trackTop: number; trackHeight: number; side: "left" | "right" }) {
-  const hitWidth = 3.2;
+function MarkerBadgeHandle({ x, side }: { x: number; side: "left" | "right" }) {
+  const hitWidthPx = 16;
   return (
-    <g className="cursor-ew-resize" data-selection-handle={side}>
-      <rect x={x - hitWidth / 2} y={trackTop} width={hitWidth} height={trackHeight} fill="transparent" />
-      <line x1={x} x2={x} y1={trackTop} y2={trackTop + trackHeight} stroke="var(--accent-blue)" strokeWidth="1.35" vectorEffect="non-scaling-stroke" />
-    </g>
+    <div 
+      className="absolute top-0 bottom-0 cursor-ew-resize pointer-events-auto flex justify-center" 
+      data-selection-handle={side}
+      style={{ left: `${x}%`, width: `${hitWidthPx}px`, transform: 'translateX(-50%)' }}
+    >
+      <div className="w-[2px] h-full bg-[var(--accent-blue)]" />
+    </div>
+  );
+}
+
+function DumbbellHandle({ x, side }: { x: number; side: "left" | "right" }) {
+  const hitWidthPx = 16;
+  return (
+    <div 
+      className="absolute top-0 bottom-0 cursor-ew-resize pointer-events-auto flex flex-col justify-between items-center" 
+      data-selection-handle={side}
+      style={{ left: `${x}%`, width: `${hitWidthPx}px`, transform: 'translateX(-50%)' }}
+    >
+      {/* Top circle shifted slightly down to prevent clipping */}
+      <div className="w-[7px] h-[7px] rounded-full bg-[var(--accent-blue)] mt-[1px]" />
+      
+      {/* Line connecting the circles */}
+      <div className="absolute top-[4px] bottom-[4px] w-[1.5px] bg-[var(--accent-blue)] -z-10" />
+      
+      {/* Bottom circle shifted slightly up to prevent clipping */}
+      <div className="w-[7px] h-[7px] rounded-full bg-[var(--accent-blue)] mb-[1px]" />
+    </div>
   );
 }

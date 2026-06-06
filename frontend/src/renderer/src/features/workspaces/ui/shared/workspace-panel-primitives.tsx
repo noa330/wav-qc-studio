@@ -3,18 +3,18 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { AnimatePresence, motion } from "motion/react";
 import type { DetailField } from "@shared/ipc";
 import { cn } from "@/lib/utils";
-import { NumericField, Tooltip } from "@/shared/components/controls";
+import { NumericField, SelectionCheck, Tooltip, ToggleSwitch } from "@/shared/components/controls";
 import type { AudioTransport } from "@/shared/hooks/use-audio-transport";
 import { checkPopMotion, tightPressTap, softPressTap } from "@/shared/motion";
 
 
 const settingRowGridStyle: CSSProperties = {
-  gridTemplateColumns: "minmax(0, clamp(58px, 34%, 112px)) minmax(0, 1fr)",
+  gridTemplateColumns: "minmax(0, clamp(72px, 34%, 128px)) minmax(0, 1fr)",
 };
 
 function SettingRow({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn("grid min-w-0 gap-2", className)} style={settingRowGridStyle}>
+    <div className={cn("grid min-w-0 gap-4", className)} style={settingRowGridStyle}>
       {children}
     </div>
   );
@@ -47,7 +47,7 @@ export function SettingControlSlot({
 export function DetailTextArea({ label, value, editable, help }: { label: string; value: string; editable: boolean; help?: string }) {
   return (
     <SettingRow className="mb-3 items-start">
-      <SettingLabel label={label} help={help} topAligned />
+      <SettingLabel label={label} topAligned />
       <SettingControlSlot>
         <AutoResizeTextArea value={value} readOnly disabled={!editable} minHeight={38} />
       </SettingControlSlot>
@@ -58,7 +58,7 @@ export function DetailTextArea({ label, value, editable, help }: { label: string
 export function DetailReadOnly({ label, value, help }: { label: string; value: string; help?: string }) {
   return (
     <SettingRow className="mb-3 items-start">
-      <SettingLabel label={label} help={help} topAligned />
+      <SettingLabel label={label} topAligned />
       <SettingControlSlot>
         <input className="wpf-field h-[38px] w-full px-3 text-sm text-[var(--primary-text)] outline-none" value={value} readOnly />
       </SettingControlSlot>
@@ -71,7 +71,7 @@ export function DetailFieldList({ fields, helpByLabel = {} }: { fields: DetailFi
     <div className="app-scrollbar h-full overflow-auto pr-1">
       {fields.map((field) => (
         <SettingRow key={field.label} className="mb-3 items-start">
-          <SettingLabel label={field.label} help={helpByLabel[field.label]} topAligned />
+          <SettingLabel label={field.label} topAligned />
           <SettingControlSlot>
             <input className="wpf-field h-[38px] w-full px-3 text-sm text-[var(--primary-text)] outline-none" value={field.value} readOnly />
           </SettingControlSlot>
@@ -90,45 +90,98 @@ export function BackendStatusBody({ status }: { status: string }) {
 }
 
 export function SettingGroup({ title, help, children }: { title: string; help?: string; children: ReactNode }) {
+  const titleElement = <p className="text-[14px] font-medium text-[var(--primary-text)]">{title}</p>;
+
   return (
-    <div className="mb-5 border-t border-[var(--panel-stroke)] pt-3">
-      <div className="mb-3 flex min-h-5 items-center gap-1.5">
+    <div className="mb-8 border-t border-[var(--panel-stroke)] pt-6 first:border-t-0 first:pt-0 transition-all duration-200">
+      <div className="mb-4 flex min-h-5 items-center">
         {help ? (
-          <SettingTextTooltip label={title} help={help} titleClassName="text-sm font-normal leading-5 text-[var(--primary-text)]" />
+          <Tooltip label={title} description={help} width={304}>
+            <button
+              type="button"
+              className="max-w-full min-w-0 cursor-help appearance-none whitespace-normal break-words rounded-[3px] border-0 bg-transparent p-0 text-left transition-colors hover:text-[var(--primary)] focus-visible:text-[var(--primary)] focus-visible:outline-none"
+              aria-label={`${title} 설명`}
+            >
+              {titleElement}
+            </button>
+          </Tooltip>
         ) : (
-          <p className="text-sm font-normal text-[var(--primary-text)]">{title}</p>
+          titleElement
         )}
       </div>
-      <div className="space-y-3">{children}</div>
+      <div className="space-y-5">{children}</div>
     </div>
   );
 }
 
-function SettingTextTooltip({ label, help, titleClassName }: { label: string; help: string; titleClassName?: string }) {
+function SettingLabel({ label, topAligned = false, help }: { label: string; topAligned?: boolean; help?: string }) {
+  const textElement = <p className="min-w-0 whitespace-normal text-[13px] font-medium leading-[18px] break-words text-[var(--secondary-text)]">{label}</p>;
+
   return (
-    <Tooltip label={label} description={help} width={304}>
-      <button
-        type="button"
-        className={cn(
-          "max-w-full min-w-0 cursor-help appearance-none whitespace-normal break-words rounded-[3px] border-0 bg-transparent p-0 text-left transition-colors hover:text-[var(--primary-text)] focus-visible:text-[var(--primary-text)] focus-visible:outline-none",
-          titleClassName ?? "text-[13px] font-normal leading-[18px] text-[var(--secondary-text)]",
-        )}
-        aria-label={`${label} 옵션 설명`}
-      >
-        {label}
-      </button>
-    </Tooltip>
-  );
-}
-function SettingLabel({ label, help, topAligned = false }: { label: string; help?: string; topAligned?: boolean }) {
-  return (
-    <div className={cn("flex min-w-0", topAligned ? "items-start pt-[9px]" : "items-center")}>
+    <div className={cn("flex min-w-0", topAligned ? "items-start pt-[10px]" : "items-center")}>
       {help ? (
-        <SettingTextTooltip label={label} help={help} />
+        <Tooltip label={label} description={help} width={260}>
+          <button
+            type="button"
+            className="max-w-full min-w-0 cursor-help appearance-none whitespace-normal break-words rounded-[3px] border-0 bg-transparent p-0 text-left transition-colors hover:text-[var(--primary)] focus-visible:text-[var(--primary)] focus-visible:outline-none"
+            aria-label={`${label} 설명`}
+          >
+            {textElement}
+          </button>
+        </Tooltip>
       ) : (
-        <p className="min-w-0 whitespace-normal text-[13px] leading-[18px] break-words text-[var(--secondary-text)]">{label}</p>
+        textElement
       )}
     </div>
+  );
+}
+
+export type SettingLayoutMode = "horizontal" | "vertical";
+
+function SettingLayoutWrapper({
+  label,
+  layout = "horizontal",
+  topAligned = true,
+  alignControl = "start",
+  help,
+  children,
+}: {
+  label: string;
+  layout?: SettingLayoutMode;
+  topAligned?: boolean;
+  alignControl?: "start" | "center" | "end";
+  help?: string;
+  children: ReactNode;
+}) {
+  if (layout === "vertical") {
+    const textElement = <span className="text-[13px] font-medium leading-[18px] text-[var(--secondary-text)]">{label}</span>;
+    return (
+      <div className="flex flex-col gap-1.5 min-w-0 w-full">
+        <div className="flex items-center min-w-0">
+          {help ? (
+            <Tooltip label={label} description={help} width={260}>
+              <button
+                type="button"
+                className="max-w-full min-w-0 cursor-help appearance-none whitespace-normal break-words rounded-[3px] border-0 bg-transparent p-0 text-left transition-colors hover:text-[var(--primary)] focus-visible:text-[var(--primary)] focus-visible:outline-none"
+                aria-label={`${label} 설명`}
+              >
+                {textElement}
+              </button>
+            </Tooltip>
+          ) : (
+            textElement
+          )}
+        </div>
+        <div className="w-full flex items-center min-h-[38px]">{children}</div>
+      </div>
+    );
+  }
+
+  return (
+    <SettingRow className={topAligned ? "items-start" : "items-center"}>
+      <SettingLabel label={label} topAligned={topAligned} help={help} />
+      <SettingControlSlot align={alignControl} className={alignControl === "center" ? "w-full" : undefined}>{children}</SettingControlSlot>
+    </SettingRow>
   );
 }
 
@@ -141,6 +194,7 @@ export function NumberSetting({
   max,
   wheelStep,
   help,
+  layout = "horizontal",
 }: {
   label: string;
   value: number;
@@ -150,45 +204,92 @@ export function NumberSetting({
   max?: number;
   wheelStep?: number;
   help?: string;
+  layout?: SettingLayoutMode;
 }) {
   return (
-    <SettingRow className="items-start">
-      <SettingLabel label={label} help={help} topAligned />
-      <SettingControlSlot>
-        <NumericField value={value} step={step} min={min} max={max} wheelStep={wheelStep} onChange={onChange} ariaLabel={label} />
-      </SettingControlSlot>
-    </SettingRow>
+    <SettingLayoutWrapper label={label} layout={layout} help={help}>
+      <NumericField value={value} step={step} min={min} max={max} wheelStep={wheelStep} onChange={onChange} ariaLabel={label} />
+    </SettingLayoutWrapper>
   );
 }
 
-export function TextSetting({ label, value, onChange, help }: { label: string; value: string; onChange: (value: string) => void; help?: string }) {
+export function TextSetting({
+  label,
+  value,
+  onChange,
+  help,
+  layout = "horizontal",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  help?: string;
+  layout?: SettingLayoutMode;
+}) {
   return (
-    <SettingRow className="items-start">
-      <SettingLabel label={label} help={help} topAligned />
-      <SettingControlSlot>
-        <AutoResizeTextArea value={value} onChange={onChange} ariaLabel={label} minHeight={38} />
-      </SettingControlSlot>
-    </SettingRow>
+    <SettingLayoutWrapper label={label} layout={layout} help={help}>
+      <AutoResizeTextArea value={value} onChange={onChange} ariaLabel={label} minHeight={38} />
+    </SettingLayoutWrapper>
   );
 }
 
-export function TextAreaSetting({ label, value, onChange, help }: { label: string; value: string; onChange: (value: string) => void; help?: string }) {
+export function TextAreaSetting({
+  label,
+  value,
+  onChange,
+  help,
+  layout = "horizontal",
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  help?: string;
+  layout?: SettingLayoutMode;
+}) {
   return (
-    <SettingRow className="items-start">
-      <SettingLabel label={label} help={help} topAligned />
-      <SettingControlSlot>
-        <AutoResizeTextArea value={value} onChange={onChange} ariaLabel={label} minHeight={38} />
-      </SettingControlSlot>
-    </SettingRow>
+    <SettingLayoutWrapper label={label} layout={layout} help={help}>
+      <AutoResizeTextArea value={value} onChange={onChange} ariaLabel={label} minHeight={38} />
+    </SettingLayoutWrapper>
   );
 }
 
-export function SelectSetting({ label, help, children }: { label: string; help?: string; children: ReactNode }) {
+export function SelectSetting({
+  label,
+  help,
+  children,
+  layout = "horizontal",
+}: {
+  label: string;
+  help?: string;
+  children: ReactNode;
+  layout?: SettingLayoutMode;
+}) {
   return (
-    <SettingRow className="items-start">
-      <SettingLabel label={label} help={help} topAligned />
-      <SettingControlSlot align="center">{children}</SettingControlSlot>
-    </SettingRow>
+    <SettingLayoutWrapper label={label} layout={layout} alignControl="center" help={help}>
+      {children}
+    </SettingLayoutWrapper>
+  );
+}
+
+export function ToggleSetting({
+  label,
+  checked,
+  onChange,
+  help,
+  disabled = false,
+  layout = "horizontal",
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  help?: string;
+  disabled?: boolean;
+  layout?: SettingLayoutMode;
+}) {
+  return (
+    <SettingLayoutWrapper label={label} layout={layout} alignControl="end" help={help}>
+      <ToggleSwitch checked={checked} onChange={onChange} disabled={disabled} />
+    </SettingLayoutWrapper>
   );
 }
 
@@ -310,25 +411,19 @@ export function ModelSelectionPanel<T extends string>({
   return (
     <div className="app-scrollbar h-full min-h-0 min-w-0 flex flex-col overflow-auto pr-1 text-left">
       {/* Title & Subtitle */}
-      <div className="mb-4 text-left shrink-0 border-t border-[var(--panel-stroke)] pt-3 first:border-t-0 first:pt-0">
-        <div className="flex min-h-5 items-center gap-1.5 mb-1.5">
-          <p className="text-sm font-normal text-[var(--primary-text)]">{title}</p>
+      <div className="mb-5 text-left shrink-0 border-t border-[var(--panel-stroke)] pt-3 first:border-t-0 first:pt-0">
+        <div className="flex min-h-5 items-center gap-1.5 mb-1">
+          <p className="text-[14px] font-medium text-[var(--primary-text)]">{title}</p>
         </div>
-        <p className="text-xs leading-4 text-[var(--secondary-text)] px-0.5">
+        <p className="text-[13px] font-normal leading-[18px] text-[var(--secondary-text)]">
           {subtitle}
         </p>
       </div>
 
-      {/* Model Options */}
-      <div className="space-y-3 shrink-0">
+      {/* Model Option Cards */}
+      <div className="flex flex-col gap-3 shrink-0">
         {options.map((option) => {
           const checked = selectedValue === option.value;
-          const badgeClasses = option.badgeType ? {
-            purple: "bg-[var(--accent)] text-[var(--primary)]",
-            green: "bg-[#E6F4EA] text-[#137333] dark:bg-[#1C3A27] dark:text-[#34D399]",
-            blue: "bg-[#E8F0FE] text-[#1A73E8] dark:bg-[#1E293B] dark:text-[#60A5FA]",
-          }[option.badgeType] : "";
-
           return (
             <motion.button
               key={option.value}
@@ -338,46 +433,37 @@ export function ModelSelectionPanel<T extends string>({
               onClick={() => onSelect(option.value)}
               whileTap={softPressTap}
               className={cn(
-                "grid w-full min-w-0 grid-cols-[18px_minmax(0,1fr)] items-start gap-4 rounded-xl border border-[var(--panel-stroke)] p-3.5 text-left transition focus-visible:outline-none shadow-sm",
+                "group relative grid w-full min-w-0 grid-cols-[22px_minmax(0,1fr)] gap-3 rounded-xl border px-4 py-4 text-left outline-none",
+                "transition-all duration-200 ease-out",
                 checked
-                  ? "bg-[var(--soft-selection-hover)]"
-                  : "bg-[var(--field-bg)] hover:bg-[var(--soft-selection-hover)]"
+                  ? "border-[var(--model-option-selected-border)] bg-[var(--model-option-selected-bg)]"
+                  : "border-[var(--model-option-idle-border)] bg-[var(--field-bg)] hover:border-[var(--model-option-hover-border)] hover:bg-[var(--soft-selection-hover)]",
               )}
+              style={{
+                boxShadow: checked ? "var(--model-option-selected-glow)" : "none",
+              }}
             >
-              <span className={cn(
-                "relative size-[18px] shrink-0 rounded-full border transition-colors mt-0.5",
-                checked ? "border-[var(--accent-blue)] bg-transparent" : "border-[var(--secondary-text)] bg-transparent"
-              )}>
-                {checked ? (
-                  <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--accent-blue)]" />
-                ) : null}
+              <span className="flex h-full min-h-[82px] items-start justify-center pt-1">
+                <SelectionCheck checked={checked} />
               </span>
-              <div className="flex flex-col gap-1.5 min-w-0 w-full">
-                {/* Title and Badge row */}
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-sm font-semibold leading-5 text-[var(--primary-text)]">{option.title}</span>
-                  {option.badgeText && (
-                    <span className={cn("rounded-[3px] px-2 py-0.5 text-xs font-semibold leading-4", badgeClasses)}>
-                      {option.badgeText}
-                    </span>
-                  )}
-                </div>
 
-                {/* Description row */}
-                <p className="text-xs leading-normal text-[var(--secondary-text)]">
+              <div className="flex min-w-0 flex-col gap-1.5 overflow-hidden">
+                <span className="min-w-0 truncate text-[15px] font-semibold leading-snug text-[var(--primary-text)]">{option.title}</span>
+
+                <p className="mb-0 text-[12px] leading-[16px] text-[var(--secondary-text)]">
                   {option.description}
                 </p>
 
-                {/* Tags row */}
+                {/* Tags */}
                 {option.tags && option.tags.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                  <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 border-t border-[var(--tag-border)] pt-3">
                     {option.tags.map((tag) => (
-                      <span
+                      <ModelMetaChip
                         key={tag}
-                        className="rounded-[3px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] px-2.5 py-1 text-xs font-normal text-[var(--secondary-text)] leading-3"
+                        className="border border-[var(--tag-border)] bg-transparent font-normal text-[var(--secondary-text)]"
                       >
                         {tag}
-                      </span>
+                      </ModelMetaChip>
                     ))}
                   </div>
                 )}
@@ -387,7 +473,7 @@ export function ModelSelectionPanel<T extends string>({
         })}
       </div>
 
-      {/* Spacer to push help card to the bottom */}
+      {/* Spacer */}
       <div className="flex-grow min-h-[30px]" />
 
       {/* Help Card */}
@@ -417,3 +503,16 @@ export function ModelSelectionPanel<T extends string>({
   );
 }
 
+function ModelMetaChip({ children, className, style }: { children: ReactNode; className?: string; style?: CSSProperties }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex min-h-6 max-w-full items-center rounded-full px-2.5 py-1 text-[11px] leading-4",
+        className,
+      )}
+      style={style}
+    >
+      <span className="min-w-0 truncate">{children}</span>
+    </span>
+  );
+}

@@ -63,23 +63,20 @@ async function readOverviewManifest(manifestPath: string): Promise<DataTable> {
     columns: overviewColumns,
     rows: rows.map<DataTableRow>((row, index) => {
       const raw = stringifyRecord(row);
-      const error = stringValue(row.error);
       return {
         id: raw.absolute_path || raw.file_name || `${index + 1}`,
         sourcePath: raw.absolute_path,
         raw,
-        cells: Object.fromEntries(
-          overviewColumns.map((column) => [
-            column.key,
-            column.key === "index"
-              ? `${index + 1}`
-              : column.key === "status"
-                ? error.trim()
-                  ? translateStatus("failed")
-                  : translateStatus("completed")
-                : raw[column.key] ?? "",
-          ]),
-        ),
+        cells: {
+          index: `${index + 1}`,
+          fileName: raw.file_name,
+          durationSec: formatDurationCell(row.duration_sec),
+          noise_bak: raw.noise_bak ?? "",
+          noise_sig: raw.noise_sig ?? "",
+          noise_ovrl: raw.noise_ovrl ?? "",
+          noise_p808_mos: raw.noise_p808_mos ?? "",
+          remarks: readRemarks(row),
+        },
       };
     }),
   };
@@ -98,12 +95,14 @@ async function readSlicerManifest(manifestPath: string, workspaceId: WorkspaceId
       fileName: stringValue(slice.fileName),
       startSec: formatSeconds(numberValue(slice.startSec)),
       endSec: formatSeconds(numberValue(slice.endSec)),
-      durationSec: `${formatNumber(numberValue(slice.durationSec), 2)}s`,
+      rangeSec: formatRangeCell(slice.startSec, slice.endSec),
+      durationSec: formatDurationCell(slice.durationSec),
       channels: stringValue(slice.channels),
       markerCount: stringValue(slice.markerCount),
       topTag: stringValue(slice.topTag),
       ngTags: stringValue(slice.ngTags),
       status: translateStatus(stringValue(slice.status)),
+      remarks: readRemarks(slice),
       outputPath: basename(stringValue(slice.outputPath)),
     },
   }));
@@ -121,9 +120,11 @@ async function readSpeakerManifest(manifestPath: string): Promise<DataTable> {
     cells: {
       index: `${index + 1}`,
       fileName: stringValue(job.fileName),
+      durationSec: formatDurationCell(job.durationSec ?? job.duration_sec ?? job.durationSeconds ?? job.duration_seconds),
       modelLabel: stringValue(job.modelLabel),
       activeStage: stringValue(job.activeStage),
       status: translateStatus(stringValue(job.status)),
+      remarks: readRemarks(job),
       finalOutputPath: basename(stringValue(job.finalOutputPath) || stringValue(job.sidonOutputPath) || stringValue(job.resembleOutputPath) || stringValue(job.voiceFixerOutputPath)),
       error: stringValue(job.error),
     },
@@ -143,12 +144,14 @@ async function readBatchManifest(manifestPath: string): Promise<DataTable> {
     cells: {
       index: displayIndex(index),
       fileName: stringValue(job.fileName),
+      durationSec: formatDurationCell(job.durationSec ?? job.duration_sec ?? job.durationSeconds ?? job.duration_seconds),
       audioStatus: translateStatus(stringValue(job.status)),
       autoTranscript: stringValue(job.transcript),
       editedTranscript: stringValue(job.editedTranscript) || stringValue(job.transcript),
       speaker: readBatchSpeaker(job),
       language: stringValue(job.language),
       qcStatus: readBatchReviewStatus(job),
+      remarks: readRemarks(job),
     },
   }));
 
@@ -182,6 +185,7 @@ async function readTrainingManifest(manifestPath: string): Promise<DataTable> {
         elapsed: formatElapsed(numberValue(job.elapsedSec)),
         checkpoint: checkpointPath ? basename(checkpointPath) : stringValue(job.checkpoint),
         status: translateStatus(stringValue(job.status)),
+        remarks: readRemarks(job),
       },
     };
   });
@@ -209,6 +213,7 @@ async function readInferenceManifest(manifestPath: string): Promise<DataTable> {
         outputAudio: outputAudioPath ? basename(outputAudioPath) : "",
         elapsed: formatElapsed(numberValue(job.elapsedSec)),
         status: translateStatus(stringValue(job.status)),
+        remarks: readRemarks(job),
       },
     };
   });
@@ -390,14 +395,32 @@ function numberValue(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function finiteNumberValue(value: unknown): number | undefined {
+  if (value === null || value === undefined || value === "") {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function formatDurationCell(value: unknown): string {
+  const seconds = finiteNumberValue(value);
+  return seconds !== undefined && seconds > 0 ? `${seconds.toFixed(2)}s` : "-";
+}
+
+function formatRangeCell(startValue: unknown, endValue: unknown): string {
+  const startSec = finiteNumberValue(startValue);
+  const endSec = finiteNumberValue(endValue);
+  if (startSec === undefined && endSec === undefined) {
+    return "-";
+  }
+  return `${formatSeconds(startSec ?? 0)} - ${formatSeconds(endSec ?? 0)}`;
+}
+
 function formatSeconds(value: number): string {
   const minutes = Math.floor(value / 60);
   const seconds = value % 60;
   return `${minutes.toString().padStart(2, "0")}:${seconds.toFixed(3).padStart(6, "0")}`;
-}
-
-function formatNumber(value: number, fractionDigits: number): string {
-  return value.toFixed(fractionDigits);
 }
 
 function formatElapsed(value: number): string {
@@ -405,6 +428,48 @@ function formatElapsed(value: number): string {
   const minutes = Math.floor(safe / 60);
   const seconds = Math.floor(safe % 60);
   return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function readRemarks(record: Record<string, unknown>): string {
+  const error = stringValue(record.error).trim();
+  if (error) {
+    return error;
+  }
+
+  const failedStages = formatFailedStages(record.failedStages ?? record.failed_stages);
+  if (failedStages) {
+    return `부분 실패: ${failedStages}`;
+  }
+
+  const status = stringValue(record.status).trim().toLowerCase();
+  switch (status) {
+    case "":
+    case "completed":
+    case "success":
+    case "succeeded":
+    case "edited":
+      return "-";
+    case "completed_with_errors":
+      return "부분 완료";
+    case "failed":
+      return "실패";
+    case "cancelled":
+    case "canceled":
+      return "취소됨";
+    case "queued":
+    case "running":
+      return translateStatus(status);
+    default:
+      return translateStatus(status);
+  }
+}
+
+function formatFailedStages(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value.map((item) => stringValue(item).trim()).filter(Boolean).join(", ");
+  }
+
+  return stringValue(value).trim();
 }
 
 function translateTrainingStage(value: string): string {

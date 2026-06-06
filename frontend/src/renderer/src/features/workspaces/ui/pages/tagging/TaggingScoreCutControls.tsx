@@ -42,7 +42,7 @@ export function SegmentedTagRuleFilter({ value, onChange }: { value: TagRuleFilt
   ];
 
   return (
-    <div className="grid h-8 grid-cols-3 overflow-hidden rounded-[5px] border border-[var(--panel-stroke)]">
+    <div className="wpf-header-control grid grid-cols-3 overflow-hidden rounded-[5px] border border-[var(--panel-stroke)]">
       {items.map((item) => (
         <button key={item.value} type="button" onClick={() => onChange(item.value)} className={cn("min-w-[68px] px-3 text-sm font-normal leading-5 text-[var(--secondary-text)] hover:text-[var(--primary-text)]", value === item.value && "bg-[var(--accent-blue)] !text-white")}>
           {item.label}

@@ -22,7 +22,7 @@ export function BasicFilterSettings({ filter, onChange }: { filter: OverviewFilt
   return (
     <div className="min-h-0 flex-1 pt-4">
       <h5 className="mb-4 text-sm font-normal leading-5 text-[var(--primary-text)]">기본 필터 점수 범위 설정</h5>
-      <div className="app-scrollbar h-full overflow-auto pr-1">
+      <div className="app-scrollbar app-scrollbar-tight h-full overflow-auto">
         <div className="grid grid-cols-2 gap-3">
           <DualMetricRangeCard metric="noise" value={filter.boundaries.noise} onChange={(value) => updateBoundary("noise", value)} />
           <DualMetricRangeCard metric="noise_sig" value={filter.boundaries.noise_sig} onChange={(value) => updateBoundary("noise_sig", value)} />
@@ -92,7 +92,7 @@ function MetricRangeRow({
           className="absolute inset-0 h-8 w-full cursor-pointer opacity-0"
           aria-label={`${profile.chipLabel} ${label}`}
         />
-        <div className="pointer-events-none absolute top-1/2 wpf-slider-thumb -translate-x-1/2 -translate-y-1/2 bg-[var(--accent-blue)]" style={{ left: `${percentage}%` }} />
+        <div className={cn("pointer-events-none absolute top-1/2 wpf-slider-thumb -translate-x-1/2 -translate-y-1/2", danger ? "bg-[var(--chip-negative-dot)]" : "bg-[var(--accent-blue)]")} style={{ left: `${percentage}%` }} />
       </div>
       <span className="truncate text-right text-[13px] text-[var(--secondary-text)]">{scoreText}</span>
     </div>

@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import type { WorkspaceId } from "@shared/ipc";
 import type { WorkspaceRuntime } from "../../state/use-workspace-runtime";
 import { useWorkspaceAudioSync, requestWorkspaceAudioSeek, requestWorkspaceAudioPlay, requestWorkspaceAudioVolume } from "./workspace-audio-sync";
-import { formatTime } from "./workspace-ui-utils";
+import { AudioProgressSlider } from "./AudioProgressSlider";
 
 type WorkspaceFloatingAudioPlayerProps = {
   workspaceId: WorkspaceId;
@@ -13,38 +13,20 @@ type WorkspaceFloatingAudioPlayerProps = {
 };
 
 export function WorkspaceFloatingAudioPlayer({ workspaceId, runtime }: WorkspaceFloatingAudioPlayerProps) {
-  // 1. Check if the current workspace is tagging or script (batch)
-  const isSupportedWorkspace = workspaceId === "tagging" || workspaceId === "batch";
-
-  // 2. Fetch the workspace state and sync snapshot
+  // 1. Fetch the workspace state and sync snapshot
   const state = runtime.getState(workspaceId);
   const sync = useWorkspaceAudioSync(workspaceId);
 
-  // 3. Find the selected audio file path
+  // 2. Find the selected audio file path
   const audioPath = state.selectedAudioPath ?? sync.audioPath;
 
-  // 4. Check if the playback tab is active or not
-  // For tagging, the other tab is tagging-queue. For batch, it's batch-timeline.
-  const isPlaybackTabActive = useMemo(() => {
-    if (!sync.activeTabId) return true; // Default to active if not set
-    if (workspaceId === "tagging") {
-      return sync.activeTabId === "tagging-audio";
-    }
-    if (workspaceId === "batch") {
-      return sync.activeTabId === "batch-audio";
-    }
-    return true;
-  }, [sync.activeTabId, workspaceId]);
+  // 3. The tab host publishes this only for a tab group that contains playback.
+  const isVisible = Boolean(audioPath) && sync.activeTabIsPlayback === false;
 
-  // 5. Determine visibility
-  // Show if supported workspace, audio file is selected, and playback tab is NOT active
-  const isVisible = isSupportedWorkspace && Boolean(audioPath) && !isPlaybackTabActive;
-
-  // 6. Handle play/pause, seek, volume
+  // 4. Handle play/pause, seek, volume
   const isPlaying = sync.isPlaying ?? false;
   const currentTime = sync.currentTime ?? 0;
   const duration = sync.duration ?? 0;
-  const progress = duration > 0 ? currentTime / duration : 0;
   const volume = sync.volume ?? 1.0;
 
   const handlePlayPause = () => {
@@ -123,7 +105,7 @@ export function WorkspaceFloatingAudioPlayer({ workspaceId, runtime }: Workspace
           animate={{ height: 72, opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="relative shrink-0 bg-[var(--panel-bg)] border-t border-[var(--panel-stroke)] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] z-[1000] grid grid-cols-[1fr_auto_1fr] items-center px-6 select-none overflow-hidden"
+          className="relative shrink-0 bg-[var(--panel-bg)] border-t border-[var(--panel-stroke)] shadow-[0_-3px_12px_rgba(0,0,0,0.045)] z-[1000] grid grid-cols-[1fr_auto_1fr] items-center px-6 select-none overflow-hidden"
         >
           {/* Left Column (1fr): Music icon and file details */}
           <div className="flex items-center gap-4 min-w-0 justify-start pr-4">
@@ -175,38 +157,14 @@ export function WorkspaceFloatingAudioPlayer({ workspaceId, runtime }: Workspace
           {/* Right Column (1fr): Progress bar slider, Time display, and Volume control */}
           <div className="flex items-center gap-4 justify-end min-w-0 pl-4">
             {/* Time display & Progress bar */}
-            <div className="flex items-center gap-3 flex-1 min-w-[200px]">
-              <span className="text-xs text-[var(--secondary-text)] shrink-0 w-[55px] text-right font-sans">
-                {formatTime(currentTime)}
-              </span>
-
-              <div className="relative flex-1 h-8 flex items-center min-w-[80px]">
-                <div className="absolute left-0 right-0 h-[4px] rounded bg-[var(--slider-rail)]" />
-                <div
-                  className="absolute h-[4px] rounded bg-[var(--accent-blue)]"
-                  style={{ left: 0, width: `${progress * 100}%` }}
-                />
-                <input
-                  type="range"
-                  min="0"
-                  max={duration || 100}
-                  step="0.01"
-                  value={currentTime}
-                  onChange={(e) => handleSeek(parseFloat(e.target.value))}
-                  disabled={duration <= 0}
-                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0 z-20"
-                  aria-label="재생 위치 조절"
-                />
-                <div
-                  className="pointer-events-none absolute wpf-slider-thumb bg-[var(--accent-blue)] -translate-x-1/2 z-10"
-                  style={{ left: `${progress * 100}%` }}
-                />
-              </div>
-
-              <span className="text-xs text-[var(--secondary-text)] shrink-0 w-[55px] text-left font-sans">
-                {formatTime(duration)}
-              </span>
-            </div>
+            <AudioProgressSlider
+              currentTime={currentTime}
+              duration={duration}
+              onSeek={handleSeek}
+              disabled={duration <= 0}
+              railHeightClassName="h-[4px]"
+              className="min-w-[200px]"
+            />
 
             {/* Separator line */}
             <span className="h-4 w-px bg-[var(--panel-stroke)] opacity-85 shrink-0" />

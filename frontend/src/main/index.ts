@@ -15,7 +15,7 @@ function createMainWindow(): void {
     minHeight: 800,
     title: "WAV QC Studio",
     icon: getAppIconPath(),
-    backgroundColor: "#11110f",
+    backgroundColor: "#111111",
     show: false,
     webPreferences: {
       preload: join(__dirname, "../preload/index.mjs"),

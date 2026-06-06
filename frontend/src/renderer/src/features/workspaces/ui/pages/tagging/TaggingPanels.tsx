@@ -83,12 +83,9 @@ export function TaggingScoreCutDialog({ runtime, onClose }: { runtime: Workspace
   };
   return createPortal(
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={menuMotion.transition} className="fixed inset-0 z-[1200] flex items-center justify-center bg-[#05080dcc] px-6 py-6">
-      <motion.div {...dialogPanelMotion} data-app-tour-target="tagging-score-dialog" className="flex h-[min(780px,calc(100vh-48px))] w-[min(1240px,calc(100vw-48px))] min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-5 shadow-[var(--app-dialog-shadow)]">
+      <motion.div {...dialogPanelMotion} data-app-tour-target="tagging-score-dialog" className="flex h-[min(780px,calc(100vh-48px))] w-[min(1240px,calc(100vw-48px))] min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-4 shadow-[var(--app-dialog-shadow)]">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-[5px] bg-[var(--table-header-bg)] text-[var(--primary-text)]">
-              <ListChecks className="size-4" strokeWidth={1.8} />
-            </span>
+          <div className="flex min-w-0 items-center">
             <div className="min-w-0">
               <h4 className="truncate text-base font-semibold leading-5 text-[var(--primary-text)]">이벤트별 NG 점수 상한 설정</h4>
             </div>
@@ -97,7 +94,7 @@ export function TaggingScoreCutDialog({ runtime, onClose }: { runtime: Workspace
             <X className="size-4" />
           </motion.button>
         </div>
-        <div className="-mx-5 min-h-0 flex-1 overflow-hidden">
+        <div className="-mx-4 min-h-0 flex-1 overflow-hidden">
           <TaggingScoreCutBody
             key={activeSheet.id}
             rules={activeSheet.rules}
@@ -279,21 +276,21 @@ export function TaggingScoreCutBody({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="mb-4 flex items-center gap-3 px-5">
+      <div className="mb-4 flex items-center gap-3 px-4">
         <div className="min-w-[280px] flex-1">
           <ColumnSearchField value={query} onChange={setQuery} options={tagRuleSearchOptions} selectedKeys={queryColumns} onSelectedKeysChange={setQueryColumns} ariaLabel="검색" />
         </div>
         <TagRuleStats total={orderedRules.length} active={activeCount} inactive={inactiveCount} />
       </div>
 
-      <div className="mb-3 flex items-center justify-between gap-3 px-5">
+      <div className="mb-3 flex items-center justify-between gap-3 px-4">
         <SegmentedTagRuleFilter value={filter} onChange={onFilterChange} />
-        <div className="flex items-center gap-2">
-          <motion.button type="button" whileTap={selectedCount === 0 ? undefined : tightPressTap} disabled={selectedCount === 0} onClick={() => setBulkEdit((current) => !current)} className={cn("wpf-button flex h-8 items-center gap-1.5 px-3 text-sm font-normal leading-5 disabled:opacity-45", bulkEdit && "border-[var(--accent-blue)]")}>
+        <div className="flex items-center gap-3">
+          <motion.button type="button" whileTap={selectedCount === 0 ? undefined : tightPressTap} disabled={selectedCount === 0} onClick={() => setBulkEdit((current) => !current)} className={cn("wpf-button wpf-header-control flex items-center gap-1.5 px-3 text-sm font-normal leading-5 disabled:opacity-45", bulkEdit && "border-[var(--accent-blue)]")}>
             <ListChecks className="size-3.5" />
             {bulkEdit ? "개별 수정" : "일괄 수정"}{selectedCount > 0 ? ` ${selectedCount}` : ""}
           </motion.button>
-          <motion.button type="button" whileTap={tightPressTap} onClick={resetCutoffs} className="wpf-button flex h-8 items-center gap-1.5 px-3 text-sm font-normal leading-5">
+          <motion.button type="button" whileTap={tightPressTap} onClick={resetCutoffs} className="wpf-button wpf-header-control flex items-center gap-1.5 px-3 text-sm font-normal leading-5">
             <RotateCcw className="size-3.5" />
             기본값 복원
           </motion.button>
@@ -335,7 +332,7 @@ export function TaggingScoreCutBody({
           emptyText="표시할 태그가 없습니다."
         />
       </div>
-      <div className="mt-4 flex shrink-0 justify-end gap-3 border-t border-[var(--panel-stroke)] px-5 pt-4">
+      <div className="flex shrink-0 justify-end gap-3 border-t border-[var(--panel-stroke)] px-4 pt-4">
         <motion.button type="button" onClick={onCancel} whileTap={tightPressTap} className="wpf-button px-8 text-sm">취소</motion.button>
         <motion.button type="button" onClick={onApply} whileTap={tightPressTap} className="wpf-primary-button px-8 text-sm">적용</motion.button>
       </div>

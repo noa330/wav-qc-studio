@@ -40,139 +40,216 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: 4px;
-  --radius-md: 5px;
-  --radius-lg: 6px;
-  --radius-xl: 7px;
+  --radius-sm: 6px;
+  --radius-md: 7.5px;
+  --radius-lg: 9px;
+  --radius-xl: 10.5px;
 }
 
 :root {
-  --background: #12161A;
-  --foreground: #f2f7ff;
-  --card: #14191D;
-  --card-foreground: #f2f7ff;
-  --popover: #14191D;
-  --popover-foreground: #f2f7ff;
-  --primary: #835EE1;
-  --primary-foreground: #f2f7ff;
-  --secondary: #1c222f;
-  --secondary-foreground: #f2f7ff;
-  --muted: #242a39;
-  --muted-foreground: #89909f;
-  --accent: #2C1E55;
-  --accent-foreground: #835EE1;
-  --music-icon-box-bg: #2F2849;
-  --destructive: #e45961;
-  --border: #1F242A;
-  --input: #181C21;
-  --ring: #835EE1;
+  /* ═══════════════════════════════════════════════════════════
+     DARK MODE — Neutral Charcoal Elevation
+     배경(#111111)과 메인 카드(#212124)를 기준으로 표면 단계를 재정렬
+     ─────────────────────────────────────────────────────────
+     Layer 0  Window bg          #111111  H0 S0 L6.7   (유지)
+     Layer 1  Card / Chrome      #212124  H240 S4 L13.5
+     Layer 1.5 Table header      #2B2B31
+     Layer 2  Field / Input      #28282D
+     Layer 2.5 Table row hover   #303038
+     Layer 3  Hover / Muted      #303038
+     Layer 4  Popover            #27272C
+     ═══════════════════════════════════════════════════════════ */
 
-  --window-background: #12161A;
-  --panel-bg: #14191D;
-  --field-bg: #181C21;
-  --shell-chrome-card-bg: #14191D;
-  --panel-stroke: #1F242A;
-  --table-header-bg: #1A1E23;
-  --table-row-hover: #191E23;
-  --soft-selection-hover: #221E36;
-  --soft-selection-selected: #221E36;
-  --nav-selected-bg: #221E36;
-  --slider-rail: #1C2125;
-  --accent-blue: #835EE1;
-  --primary-text: #f2f7ff;
-  --secondary-text: #89909f;
-  --icon-brush: #9ca3af;
-  --control-arrow: #f2f7ff;
-  --chip-dot: #73829a;
-  --chip-checked-bg: #304765;
-  --chip-checked-dot: #9bc0ff;
-  --chip-positive-bg: #2b436f;
-  --chip-positive-border: #1F242A;
-  --chip-positive-dot: #a9c5ff;
-  --chip-negative-bg: #5a2d34;
-  --chip-negative-border: #1F242A;
-  --chip-negative-dot: #ff8c96;
-  --neutral-button: #181C21;
-  --neutral-button-stroke: #1F242A;
+  /* ── Core Semantic Tokens ── */
+  --background: #181A1F;
+  --foreground: #E8ECF4;
+  --card: #1F2228;
+  --card-foreground: #E8ECF4;
+  --popover: #242831;
+  --popover-foreground: #E8ECF4;
+  --primary: #8B6CEF;
+  --primary-foreground: #FFFFFF;
+  --secondary: #252932;
+  --secondary-foreground: #E8ECF4;
+  --muted: #2C313A;
+  --muted-foreground: #8F8F9A;
+  --accent: rgba(139, 108, 239, .10);
+  --accent-foreground: #A78BFA;
+  --music-icon-box-bg: rgba(139, 108, 239, .14);
+  --destructive: #F06070;
+  --border: rgba(232, 236, 244, .028);
+  --input: #252932;
+  --ring: #8B6CEF;
+  --switch-off-bg: #3A3A42;
+
+
+  /* ── Surface Layers (elevation: low → high = dark → light) ── */
+  --window-background: #181A1F;
+  --panel-bg: #1F2228;
+  --field-bg: #252932;
+  --shell-chrome-card-bg: #1F2228;
+  --panel-stroke: rgba(232, 236, 244, .038);
+  --card-border: var(--panel-stroke);
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, .11), inset 0 1px 0 rgba(255, 255, 255, .012);
+
+  /* ── Table ── */
+  --table-header-bg: #272B34;
+  --table-row-hover: #2C313A;
+  --table-grid-line: rgba(232, 236, 244, .026);
+  --table-header-line: rgba(232, 236, 244, .036);
+
+  /* ── Interactive Selection (primary-tint overlays, not flat hex) ── */
+  --soft-selection-hover: #2B2F3A;
+  --soft-selection-selected: #302F45;
+  --nav-selected-bg: #2E2C42;
+  --slider-rail: rgba(232, 236, 244, .04);
+
+  /* ── Brand / Accent ── */
+  --accent-blue: #8B6CEF;
+
+  /* ── Typography ── */
+  --primary-text: #E8ECF4;
+  --secondary-text: #9AA2AE;
+  --icon-brush: #A1A8B3;
+  --control-arrow: #F0F0F4;
+
+  /* ── Status Chips ── */
+  --chip-dot: #7C7C88;
+  --chip-checked-bg: #263555;
+  --chip-checked-dot: #7EB3FF;
+  --chip-positive-bg: #183A5F;
+  --chip-positive-border: rgba(232, 236, 244, .032);
+  --chip-positive-dot: #8AB8FF;
+  --chip-negative-bg: #4A1E28;
+  --chip-negative-border: rgba(232, 236, 244, .032);
+  --chip-negative-dot: #FF8FA0;
+
+  /* ── Status Chips / Tags border ── */
+  --tag-border: rgba(255, 255, 255, 0.03);
+
+  /* ── Neutral Buttons (sits on cards → one step above card) ── */
+  --neutral-button: #272B34;
+  --neutral-button-stroke: rgba(232, 236, 244, .035);
+  --button-on-card-bg: #252932;
+  --button-on-card-stroke: var(--panel-stroke);
+  --button-on-card-shadow: inset 0 1px 0 rgba(255, 255, 255, .012);
+
+  /* ── Model Options ── */
   --model-option-accent: var(--primary);
   --model-option-selected-bg: var(--soft-selection-selected);
-  --purple-start: #835EE1;
-  --purple-end: #835EE1;
-  --purple-hover: #987CE7;
-  --purple-active: #6E40DB;
-  --startup-widget-bg: #14191D;
-  --startup-widget-surface: #14191D;
-  --startup-widget-stroke: #1F242A;
-  --startup-widget-shadow: rgba(0, 0, 0, .46);
-  --startup-widget-glow: rgba(131, 94, 225, .3);
-  --startup-widget-highlight: rgba(255, 255, 255, .05);
-  --startup-widget-mask: #000;
-  --startup-widget-wave: #1D192F;
-  --startup-widget-step-pending: #4f5870;
-  --app-light-floating-shadow: 0 6px 18px rgba(15, 23, 42, .08);
-  --app-menu-shadow: 0 14px 32px rgba(0, 0, 0, .34);
-  --app-popover-shadow: 0 16px 36px rgba(0, 0, 0, .42);
-  --app-dock-shadow: 0 16px 36px rgba(0, 0, 0, .28);
-  --app-dialog-shadow: 0 18px 44px rgba(0, 0, 0, .45);
-  --app-spotlight-shadow: 0 20px 54px rgba(0, 0, 0, .48);
-  --app-tour-backdrop: 0 0 0 9999px rgba(0, 0, 0, .88), 0 20px 58px rgba(0, 0, 0, .6);
-  --compare-arrow-shadow: 0 2px 8px rgba(0, 0, 0, .45);
-  --terminal-dock-bubble-bg: rgba(21, 24, 28, .96);
+  --model-option-selected-border: rgba(139, 108, 239, .28);
+  --model-option-selected-glow: 0 0 14px -6px rgba(139, 108, 239, .16), 0 2px 8px -6px rgba(0, 0, 0, .12);
+  --model-option-idle-border: var(--panel-stroke);
+  --model-option-hover-border: rgba(139, 108, 239, .16);
+  --model-badge-purple-bg: rgba(139, 108, 239, .14);
+  --model-badge-purple-text: #C4AEFF;
+  --model-badge-blue-bg: rgba(96, 165, 250, .14);
+  --model-badge-blue-text: #93C5FD;
+  --model-badge-green-bg: rgba(74, 222, 128, .14);
+  --model-badge-green-text: #86EFAC;
+  --model-card-check-bg: var(--primary);
+  --model-card-check-ring: rgba(139, 108, 239, .28);
+  --model-card-check-border: rgba(232, 236, 244, .065);
+
+
+  /* ── Purple Gradient Scale ── */
+  --purple-start: #8B6CEF;
+  --purple-end: #6C5CE7;
+  --purple-hover: #9F84F5;
+  --purple-active: #7452E0;
+
+  /* ── Startup Widget ── */
+  --startup-widget-bg: #181A1F;
+  --startup-widget-surface: #1F2228;
+  --startup-widget-stroke: rgba(232, 236, 244, .035);
+  --startup-widget-shadow: rgba(0, 0, 0, .28);
+  --startup-widget-glow: rgba(139, 108, 239, .22);
+  --startup-widget-highlight: rgba(255, 255, 255, .04);
+  --startup-widget-mask: #181A1F;
+  --startup-widget-wave: #2B293D;
+  --startup-widget-step-pending: #6C6C78;
+
+  /* ── Elevation / Shadows ── */
+  --app-light-floating-shadow: 0 3px 9px rgba(10, 12, 20, .08);
+  --app-menu-shadow: 0 8px 18px rgba(0, 0, 0, .24), 0 0 0 1px rgba(255, 255, 255, .012);
+  --app-popover-shadow: 0 10px 24px rgba(0, 0, 0, .26), 0 0 0 1px rgba(255, 255, 255, .012);
+  --app-dock-shadow: 0 8px 20px rgba(0, 0, 0, .18), 0 0 1px rgba(139, 108, 239, .04);
+  --app-dialog-shadow: 0 12px 30px rgba(0, 0, 0, .30), 0 0 1px rgba(139, 108, 239, .055);
+  --app-spotlight-shadow: 0 14px 34px rgba(0, 0, 0, .32), 0 0 1px rgba(139, 108, 239, .07);
+  --app-tour-backdrop: 0 0 0 9999px rgba(0, 0, 0, .88), 0 20px 58px rgba(0, 0, 0, .64);
+  --compare-arrow-shadow: 0 2px 8px rgba(0, 0, 0, .20);
+
+  /* ── Terminal Dock ── */
+  --terminal-dock-bubble-bg: rgba(36, 40, 49, .98);
   --terminal-dock-bubble-border: var(--panel-stroke);
   --terminal-dock-bubble-shadow: var(--app-popover-shadow);
-  --terminal-dock-preview-bg: #1C2024;
+  --terminal-dock-preview-bg: #252932;
   --workspace-dock-shadow: var(--app-dock-shadow);
-  --waveform-base: #835EE1;
-  --waveform-selection-fill: #231C3D;
-  --waveform-selected-wave: #D7C2FA;
-  --waveform-ruler-minor: #222529;
-  --waveform-ruler-major: #222529;
-  --waveform-ruler-axis: #222529;
-  --waveform-ruler-text: #89909f;
-  --scrollbar-thumb: #5a6275;
+
+  /* ── Waveform ── */
+  --waveform-base: #A594FD;
+  --waveform-selection-fill: rgba(139, 108, 239, .10);
+  --waveform-selected-wave: #D4CCFF;
+  --waveform-marker-fill: rgba(139, 108, 239, .20);
+  --waveform-marker-selected-fill: rgba(139, 108, 239, .40);
+  --waveform-marker-part-selected-fill: rgba(139, 108, 239, .52);
+  --waveform-playhead: #F04858;
+  --waveform-ruler-minor: rgba(232, 236, 244, .022);
+  --waveform-ruler-major: rgba(232, 236, 244, .03);
+  --waveform-ruler-axis: rgba(232, 236, 244, .034);
+  --waveform-ruler-text: #858590;
+
+  /* ── Scrollbar ── */
+  --scrollbar-thumb: #323743;
+  --scrollbar-thumb-hover: #434A59;
+  --scrollbar-thumb-active: #5A6377;
   --wpf-slider-thumb-size: 14px;
 
-  /* Danger/Stop Button */
-  --danger-bg: #922e3a;
-  --danger-border: #c2525f;
-  --danger-hover: #a53745;
-  --danger-text: #ffffff;
+  /* ── Danger / Stop Button ── */
+  --danger-bg: #7A2232;
+  --danger-border: #D4485A;
+  --danger-hover: #8E2A3C;
+  --danger-text: #FFFFFF;
 
-  /* Transcript Tokens */
-  --token-extra-bg: #363b46;
-  --token-extra-text: #d8dde8;
-  --token-negative-bg: #5b1b1b;
-  --token-negative-text: #ffb4b4;
-  --token-warning-bg: #5a4310;
-  --token-warning-text: #ffe08a;
-  --token-positive-bg: #145232;
-  --token-positive-text: #93f5b6;
+  /* ── Transcript Tokens ── */
+  --token-extra-bg: #2C313A;
+  --token-extra-text: #B8C0D4;
+  --token-negative-bg: #351420;
+  --token-negative-text: #FFB0B8;
+  --token-warning-bg: #302610;
+  --token-warning-text: #FFD88A;
+  --token-positive-bg: #0C3020;
+  --token-positive-text: #7EEAA4;
 
-  /* Tagging Category Chips */
-  --chip-electronics-bg: #123a63;
-  --chip-electronics-text: #9bd4ff;
-  --chip-env-bg: #145232;
-  --chip-env-text: #93f5b6;
-  --chip-office-bg: #3c216b;
-  --chip-office-text: #d6c2ff;
-  --chip-human-bg: #5a4310;
-  --chip-human-text: #ffe08a;
-  --chip-music-bg: #5d1f3f;
-  --chip-music-text: #ffb7d5;
-  --chip-animal-bg: #3f2d14;
-  --chip-animal-text: #f9c878;
-  --chip-transport-bg: #153f4f;
-  --chip-transport-text: #91e3f4;
-  --chip-home-bg: #4a2f24;
-  --chip-home-text: #ffc0a8;
-  --chip-machine-bg: #353b45;
-  --chip-machine-text: #cbd5e1;
-  --chip-impact-bg: #5b1b1b;
-  --chip-impact-text: #ffb4b4;
-  --chip-signal-bg: #4c2f0d;
-  --chip-signal-text: #ffd27a;
-  --chip-sports-bg: #173b2f;
-  --chip-sports-text: #a7f3d0;
+  /* ── Tagging Category Chips ── */
+  --chip-electronics-bg: #0C2644;
+  --chip-electronics-text: #7DC4FF;
+  --chip-env-bg: #0C3020;
+  --chip-env-text: #7EEAA4;
+  --chip-office-bg: #24164A;
+  --chip-office-text: #C8ADFF;
+  --chip-human-bg: #342A0E;
+  --chip-human-text: #FFD88A;
+  --chip-music-bg: #3C132C;
+  --chip-music-text: #FFA8CC;
+  --chip-animal-bg: #2A1C0E;
+  --chip-animal-text: #F0B868;
+  --chip-transport-bg: #0C2A38;
+  --chip-transport-text: #78D8F0;
+  --chip-home-bg: #301E16;
+  --chip-home-text: #FFB498;
+  --chip-machine-bg: #2C313A;
+  --chip-machine-text: #B0BACC;
+  --chip-impact-bg: #351420;
+  --chip-impact-text: #FFB0B8;
+  --chip-signal-bg: #2E2008;
+  --chip-signal-text: #FFC86A;
+  --chip-sports-bg: #0C2A20;
+  --chip-sports-text: #88E8C0;
+
+  /* ── Glass Widget Styling (Dark Mode) ── */
+  --glass-bg: rgba(255, 255, 255, 0.055);
+  --glass-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.026), inset 0 -1px 0 0 rgba(0, 0, 0, 0.08);
 }
 
 html.light {
@@ -194,14 +271,20 @@ html.light {
   --border: #ECEFF3;
   --input: #FFFFFF;
   --ring: #6424F2;
+  --switch-off-bg: #D1D5DB;
+
 
   --window-background: #F7F8FA;
   --panel-bg: #FEFEFE;
   --field-bg: #F5F7F9;
   --shell-chrome-card-bg: #FEFEFE;
+  --card-border: var(--panel-stroke);
+  --card-shadow: 0 2px 6px rgba(15, 23, 42, .02), 0 1px 1px rgba(15, 23, 42, .018);
   --panel-stroke: #ECEFF3;
   --table-header-bg: #F4F5F8;
   --table-row-hover: #F5EDFE;
+  --table-grid-line: #ECEFF3;
+  --table-header-line: #E4E7EC;
   --soft-selection-hover: #F5EDFE;
   --soft-selection-selected: #F5EDFE;
   --nav-selected-bg: #F5EDFE;
@@ -222,8 +305,24 @@ html.light {
   --chip-negative-dot: #C5221F;
   --neutral-button: #FEFEFE;
   --neutral-button-stroke: #ECEFF3;
+  --button-on-card-bg: var(--panel-bg);
+  --button-on-card-stroke: var(--panel-stroke);
+  --button-on-card-shadow: 0 1px 3px 0 rgba(0, 0, 0, .014);
   --model-option-accent: var(--primary);
   --model-option-selected-bg: var(--soft-selection-selected);
+  --model-option-selected-border: rgba(100, 36, 242, .30);
+  --model-option-selected-glow: 0 0 12px -6px rgba(100, 36, 242, .09), 0 2px 8px -6px rgba(100, 36, 242, .05);
+  --model-option-idle-border: var(--panel-stroke);
+  --model-option-hover-border: rgba(100, 36, 242, .20);
+  --model-badge-purple-bg: rgba(100, 36, 242, .10);
+  --model-badge-purple-text: #7C3AED;
+  --model-badge-blue-bg: rgba(59, 130, 246, .10);
+  --model-badge-blue-text: #2563EB;
+  --model-badge-green-bg: rgba(34, 197, 94, .10);
+  --model-badge-green-text: #16A34A;
+  --model-card-check-bg: var(--primary);
+  --model-card-check-ring: rgba(100, 36, 242, .20);
+  --model-card-check-border: rgba(0, 0, 0, .15);
   --purple-start: #6424F2;
   --purple-end: #6424F2;
   --purple-hover: #783ff5;
@@ -232,20 +331,20 @@ html.light {
   --startup-widget-bg: #FEFEFE;
   --startup-widget-surface: #F7F8FA;
   --startup-widget-stroke: #ECEFF3;
-  --startup-widget-shadow: rgba(0, 0, 0, 0.05);
+  --startup-widget-shadow: rgba(0, 0, 0, 0.025);
   --startup-widget-glow: rgba(100, 36, 242, 0.15);
   --startup-widget-highlight: rgba(255, 255, 255, 0.8);
   --startup-widget-mask: #ffffff;
   --startup-widget-wave: #E6DAFD;
   --startup-widget-step-pending: #98A2B3;
-  --app-light-floating-shadow: 0 6px 18px rgba(15, 23, 42, .08);
+  --app-light-floating-shadow: 0 3px 9px rgba(15, 23, 42, .035);
   --app-menu-shadow: var(--app-light-floating-shadow);
   --app-popover-shadow: var(--app-light-floating-shadow);
   --app-dock-shadow: var(--app-light-floating-shadow);
   --app-dialog-shadow: var(--app-light-floating-shadow);
   --app-spotlight-shadow: var(--app-light-floating-shadow);
   --app-tour-backdrop: 0 0 0 9999px rgba(0, 0, 0, .55), 0 20px 58px rgba(0, 0, 0, .44);
-  --compare-arrow-shadow: 0 2px 8px rgba(0, 0, 0, .06);
+  --compare-arrow-shadow: 0 1px 5px rgba(0, 0, 0, .035);
   --terminal-dock-bubble-bg: rgba(246, 248, 250, .98);
   --terminal-dock-bubble-border: var(--panel-stroke);
   --terminal-dock-bubble-shadow: var(--app-popover-shadow);
@@ -254,11 +353,17 @@ html.light {
   --waveform-base: var(--primary);
   --waveform-selection-fill: #F5EDFE;
   --waveform-selected-wave: #6424F2;
+  --waveform-marker-fill: rgba(100, 36, 242, .18);
+  --waveform-marker-selected-fill: rgba(100, 36, 242, .32);
+  --waveform-marker-part-selected-fill: rgba(100, 36, 242, .42);
+  --waveform-playhead: #ef4444;
   --waveform-ruler-minor: #ECEFF3;
   --waveform-ruler-major: #ECEFF3;
   --waveform-ruler-axis: #ECEFF3;
   --waveform-ruler-text: #79808E;
   --scrollbar-thumb: #BAC0CD;
+  --scrollbar-thumb-hover: #A1A8B7;
+  --scrollbar-thumb-active: #8890A0;
   --wpf-slider-thumb-size: 14px;
 
   /* Danger/Stop Button */
@@ -302,6 +407,12 @@ html.light {
   --chip-signal-text: #A16207;
   --chip-sports-bg: #D1FAE5;
   --chip-sports-text: #047857;
+  /* ── Status Chips / Tags border (Light) ── */
+  --tag-border: rgba(0, 0, 0, 0.05);
+
+  /* ── Glass Widget Styling (Light Mode) ── */
+  --glass-bg: rgba(255, 255, 255, 0.18);
+  --glass-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.035), 0 2px 6px -3px rgba(0, 0, 0, 0.025), inset 0 1px 0 0 rgba(255, 255, 255, 0.16), inset 0 -1px 0 0 rgba(0, 0, 0, 0.035);
 }
 
 @layer base {
@@ -361,50 +472,101 @@ html.light {
 
 @layer utilities {
   .wpf-card {
-    border: 1px solid var(--panel-stroke);
-    border-radius: 5px;
+    position: relative;
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-md);
     background: var(--panel-bg);
+    box-shadow: var(--card-shadow);
   }
 
   .wpf-field {
     border: 1px solid var(--panel-stroke);
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     background: var(--field-bg);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  }
+
+  .wpf-field:hover:not(:disabled):not([readonly]) {
+    border-color: var(--model-option-hover-border);
+    background: var(--soft-selection-hover);
+  }
+
+  .wpf-field:focus-within:not(:disabled):not([readonly]) {
+    border-color: var(--primary);
+    background: var(--panel-bg);
+    box-shadow: none;
   }
 
   .wpf-button {
     height: 38px;
     border: 1px solid var(--neutral-button-stroke);
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     background: var(--table-header-bg);
     color: var(--primary-text);
   }
 
+  .wpf-button-on-card {
+    border: 1px solid var(--button-on-card-stroke);
+    background: var(--button-on-card-bg);
+    box-shadow: var(--button-on-card-shadow);
+  }
+
+  .wpf-transparent-card {
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .wpf-header-control {
+    height: 32px;
+    min-height: 32px;
+  }
+
+  .wpf-header-field-width {
+    width: clamp(7.5rem, 12vw, 10.5rem);
+    min-width: 0;
+    flex-shrink: 0;
+  }
+
+  .wpf-header-tab {
+    display: flex;
+    height: 32px;
+    min-height: 32px;
+    align-items: center;
+    justify-content: center;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .wpf-header-tab-frame {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  .wpf-compact-tab-frame {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
   .wpf-action-button {
     height: 38px;
-    border-radius: 5px;
-    border: 1px solid var(--panel-stroke);
-    background: #242935;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--tag-border);
+    background: #2D323E;
     color: var(--primary-text);
     cursor: pointer;
     transition: all 120ms ease;
   }
 
   .wpf-action-button:not(:disabled):hover {
-    background: #2E3445;
-    border-color: rgba(131, 94, 225, 0.8);
-  }
-
-  .wpf-action-button:disabled {
-    background: #1E222A;
-    border-color: rgba(255, 255, 255, 0.05);
-    color: rgba(137, 144, 159, 0.35);
-    cursor: not-allowed;
+    background: #3B4252;
+    border-color: rgba(232, 236, 244, 0.05);
   }
 
   html.light .wpf-action-button {
-    background: #FFFFFF;
-    border-color: var(--panel-stroke);
+    background: #E4E8EB;
+    border-color: rgba(0, 0, 0, 0.11);
   }
 
   html.light .wpf-action-button:not(:disabled):hover {
@@ -412,15 +574,11 @@ html.light {
     border-color: rgba(100, 36, 242, 0.7);
   }
 
-  html.light .wpf-action-button:disabled {
-    background: #EDEFF2;
-    border-color: rgba(0, 0, 0, 0.05);
-    color: rgba(121, 128, 142, 0.38);
-  }
+
 
   .wpf-primary-button {
     height: 38px;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     background: var(--primary);
     color: var(--primary-foreground);
     border: none;
@@ -438,7 +596,7 @@ html.light {
   .wpf-danger-button {
     height: 38px;
     border: 1px solid var(--danger-border);
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     background: var(--danger-bg);
     color: var(--danger-text);
   }
@@ -457,7 +615,21 @@ html.light {
   .scroll-window-viewport {
     overflow-anchor: none;
     scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb, #5a6275) transparent;
+    scrollbar-color: var(--scrollbar-thumb, #323743) transparent;
+    transition: scrollbar-color 0.2s ease;
+  }
+
+  .app-scrollbar {
+    padding-right: 14px !important;
+  }
+
+  .app-scrollbar-tight {
+    padding-right: 0 !important;
+  }
+
+  .app-scrollbar:hover,
+  .scroll-window-viewport:hover {
+    scrollbar-color: var(--scrollbar-thumb-hover, #434A59) transparent;
   }
 
   .workspace-panel-body-content[data-body-layout="fill"] > * {
@@ -486,6 +658,17 @@ html.light {
     border-radius: 999px;
     background: var(--scrollbar-thumb);
     background-clip: content-box;
+    transition: background-color 0.2s ease;
+  }
+
+  .app-scrollbar:hover::-webkit-scrollbar-thumb,
+  .scroll-window-viewport:hover::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-hover);
+  }
+
+  .app-scrollbar::-webkit-scrollbar-thumb:hover,
+  .scroll-window-viewport::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-active);
   }
 
   .app-scrollbar::-webkit-scrollbar-button,
@@ -522,7 +705,7 @@ html.light {
     left: 0;
     top: 0;
     overflow: hidden;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     transition-property: transform, width, height, opacity;
     transition-timing-function: cubic-bezier(.2, .72, .22, 1);
     will-change: transform, width, height, opacity;
@@ -556,9 +739,4 @@ html.light {
     position: static !important;
   }
 
-  /* Tabbed settings card styling overrides */
-  .workspace-panel-card-tabbed-settings .workspace-panel-body-content > div > div:first-child {
-    border-top: none !important;
-    padding-top: 0 !important;
-  }
 }

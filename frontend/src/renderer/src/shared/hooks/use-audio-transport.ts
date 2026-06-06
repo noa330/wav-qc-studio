@@ -5,6 +5,7 @@ export type AudioTransport = {
   duration: number;
   progress: number;
   isPlaying: boolean;
+  playheadVisible: boolean;
   canPlay: boolean;
   toggle: () => void;
   play: () => void;
@@ -23,6 +24,7 @@ export function useAudioTransport(audioPath?: string, durationHint = 0, loopRang
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(durationHint);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playheadVisible, setPlayheadVisible] = useState(false);
   const [canPlay, setCanPlay] = useState(false);
 
   const stopAnimation = () => {
@@ -66,6 +68,7 @@ export function useAudioTransport(audioPath?: string, durationHint = 0, loopRang
     setCurrentTime(0);
     setDuration(durationHint);
     setIsPlaying(false);
+    setPlayheadVisible(false);
     setCanPlay(false);
 
     if (!source) {
@@ -94,6 +97,7 @@ export function useAudioTransport(audioPath?: string, durationHint = 0, loopRang
     };
     const markPlaying = () => {
       setIsPlaying(true);
+      setPlayheadVisible(true);
       startAnimation(audio);
     };
     const markStopped = () => {
@@ -107,6 +111,7 @@ export function useAudioTransport(audioPath?: string, durationHint = 0, loopRang
       audio.volume = 1;
       setIsPlaying(false);
       setCurrentTime(0);
+      setPlayheadVisible(false);
       audio.currentTime = 0;
     };
     const handleError = () => {
@@ -115,6 +120,7 @@ export function useAudioTransport(audioPath?: string, durationHint = 0, loopRang
       audio.volume = 1;
       setCanPlay(false);
       setIsPlaying(false);
+      setPlayheadVisible(false);
     };
 
     audio.addEventListener("loadedmetadata", syncDuration);
@@ -154,8 +160,7 @@ export function useAudioTransport(audioPath?: string, durationHint = 0, loopRang
       audio.muted = false;
       audio.volume = 1;
       audio.pause();
-      audio.currentTime = 0;
-      setCurrentTime(0);
+      setCurrentTime(audio.currentTime || 0);
       setIsPlaying(false);
       return;
     }
@@ -211,6 +216,7 @@ export function useAudioTransport(audioPath?: string, durationHint = 0, loopRang
     const nextTime = clamp(audio.currentTime + seconds, minTime, maxTime);
     audio.currentTime = nextTime;
     setCurrentTime(nextTime);
+    setPlayheadVisible(true);
   };
 
   const seek = (seconds: number) => {
@@ -224,6 +230,7 @@ export function useAudioTransport(audioPath?: string, durationHint = 0, loopRang
     const nextTime = clamp(seconds, minTime, durationLimit);
     audio.currentTime = nextTime;
     setCurrentTime(nextTime);
+    setPlayheadVisible(true);
   };
 
   const setMuted = (muted: boolean) => {
@@ -258,6 +265,7 @@ export function useAudioTransport(audioPath?: string, durationHint = 0, loopRang
     audio.currentTime = nextTime;
     setCurrentTime(nextTime);
     setIsPlaying(false);
+    setPlayheadVisible(false);
   };
 
   const release = () => {
@@ -276,6 +284,7 @@ export function useAudioTransport(audioPath?: string, durationHint = 0, loopRang
     setCurrentTime(0);
     setCanPlay(false);
     setIsPlaying(false);
+    setPlayheadVisible(false);
   };
 
   const safeDuration = Math.max(0, duration || durationHint);
@@ -284,6 +293,7 @@ export function useAudioTransport(audioPath?: string, durationHint = 0, loopRang
     duration: safeDuration,
     progress: safeDuration > 0 ? clamp(currentTime / safeDuration, 0, 1) : 0,
     isPlaying,
+    playheadVisible,
     canPlay,
     toggle,
     play,

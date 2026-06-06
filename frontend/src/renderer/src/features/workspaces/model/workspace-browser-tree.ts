@@ -104,7 +104,7 @@ function buildMixedInputFileNodes(workspaceId: WorkspaceId, rows: DataTableRow[]
         path: inputPath,
         kind: "file" as const,
         exportRowId: row?.id,
-        meta: row?.cells.status || row?.cells.audioStatus || row?.raw?.status || undefined,
+        meta: row ? readRowRemarks(row) : undefined,
       };
     });
 }
@@ -201,7 +201,6 @@ function trainingOutputMeta(row: DataTableRow): string {
     row.cells.stage || row.raw?.stage,
     unit.epoch ? `epoch ${unit.epoch}` : "",
     unit.step ? `step ${unit.step}` : "",
-    row.cells.status || row.raw?.status,
   ].filter(Boolean).join(" | ");
 }
 
@@ -264,7 +263,7 @@ function insertOutputNode(nodes: FileTreeNode[], relativeParts: string[], rootPa
     path: outputPath,
     kind: "file",
     exportRowId: row.id,
-    meta: row.cells.status || row.cells.audioStatus || row.raw?.status || undefined,
+    meta: readRowRemarks(row),
   });
 }
 
@@ -410,6 +409,11 @@ function readSeconds(row: DataTableRow, key: string): number {
 
   const parsed = Number(value.replace(/[^0-9.+-]/gu, ""));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function readRowRemarks(row: DataTableRow): string | undefined {
+  const value = row.cells.remarks?.trim();
+  return value && value !== "-" ? value : undefined;
 }
 
 function formatTime(seconds: number): string {

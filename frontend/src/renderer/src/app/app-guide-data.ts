@@ -43,7 +43,7 @@ const phaseOrder: Record<WorkspaceId, AppGuideStepId[]> = {
     "tagging-table",
     "tagging-settings",
   ],
-  speaker: ["speaker-browser", "speaker-progress", "speaker-audio", "speaker-model", "speaker-settings"],
+  speaker: ["speaker-browser", "speaker-progress", "speaker-comparison", "speaker-model", "speaker-settings"],
   overview: [
     "guide-entry",
     "workspace-nav",

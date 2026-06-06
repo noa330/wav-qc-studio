@@ -2,6 +2,7 @@ import { Search } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence } from "motion/react";
+import { cn } from "@/lib/utils";
 import { ChevronGlyph } from "@/shared/components/controls";
 import { DropdownMenuHeader, DropdownMenuOption, DropdownMenuSeparator, DropdownMenuSurface } from "@/shared/components/dropdown-menu";
 
@@ -21,6 +22,7 @@ export function ColumnSearchField({
   onSubmit,
   headerLabel = "\uac80\uc0c9 \uc5f4 \uc120\ud0dd",
   allOptionLabel = "\uc804\uccb4 \uc5f4",
+  density = "default",
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -32,9 +34,10 @@ export function ColumnSearchField({
   onSubmit?: () => void;
   headerLabel?: string;
   allOptionLabel?: string;
+  density?: "default" | "header";
 }) {
   const [open, setOpen] = useState(false);
-  const [menuGeometry, setMenuGeometry] = useState<{ left: number; top: number; width: number; maxHeight: number } | null>(null);
+  const [menuGeometry, setMenuGeometry] = useState<{ left: number; top?: number; bottom?: number; transformOrigin?: string; width: number; maxHeight: number } | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -52,12 +55,27 @@ export function ColumnSearchField({
       }
 
       const spaceBelow = Math.max(0, window.innerHeight - rect.bottom - 8);
-      setMenuGeometry({
-        left: rect.left,
-        top: rect.bottom + 4,
-        width: Math.max(rect.width, 240),
-        maxHeight: Math.max(142, Math.min(260, spaceBelow || 260)),
-      });
+      const spaceAbove = Math.max(0, rect.top - 8);
+
+      if (spaceBelow < 260 && spaceAbove > spaceBelow) {
+        setMenuGeometry({
+          left: rect.left,
+          top: undefined,
+          bottom: window.innerHeight - rect.top + 4,
+          transformOrigin: "bottom",
+          width: Math.max(rect.width, 240),
+          maxHeight: Math.min(260, spaceAbove),
+        });
+      } else {
+        setMenuGeometry({
+          left: rect.left,
+          top: rect.bottom + 4,
+          bottom: undefined,
+          transformOrigin: "top",
+          width: Math.max(rect.width, 240),
+          maxHeight: Math.max(142, Math.min(260, spaceBelow || 260)),
+        });
+      }
     };
 
     updateGeometry();
@@ -105,7 +123,7 @@ export function ColumnSearchField({
     }
 
     const nextKeys = selectedKeys.includes(key) ? selectedKeys.filter((selectedKey) => selectedKey !== key) : [...selectedKeys, key];
-    onSelectedKeysChange(nextKeys);
+    onSelectedKeysChange(nextKeys.length === options.length ? [] : nextKeys);
   };
 
   return (
@@ -113,7 +131,7 @@ export function ColumnSearchField({
       <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--icon-brush)]" />
       <input
         ref={inputRef}
-        className="wpf-field h-[38px] w-full min-w-0 truncate px-9 pr-8 text-sm outline-none"
+        className={cn("wpf-field w-full min-w-0 truncate px-9 pr-8 text-sm outline-none", density === "header" ? "wpf-header-control" : "h-[38px]")}
         placeholder={placeholder}
         value={value}
         aria-label={ariaLabel}
@@ -128,7 +146,7 @@ export function ColumnSearchField({
           }
         }}
       />
-      <span className="pointer-events-none absolute right-0 top-0 flex h-[38px] w-8 items-center justify-center text-[var(--control-arrow)]" aria-hidden="true">
+      <span className={cn("pointer-events-none absolute right-0 top-0 flex w-8 items-center justify-center text-[var(--control-arrow)]", density === "header" ? "h-8" : "h-[38px]")} aria-hidden="true">
         <ChevronGlyph direction={open ? "up" : "down"} />
       </span>
       {menuGeometry
@@ -139,7 +157,7 @@ export function ColumnSearchField({
                   ref={menuRef}
                   id={menuId}
                   className="z-[1300]"
-                  style={{ left: menuGeometry.left, top: menuGeometry.top, width: menuGeometry.width, maxHeight: menuGeometry.maxHeight }}
+                  style={{ left: menuGeometry.left, top: menuGeometry.top, bottom: menuGeometry.bottom, transformOrigin: menuGeometry.transformOrigin, width: menuGeometry.width, maxHeight: menuGeometry.maxHeight }}
                   onMouseDown={(event) => event.preventDefault()}
                 >
                   <DropdownMenuHeader>{headerLabel}</DropdownMenuHeader>

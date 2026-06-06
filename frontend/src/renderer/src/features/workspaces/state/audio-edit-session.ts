@@ -35,7 +35,7 @@ export type AudioEditSessionSnapshot = {
   nextMarkerCounter: number;
 };
 
-const minAudioViewSpan = 0.035;
+const minAudioViewSpan = 0.0000001;
 const minMarkerSeconds = 0.005;
 const entries = new Map<string, AudioEditEntry>();
 const listeners = new Set<() => void>();
@@ -245,6 +245,24 @@ export function zoomAudioEditView(basePath: string | undefined, anchor: number, 
       ...entry,
       viewStart: clamp(nextStart, 0, 1 - minAudioViewSpan),
       viewEnd: clamp(nextEnd, minAudioViewSpan, 1),
+    };
+  });
+}
+
+export function setAudioEditViewRange(basePath: string | undefined, start: number, end: number, scopeId?: string): void {
+  if (!basePath?.trim()) {
+    return;
+  }
+
+  patchEntry(basePath, scopeId, (entry) => {
+    const safeStart = clamp(start, 0, 1);
+    const safeEnd = clamp(end, safeStart + minAudioViewSpan, 1);
+    const span = Math.max(minAudioViewSpan, safeEnd - safeStart);
+    const nextStart = clamp(safeStart, 0, 1 - span);
+    return {
+      ...entry,
+      viewStart: nextStart,
+      viewEnd: clamp(nextStart + span, minAudioViewSpan, 1),
     };
   });
 }

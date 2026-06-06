@@ -1,4 +1,4 @@
-import { ListFilter, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
@@ -46,12 +46,9 @@ export function FilterChipEditorDialog({ filter, onApply, onClose }: { filter: O
 
   return createPortal(
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={menuMotion.transition} className="fixed inset-0 z-[1200] flex items-center justify-center bg-[#05080dcc] px-6 py-6">
-      <motion.div {...dialogPanelMotion} data-app-tour-target="overview-filter-dialog" className="flex h-[min(720px,calc(100vh-48px))] w-[min(706px,calc(100vw-48px))] min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-5 shadow-[var(--app-dialog-shadow)]">
+      <motion.div {...dialogPanelMotion} data-app-tour-target="overview-filter-dialog" className="flex h-[min(720px,calc(100vh-48px))] w-[min(706px,calc(100vw-48px))] min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-4 shadow-[var(--app-dialog-shadow)]">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-[5px] bg-[var(--table-header-bg)] text-[var(--primary-text)]">
-              <ListFilter className="size-4" strokeWidth={1.8} />
-            </span>
+          <div className="flex min-w-0 items-center">
             <h4 className="min-w-0 truncate text-base font-semibold leading-5 text-[var(--primary-text)]">필터 규칙 관리 및 커스텀칩 생성</h4>
           </div>
           <motion.button type="button" onClick={onClose} whileTap={tightPressTap} className="flex size-8 items-center justify-center rounded-[5px] bg-[var(--table-header-bg)] text-[var(--primary-text)]" aria-label="닫기">
@@ -59,10 +56,10 @@ export function FilterChipEditorDialog({ filter, onApply, onClose }: { filter: O
           </motion.button>
         </div>
 
-        <div className="border-y border-[var(--panel-stroke)] -mx-5 px-5">
+        <div className="-mx-4 border-y border-[var(--panel-stroke)] px-4">
           <div className="grid grid-cols-2">
-            <MotionUnderlineTab label="기본 필터 설정" active={tab === "basic"} onClick={() => setTab("basic")} className="px-4 py-3" underlineId="overview-filter-editor-tabs" />
-            <MotionUnderlineTab label="커스텀 칩" active={tab === "custom"} onClick={() => setTab("custom")} className="px-4 py-3" underlineId="overview-filter-editor-tabs" />
+            <MotionUnderlineTab label="기본 필터 설정" active={tab === "basic"} onClick={() => setTab("basic")} underlineId="overview-filter-editor-tabs" />
+            <MotionUnderlineTab label="커스텀 칩" active={tab === "custom"} onClick={() => setTab("custom")} underlineId="overview-filter-editor-tabs" />
           </div>
         </div>
 
@@ -114,7 +111,7 @@ export function FilterChipEditorDialog({ filter, onApply, onClose }: { filter: O
           </div>
         )}
 
-        <div className="mt-4 border-t border-[var(--panel-stroke)] pt-4 -mx-5 px-5">
+        <div className="mt-4 border-t border-[var(--panel-stroke)] pt-4 -mx-4 px-4">
           <div className="grid grid-cols-[1fr_15px_1fr]">
             <motion.button type="button" onClick={applyAndClose} whileTap={tightPressTap} className="wpf-button text-sm font-normal">
               적용

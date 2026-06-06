@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw, X } from "lucide-react";
 import type { WorkspaceId } from "@shared/ipc";
 import { useAppPersistence } from "@/app/app-persistence";
-import { menuMotion, workspaceContentMotion } from "@/shared/motion";
-import { WorkspaceCenterPanels, WorkspaceRightPanels, findWorkspaceTableDeckPanel, getWorkspaceTopDefinition, workspaceTableDeckTopRatio } from "../layout/workspace-page-layouts";
+import { menuMotion, pressTap, workspaceContentMotion } from "@/shared/motion";
+import { WorkspaceCenterPanels, WorkspaceRightPanels, findWorkspaceTableDeckPanel, getWorkspaceTopDefinition, useSliceEditorViewContext, workspaceTableDeckTopRatio } from "../layout/workspace-page-layouts";
 import { defaultOuterLayoutSizes, fitOuterLayoutSizes, outerPanelMin, type WorkspaceOuterLayoutSizes } from "../layout/workspace-outer-layout";
-import { PanelResizeHandle, ResizableRows, WorkspaceLayoutResizeProvider, constrainPairPixels, useWorkspaceLayoutResizeState } from "../layout/workspace-splitters";
+import { PanelResizeHandle, WorkspaceLayoutResizeProvider, constrainPairPixels, useWorkspaceLayoutResizeState } from "../layout/workspace-splitters";
 import { cardCollapsedSize, clampResizablePanelSize, workspaceSplitterSize } from "../layout/workspace-panel-sizing";
 import { type WorkspacePanelRenderer, type WorkspaceResizeAxis } from "../layout/workspace-layout-types";
 import { workspaces as workspaceDefinitions, type WorkspaceDefinition } from "../../model/workspace-config";
@@ -19,21 +19,24 @@ import { shouldShowAppUpdateDock, WorkspaceAppUpdateDock } from "../shared/Works
 import { PanelCard } from "../panels/WorkspacePanelCard";
 import { createWorkspaceHeaderStatusItems, useCompactWorkspaceHeader, WorkspaceStatusWidget } from "./WorkspaceStatusWidget";
 import { voiceModelRuntimeKeyForWorkspace, voiceModelRuntimeStatusMatchesKey } from "./workspace-voice-runtime-key";
+import { InferenceActionControls } from "../pages/inference/InferencePanels";
 
 type WorkspaceFrameProps = {
   workspace: WorkspaceDefinition;
   runtime: WorkspaceRuntime;
   terminalDockOpen: boolean;
   terminalBubblePinned: boolean;
+  floatingAudioPlayerVisible: boolean;
   onTerminalDockOpenChange: (open: boolean) => void;
   onTerminalBubblePinnedChange: (pinned: boolean) => void;
 };
 
-export function WorkspaceFrame({ workspace, runtime, terminalDockOpen, terminalBubblePinned, onTerminalDockOpenChange, onTerminalBubblePinnedChange }: WorkspaceFrameProps) {
+export function WorkspaceFrame({ workspace, runtime, terminalDockOpen, terminalBubblePinned, floatingAudioPlayerVisible, onTerminalDockOpenChange, onTerminalBubblePinnedChange }: WorkspaceFrameProps) {
   const persistence = useAppPersistence();
   const initialWorkspaceUiRef = useRef(persistence.getWorkspaceUiSnapshot(workspace.id));
   const layoutRootRef = useRef<HTMLDivElement | null>(null);
   const workspaceGridRef = useRef<HTMLDivElement | null>(null);
+  const tableDeckRef = useRef<HTMLDivElement | null>(null);
   const state = runtime.getState(workspace.id);
   const appUpdate = useAppUpdate();
   const statusItems = createWorkspaceHeaderStatusItems(state);
@@ -48,6 +51,7 @@ export function WorkspaceFrame({ workspace, runtime, terminalDockOpen, terminalB
     });
   }, [runtime]);
   const [outerLayoutSizes, setOuterLayoutSizes] = useState<WorkspaceOuterLayoutSizes>(() => initialWorkspaceUiRef.current.outerLayoutSizes ?? defaultOuterLayoutSizes);
+  const [tableDeckRatio, setTableDeckRatio] = useState(workspaceTableDeckTopRatio);
   const [layoutResizeState, setLayoutResizeState] = useState<{ resizing: boolean; axis?: WorkspaceResizeAxis }>({ resizing: false });
   const [terminalDialogOpen, setTerminalDialogOpen] = useState(false);
   const [guidePanelResizeProgress, setGuidePanelResizeProgress] = useState(0);
@@ -68,6 +72,12 @@ export function WorkspaceFrame({ workspace, runtime, terminalDockOpen, terminalB
   const renderPanelCard: WorkspacePanelRenderer = (props) => <PanelCard {...props} />;
   const tableDeckPanel = useMemo(() => findWorkspaceTableDeckPanel(workspace), [workspace]);
   const topWorkspace = useMemo(() => getWorkspaceTopDefinition(workspace, tableDeckPanel), [tableDeckPanel, workspace]);
+  const sliceEditorContext = useSliceEditorViewContext(workspace.id, workspace.id === "slice");
+  const sliceActionsPanel = workspace.id === "slice" ? topWorkspace.center.find((panel) => panel.id === "slice-actions") : undefined;
+  const topWorkspaceWithoutSliceActions = useMemo(
+    () => sliceActionsPanel ? { ...topWorkspace, center: topWorkspace.center.filter((panel) => panel.id !== sliceActionsPanel.id) } : topWorkspace,
+    [sliceActionsPanel, topWorkspace],
+  );
   const rightPanelsVisible = topWorkspace.right.length > 0;
   const guidePanelResizeActive = runtime.guideMode?.activeStepId === "workspace-splitters";
   const displayedOuterLayoutSizes = guidePanelResizeActive
@@ -123,9 +133,10 @@ export function WorkspaceFrame({ workspace, runtime, terminalDockOpen, terminalB
   );
   const appUpdateVisible = shouldShowAppUpdateDock(appUpdate.state);
   const installDockVisible = runtimeEnvironmentVisible || voiceModelRuntimeVisible;
-  const updateDockBottom = 24;
-  const installDockBottom = appUpdateVisible ? 78 : 24;
-  const terminalDockBottom = 24 + (appUpdateVisible ? 54 : 0) + (installDockVisible ? 54 : 0);
+  const floatingAudioPlayerBottomInset = floatingAudioPlayerVisible ? 72 : 0;
+  const updateDockBottom = 24 + floatingAudioPlayerBottomInset;
+  const installDockBottom = (appUpdateVisible ? 78 : 24) + floatingAudioPlayerBottomInset;
+  const terminalDockBottom = 24 + floatingAudioPlayerBottomInset + (appUpdateVisible ? 54 : 0) + (installDockVisible ? 54 : 0);
   const dismissInstallDock = useCallback((key: string) => {
     setDismissedInstallDocks((current) => {
       const next = new Set(current);
@@ -250,42 +261,143 @@ export function WorkspaceFrame({ workspace, runtime, terminalDockOpen, terminalB
     document.addEventListener("mouseup", handleUp);
   };
 
+  const buildTableDeckGridRows = (ratio: number) => {
+    return `minmax(0, ${ratio}fr) ${workspaceSplitterSize}px 42px ${workspaceSplitterSize}px minmax(0, ${1 - ratio}fr)`;
+  };
+
+  const resizeTableDeck = (startClientY: number) => {
+    const deck = tableDeckRef.current;
+    if (!deck) return;
+
+    const rect = deck.getBoundingClientRect();
+    const availableHeight = Math.max(cardCollapsedSize * 2, rect.height - workspaceSplitterSize * 2 - 42);
+    const startTop = availableHeight * tableDeckRatio;
+    const startBottom = availableHeight - startTop;
+    let nextRatio = tableDeckRatio;
+
+    const applyRatio = (ratio: number) => {
+      nextRatio = Math.min(0.95, Math.max(0.05, ratio));
+      deck.style.gridTemplateRows = buildTableDeckGridRows(nextRatio);
+    };
+
+    const handleMove = (event: MouseEvent) => {
+      const [nextTop, nextBottom] = constrainPairPixels(startTop, startBottom, event.clientY - startClientY, cardCollapsedSize);
+      applyRatio(nextTop / Math.max(1, nextTop + nextBottom));
+    };
+
+    const handleUp = () => {
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      setTableDeckRatio((current) => (Math.abs(current - nextRatio) > 0.0005 ? nextRatio : current));
+      setLayoutResizing(false);
+    };
+
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+    setLayoutResizing(true, "height");
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleUp);
+  };
+
   const topPanelGrid = (
     <div ref={workspaceGridRef} className="grid h-full min-h-0" style={workspaceGridStyle}>
       <PanelCard key={topWorkspace.left.id} layoutId="workspace-card-left" workspaceId={topWorkspace.id} panel={topWorkspace.left} runtime={runtime} collapseMode="none" />
       <PanelResizeHandle orientation="vertical" forceActive={guidePanelResizeActive} guideResizeProgress={guidePanelResizeProgress} onMouseDown={(event) => resizeOuterPanel("left", event.clientX)} />
-      <WorkspaceCenterPanels workspace={topWorkspace} runtime={runtime} renderPanel={renderPanelCard} />
+      <WorkspaceCenterPanels workspace={topWorkspaceWithoutSliceActions} runtime={runtime} renderPanel={renderPanelCard} sliceEditorContext={sliceActionsPanel ? sliceEditorContext : undefined} />
       {rightPanelsVisible ? <PanelResizeHandle orientation="vertical" forceActive={guidePanelResizeActive} guideResizeProgress={guidePanelResizeProgress} onMouseDown={(event) => resizeOuterPanel("right", event.clientX)} /> : <div aria-hidden="true" />}
       {rightPanelsVisible ? <WorkspaceRightPanels workspace={topWorkspace} runtime={runtime} renderPanel={renderPanelCard} /> : <div />}
     </div>
   );
 
   const topPanelGridLeftCenterOnly = (
-    <div className="grid h-full min-h-0" style={{
+    <div className="grid h-full min-h-0 min-w-0 overflow-visible" style={{
       gridTemplateColumns: `var(--workspace-left-width) ${workspaceSplitterSize}px minmax(0, 1fr)`
     }}>
       <PanelCard key={topWorkspace.left.id} layoutId="workspace-card-left" workspaceId={topWorkspace.id} panel={topWorkspace.left} runtime={runtime} collapseMode="none" />
       <PanelResizeHandle orientation="vertical" forceActive={guidePanelResizeActive} guideResizeProgress={guidePanelResizeProgress} onMouseDown={(event) => resizeOuterPanel("left", event.clientX)} />
-      <WorkspaceCenterPanels workspace={topWorkspace} runtime={runtime} renderPanel={renderPanelCard} />
+      <WorkspaceCenterPanels workspace={topWorkspaceWithoutSliceActions} runtime={runtime} renderPanel={renderPanelCard} sliceEditorContext={sliceActionsPanel ? sliceEditorContext : undefined} />
     </div>
   );
 
+  const tableRows = state.table.rows;
+  const selectedRowIndex = state.selectedRowId ? tableRows.findIndex((row) => row.id === state.selectedRowId) : -1;
+  const rowNavEnabled = tableRows.length > 0;
+  const canSelectPreviousRow = rowNavEnabled && selectedRowIndex > 0;
+  const canSelectNextRow = rowNavEnabled && selectedRowIndex >= 0 && selectedRowIndex < tableRows.length - 1;
+  const isExporting = false;
+  const deckInferenceActions = workspace.id === "inference" ? <InferenceActionControls runtime={runtime} /> : null;
+  const deckActions = tableDeckPanel ? (
+    <div className="flex h-full min-h-0 min-w-0 items-center justify-start gap-2 overflow-visible" data-app-tour-target={workspace.id === "slice" ? "slice-editor-actions-row" : undefined}>
+      <motion.button
+        type="button"
+        disabled={!canSelectPreviousRow}
+        onClick={() => runtime.selectAdjacentRow(workspace.id, -1)}
+        whileTap={canSelectPreviousRow ? pressTap : undefined}
+        className="wpf-button wpf-button-on-card flex h-[38px] flex-none items-center gap-1.5 whitespace-nowrap px-3 text-sm [font-size:0] disabled:cursor-default disabled:text-[var(--secondary-text)]"
+      >
+        <ChevronLeft className="size-4" strokeWidth={1.7} />
+        <span className="text-sm">이전 항목</span>
+        이전
+      </motion.button>
+      <motion.button
+        type="button"
+        disabled={!canSelectNextRow}
+        onClick={() => runtime.selectAdjacentRow(workspace.id, 1)}
+        whileTap={canSelectNextRow ? pressTap : undefined}
+        className="wpf-button wpf-button-on-card flex h-[38px] flex-none items-center gap-1.5 whitespace-nowrap px-3 text-sm [font-size:0] disabled:cursor-default disabled:text-[var(--secondary-text)]"
+      >
+        <span className="text-sm">다음 항목</span>
+        다음
+        <ChevronRight className="size-4" strokeWidth={1.7} />
+      </motion.button>
+      {deckInferenceActions}
+      {sliceActionsPanel ? (
+        <div className="flex min-w-max flex-none items-center">
+          <PanelCard
+            layoutId="workspace-card-slice-actions"
+            workspaceId={workspace.id}
+            panel={sliceActionsPanel}
+            runtime={runtime}
+            className="h-[38px] min-h-0 min-w-max flex-none"
+            collapseMode="none"
+            sliceEditorContext={sliceEditorContext}
+          />
+        </div>
+      ) : null}
+      <motion.button
+        type="button"
+        onClick={() => window.location.reload()}
+        whileTap={pressTap}
+        className="wpf-button wpf-button-on-card ml-auto flex h-[38px] flex-none items-center gap-1.5 whitespace-nowrap px-3 text-sm [font-size:0] disabled:cursor-default disabled:text-[var(--secondary-text)]"
+      >
+        <RefreshCw className="size-4" strokeWidth={1.7} />
+        <span className="text-sm">새로고침</span>
+        {isExporting ? "중지" : "내보내기"}
+      </motion.button>
+    </div>
+  ) : null;
+
   const leftCenterAreaWithTable = tableDeckPanel ? (
-    <ResizableRows
-      storageKey={`${workspace.id}:workspace-table-deck`}
-      initialRatio={workspaceTableDeckTopRatio}
-      top={topPanelGridLeftCenterOnly}
-      bottom={(
-        <PanelCard
-          layoutId="workspace-card-table-deck"
-          workspaceId={workspace.id}
-          panel={tableDeckPanel}
-          runtime={runtime}
-          className="min-h-0 min-w-0"
-          collapseMode="none"
-        />
-      )}
-    />
+    <div
+      ref={tableDeckRef}
+      className="grid h-full min-h-0 min-w-0 overflow-visible"
+      style={{ gridTemplateRows: buildTableDeckGridRows(tableDeckRatio) }}
+    >
+      {topPanelGridLeftCenterOnly}
+      <PanelResizeHandle orientation="horizontal" onMouseDown={(event) => resizeTableDeck(event.clientY)} />
+      {deckActions}
+      <PanelResizeHandle orientation="horizontal" onMouseDown={(event) => resizeTableDeck(event.clientY)} />
+      <PanelCard
+        layoutId="workspace-card-table-deck"
+        workspaceId={workspace.id}
+        panel={tableDeckPanel}
+        runtime={runtime}
+        className="min-h-0 min-w-0"
+        collapseMode="none"
+      />
+    </div>
   ) : null;
 
   const layoutWithTableDeck = (
@@ -344,7 +456,7 @@ export function WorkspaceFrame({ workspace, runtime, terminalDockOpen, terminalB
       ) : null}
       </AnimatePresence>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 pt-3 pr-4 pb-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-[14px] py-[14px] pr-[14px]">
         <div ref={layoutRootRef} className="relative min-h-0 flex-1" data-app-tour-target="workspace-layout">
         {tableDeckPanel ? layoutWithTableDeck : topPanelGrid}
         </div>
@@ -357,7 +469,7 @@ export function WorkspaceFrame({ workspace, runtime, terminalDockOpen, terminalB
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.985 }}
             transition={menuMotion.transition}
-            className="fixed right-6 z-[2100]"
+            className="fixed right-6 z-[2100] transition-[bottom] duration-200 ease-out"
             style={{ bottom: terminalDockBottom }}
           >
             <WorkspaceTerminalDock
@@ -384,7 +496,7 @@ export function WorkspaceFrame({ workspace, runtime, terminalDockOpen, terminalB
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.985 }}
             transition={menuMotion.transition}
-            className="fixed right-6 z-[2100]"
+            className="fixed right-6 z-[2100] transition-[bottom] duration-200 ease-out"
             style={{ bottom: installDockBottom }}
           >
             <WorkspaceRuntimeInstallDock
@@ -405,7 +517,7 @@ export function WorkspaceFrame({ workspace, runtime, terminalDockOpen, terminalB
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.985 }}
             transition={menuMotion.transition}
-            className="fixed right-6 z-[2100]"
+            className="fixed right-6 z-[2100] transition-[bottom] duration-200 ease-out"
             style={{ bottom: installDockBottom }}
           >
             <WorkspaceVoiceModelInstallDock
@@ -430,7 +542,7 @@ export function WorkspaceFrame({ workspace, runtime, terminalDockOpen, terminalB
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.985 }}
             transition={menuMotion.transition}
-            className="fixed right-6 z-[2100]"
+            className="fixed right-6 z-[2100] transition-[bottom] duration-200 ease-out"
             style={{ bottom: updateDockBottom }}
           >
             <WorkspaceAppUpdateDock

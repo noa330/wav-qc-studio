@@ -265,13 +265,14 @@ export function TableHeaderSearch({ workspaceId, runtime }: { workspaceId: Works
   }, [draftColumns, draftQuery]);
 
   return (
-    <div className="w-[clamp(72px,42vw,292px)] min-w-0 max-w-full shrink">
+    <div className="w-[clamp(11rem,20vw,18.25rem)] min-w-0 shrink">
       <ColumnSearchField
         value={draftQuery}
         onChange={setDraftQuery}
         options={searchColumns}
         selectedKeys={draftColumns}
         onSelectedKeysChange={setDraftColumns}
+        density="header"
         ariaLabel="검색"
         onSubmit={applySearch}
       />
@@ -297,7 +298,7 @@ function TableFilterButton({ ariaLabel, tourTarget, onClick, children }: { ariaL
     <button
       type="button"
       onClick={onClick}
-      className="flex size-[38px] items-center justify-center rounded-[5px] border border-[var(--neutral-button-stroke)] bg-[var(--table-header-bg)] text-[var(--primary-text)] hover:bg-[var(--soft-selection-hover)]"
+      className="wpf-header-control flex size-8 items-center justify-center rounded-[5px] border border-[var(--neutral-button-stroke)] bg-[var(--table-header-bg)] text-[var(--primary-text)] hover:bg-[var(--soft-selection-hover)]"
       aria-label={ariaLabel}
       data-app-tour-target={tourTarget}
     >

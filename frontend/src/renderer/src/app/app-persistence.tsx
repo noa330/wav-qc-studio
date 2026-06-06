@@ -916,6 +916,7 @@ type RepairableAudioSelectionState = {
   selectedFilePath?: string;
   selectedAudioPath?: string;
   selectedResultAudioPath?: string;
+  reviewedFilePaths?: string[];
   inferenceMultiReferenceOpen?: boolean;
   inferenceAuxReferenceAudioPaths?: string[];
 };
@@ -935,6 +936,7 @@ function repairWorkspaceAudioSelection<T extends RepairableAudioSelectionState>(
     selectedFilePath: audioSelection.selectedFilePath ?? state.selectedFilePath,
     selectedAudioPath: audioSelection.selectedAudioPath ?? state.selectedAudioPath,
     selectedResultAudioPath: audioSelection.selectedResultAudioPath ?? state.selectedResultAudioPath,
+    reviewedFilePaths: normalizePathList(state.reviewedFilePaths),
     inferenceMultiReferenceOpen: Boolean(state.inferenceMultiReferenceOpen),
     inferenceAuxReferenceAudioPaths: normalizePathList(state.inferenceAuxReferenceAudioPaths),
   };

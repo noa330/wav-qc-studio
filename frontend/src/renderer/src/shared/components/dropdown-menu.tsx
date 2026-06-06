@@ -1,8 +1,8 @@
-import { Check } from "lucide-react";
 import { forwardRef, type CSSProperties, type MouseEventHandler, type ReactNode } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
-import { checkPopMotion, menuMotion, softPressTap } from "@/shared/motion";
+import { menuMotion, softPressTap } from "@/shared/motion";
+import { SelectionCheck } from "./controls/basic-fields";
 
 export type DropdownMenuGeometry = {
   left: number;
@@ -12,7 +12,7 @@ export type DropdownMenuGeometry = {
 };
 
 export function estimateDropdownOptionHeight(label: string, width: number, { leadingSlot = true, suffix = false }: { leadingSlot?: boolean; suffix?: boolean } = {}): number {
-  const horizontalPadding = 24 + (leadingSlot ? 26 : 0) + (suffix ? 58 : 0);
+  const horizontalPadding = 24 + (leadingSlot ? 30 : 0) + (suffix ? 58 : 0);
   const availableWidth = Math.max(32, width - horizontalPadding);
   const estimatedWidth = Array.from(label).reduce((sum, character) => sum + (character.charCodeAt(0) > 127 ? 13 : 7), 0);
   const lines = Math.max(1, Math.ceil(estimatedWidth / availableWidth));
@@ -35,7 +35,7 @@ export const DropdownMenuSurface = forwardRef<HTMLDivElement, {
       style={style}
       onMouseDown={onMouseDown}
       className={cn(
-        "app-scrollbar fixed origin-top overflow-auto rounded-[3px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] py-1 text-sm text-[var(--primary-text)] shadow-[var(--app-menu-shadow)]",
+        "app-scrollbar fixed origin-top overflow-auto rounded-[3px] border border-[var(--panel-stroke)] bg-[var(--popover)] py-1 text-sm text-[var(--primary-text)] shadow-[var(--app-menu-shadow)]",
         className,
       )}
     >
@@ -101,15 +101,15 @@ export function DropdownMenuOption({
       whileTap={disabled ? undefined : softPressTap}
       className={cn(
         "grid min-h-[32px] w-full items-start gap-2 px-3 py-1.5 text-left text-sm leading-5 text-[var(--primary-text)] hover:bg-[var(--soft-selection-hover)] disabled:pointer-events-none",
-        leading && suffix ? "grid-cols-[18px_minmax(0,1fr)_auto]" : leading ? "grid-cols-[18px_minmax(0,1fr)]" : suffix ? "grid-cols-[minmax(0,1fr)_auto]" : "grid-cols-1",
+        leading && suffix ? "grid-cols-[22px_minmax(0,1fr)_auto]" : leading ? "grid-cols-[22px_minmax(0,1fr)]" : suffix ? "grid-cols-[minmax(0,1fr)_auto]" : "grid-cols-1",
         checked && "bg-[var(--nav-selected-bg)] hover:bg-[var(--nav-selected-bg)]",
         disabled && !checked && "text-[var(--secondary-text)] opacity-55 hover:bg-transparent",
         className,
       )}
     >
       {leading ? (
-        <span className="flex size-[16px] shrink-0 items-center justify-center pt-0.5">
-          {icon ?? <AnimatePresence initial={false}>{checked ? <motion.span {...checkPopMotion}><Check className="size-3.5" strokeWidth={1.9} /></motion.span> : null}</AnimatePresence>}
+        <span className="flex size-[22px] shrink-0 items-center justify-center">
+          {icon ?? <SelectionCheck checked={checked} size={18} />}
         </span>
       ) : null}
       <span className="min-w-0 whitespace-normal break-words">{children ?? label}</span>

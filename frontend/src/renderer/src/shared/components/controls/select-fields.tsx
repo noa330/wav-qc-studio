@@ -15,6 +15,7 @@ export function SelectField<T extends string>({
   placeholder,
   emptyText = "선택 가능한 항목이 없습니다.",
   dropdownClassName,
+  density = "default",
 }: {
   value: T | "";
   options: Array<{ value: T; label: string }>;
@@ -24,6 +25,7 @@ export function SelectField<T extends string>({
   placeholder?: string;
   emptyText?: string;
   dropdownClassName?: string;
+  density?: "default" | "header";
 }) {
   const [open, setOpen] = useState(false);
   const [opening, setOpening] = useState(false);
@@ -137,7 +139,7 @@ export function SelectField<T extends string>({
   };
 
   return (
-    <div ref={rootRef} className="relative min-h-[38px] w-full min-w-0">
+    <div ref={rootRef} className={cn("relative w-full min-w-0", density === "header" ? "min-h-8" : "min-h-[38px]")}>
       <button
         ref={buttonRef}
         type="button"
@@ -146,7 +148,10 @@ export function SelectField<T extends string>({
         aria-busy={opening}
         aria-controls={listboxId}
         aria-haspopup="listbox"
-        className="wpf-field grid min-h-[38px] w-full min-w-0 grid-cols-[minmax(0,1fr)_28px] items-start px-2 py-2 pr-0 text-left text-sm text-[var(--primary-text)] outline-none focus-visible:border-[var(--nav-selected-bg)]"
+        className={cn(
+          "wpf-field grid w-full min-w-0 grid-cols-[minmax(0,1fr)_28px] items-start px-2 pr-0 text-left text-sm text-[var(--primary-text)] outline-none focus-visible:border-[var(--nav-selected-bg)]",
+          density === "header" ? "wpf-header-control py-[5px]" : "min-h-[38px] py-2",
+        )}
         onClick={() => {
           if (open || opening) {
             closeMenu();

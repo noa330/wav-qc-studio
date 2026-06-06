@@ -1,9 +1,10 @@
 import { AnimatePresence, motion } from "motion/react";
-import { Check, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { MouseEvent as ReactMouseEvent, ReactNode, RefObject } from "react";
 import type { DataTable, DataTableRow } from "@shared/ipc";
 import { cn } from "@/lib/utils";
-import { checkPopMotion, tableEmptyMotion, tightPressTap } from "@/shared/motion";
+import { tableEmptyMotion, tightPressTap } from "@/shared/motion";
+import { SelectionCheck } from "./controls";
 import { ColumnResizeHandle, RowResizeHandle } from "./data-grid-resize-handles";
 import { resolveRowLineClamp } from "./data-grid-sizing";
 import {
@@ -87,7 +88,7 @@ export function DataGridTable({
   suppressNextRowClick,
 }: DataGridTableProps) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-none border-x-0 border-t border-b border-[var(--panel-stroke)] bg-transparent">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-none border-x-0 border-t border-b border-[var(--table-header-line)] bg-transparent">
       <div
         ref={viewportRef}
         className="scroll-window-viewport relative min-h-0 flex-1 overflow-auto"
@@ -108,14 +109,15 @@ export function DataGridTable({
                 <th
                   className={cn(
                     rowCheckStickyBaseClass,
-                    "top-0 z-50 h-10 border-b border-[var(--panel-stroke)] bg-[var(--table-header-bg)] px-3 font-normal shadow-[1px_0_0_var(--panel-stroke)]",
+                    "top-0 z-50 h-10 border-b border-[var(--table-header-line)] bg-[var(--table-header-bg)] px-3 font-normal shadow-[1px_0_0_var(--table-grid-line)]",
                   )}
                   style={{ position: "sticky", left: 0, top: 0 }}
                 >
                   <motion.button
                     type="button"
                     aria-label="보이는 행 전체 선택"
-                    aria-pressed={allChecked}
+                    role="checkbox"
+                    aria-checked={allChecked}
                     whileTap={tightPressTap}
                     onClick={() => {
                       if (selectedRowSet.size > 1) {
@@ -124,23 +126,14 @@ export function DataGridTable({
                       }
                       onToggleAllRows?.(!allChecked);
                     }}
-                    className={cn(
-                      "flex size-[18px] items-center justify-center rounded-[3px] border border-[var(--secondary-text)]",
-                      allChecked && "border-[var(--accent-blue)] bg-[var(--accent-blue)]",
-                    )}
+                    className="group flex size-[22px] items-center justify-center"
                   >
-                    <AnimatePresence initial={false}>
-                      {allChecked ? (
-                        <motion.span {...checkPopMotion}>
-                          <Check className="size-3 text-white" strokeWidth={1.9} />
-                        </motion.span>
-                      ) : null}
-                    </AnimatePresence>
+                    <SelectionCheck checked={allChecked} />
                   </motion.button>
                 </th>
               ) : null}
               {table.columns.map((column) => (
-                <th key={column.key} className="sticky top-0 z-30 border-b border-r border-[var(--panel-stroke)] bg-[var(--table-header-bg)] px-2 font-normal" style={{ height: defaultHeaderHeight }}>
+                <th key={column.key} className="sticky top-0 z-30 border-b border-r border-[var(--table-header-line)] bg-[var(--table-header-bg)] px-2 font-normal [border-right-color:var(--table-grid-line)]" style={{ height: defaultHeaderHeight }}>
                   <div className="grid h-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
                     <div className="flex h-full min-w-0 items-center overflow-hidden text-ellipsis whitespace-nowrap leading-none">{column.label}</div>
                     {columnMenus[column.key] ? (
@@ -198,34 +191,26 @@ export function DataGridTable({
                     onSelectRow?.(row, event.ctrlKey || event.metaKey);
                   }}
                   className={cn(
-                    "border-t border-[var(--panel-stroke)] text-[var(--primary-text)]",
+                    "border-t border-[var(--table-grid-line)] text-[var(--primary-text)]",
                     onSelectRow && "cursor-pointer hover:bg-[var(--table-row-hover)]",
                     selectedRowSet.has(row.id) && "bg-[var(--nav-selected-bg)] hover:bg-[var(--nav-selected-bg)]",
                   )}
                 >
                   {showsRowChecks ? (
-                    <td className={cn(rowCheckStickyBaseClass, "z-20 border-b border-[var(--panel-stroke)] bg-[var(--table-header-bg)] px-3 shadow-[1px_0_0_var(--panel-stroke)]")} style={{ height: rowHeight }}>
+                    <td className={cn(rowCheckStickyBaseClass, "z-20 border-b border-[var(--table-grid-line)] bg-[var(--table-header-bg)] px-3 shadow-[1px_0_0_var(--table-grid-line)]")} style={{ height: rowHeight }}>
                       <motion.button
                         type="button"
                         aria-label={`${row.cells.fileName || row.cells.file_name || row.id} 내보내기 선택`}
-                        aria-pressed={rowChecks?.[row.id] !== false}
+                        role="checkbox"
+                        aria-checked={rowChecks?.[row.id] !== false}
                         whileTap={tightPressTap}
                         onClick={(event) => {
                           event.stopPropagation();
                           onToggleRowCheck?.(row);
                         }}
-                        className={cn(
-                          "flex size-[18px] items-center justify-center rounded-[3px] border border-[var(--secondary-text)]",
-                          rowChecks?.[row.id] !== false && "border-[var(--accent-blue)] bg-[var(--accent-blue)]",
-                        )}
+                        className="group flex size-[22px] items-center justify-center"
                       >
-                        <AnimatePresence initial={false}>
-                          {rowChecks?.[row.id] !== false ? (
-                            <motion.span {...checkPopMotion}>
-                              <Check className="size-3 text-white" strokeWidth={1.9} />
-                            </motion.span>
-                          ) : null}
-                        </AnimatePresence>
+                        <SelectionCheck checked={rowChecks?.[row.id] !== false} />
                       </motion.button>
                       <RowResizeHandle
                         onDragStart={(clientY) => {
@@ -242,7 +227,7 @@ export function DataGridTable({
                     return (
                       <td
                         key={column.key}
-                        className="relative border-b border-r border-[var(--panel-stroke)] px-2 align-middle"
+                        className="relative border-b border-r border-[var(--table-grid-line)] px-2 align-middle"
                         style={{ height: rowHeight }}
                         data-app-tour-target={offset === 0 && columnIndex === 0 ? "data-grid-resize-cell" : undefined}
                       >

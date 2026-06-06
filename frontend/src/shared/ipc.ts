@@ -212,7 +212,20 @@ export type WaveformData = {
   path: string;
   durationSeconds: number;
   peaks: number[];
+  minPeaks?: number[];
+  maxPeaks?: number[];
+  samples?: number[];
+  sampleRate?: number;
+  viewStart?: number;
+  viewEnd?: number;
+  mode?: "envelope" | "samples";
   error?: string;
+};
+
+export type WaveformReadOptions = {
+  bucketCount?: number;
+  viewStart?: number;
+  viewEnd?: number;
 };
 
 export type AudioCropRequest = {
@@ -734,7 +747,7 @@ export type StudioBackendApi = {
   selectFolder: () => Promise<DialogSelectionResult>;
   selectFile: (options?: DialogFileSelectionOptions) => Promise<DialogSelectionResult>;
   scanPath: (path: string, options?: FileTreeScanOptions) => Promise<FileTreeResult>;
-  readWaveform: (path: string, bucketCount?: number) => Promise<WaveformData>;
+  readWaveform: (path: string, options?: number | WaveformReadOptions) => Promise<WaveformData>;
   cropWave: (request: AudioCropRequest) => Promise<AudioCropResult>;
   editWave: (request: AudioEditRequest) => Promise<AudioEditResult>;
   loadWorkspace: (request: WorkspaceLoadRequest) => Promise<Pick<WorkspaceRunResult, "workspaceId" | "table" | "details" | "inputTree" | "outputTree"> & { inputPath?: string; originalInputPath?: string; outputPath?: string; audioSourceMapPath?: string; logPath?: string }>;

@@ -1,13 +1,15 @@
 import { useEffect, useId, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { cn } from "@/lib/utils";
 import { useWaveform } from "./waveform-data";
-import { areSelectionsNearlyEqual, clamp, clientXToProgress, createWavePath, normalizeSelection, progressToViewportX, resamplePeaks } from "./waveform-geometry";
+import { areSelectionsNearlyEqual, clamp, clientXToProgress, createEnvelopePath, createSamplePath, normalizeSelection, progressToViewportX } from "./waveform-geometry";
 import { SelectionHandles, WaveformBadgeLayer } from "./waveform-handles";
 import { buildMarkerBadgeAnchors, buildNormalizedMarkers } from "./waveform-markers";
 import { TimeRuler } from "./waveform-ruler";
 import type { WaveformMarker, WaveformSurfaceProps } from "./waveform-types";
 
 export type { WaveformMarker } from "./waveform-types";
+
+const MIN_INTERACTIVE_RANGE_WIDTH = 0.0000001;
 
 export function WaveformSurface({
   audioPath,
@@ -17,6 +19,7 @@ export function WaveformSurface({
   emptyText = "선택한 WAV 파일의 파형을 표시할 수 없습니다.",
   framedTrack = false,
   allowsSelectionCreationOnClick = true,
+  animateMarkerTransitions = false,
   markerHandleWidth = 1.5,
   selectedMarkerHandleStyle = "line",
   selectedMarkerHandleWidth = 2,
@@ -35,6 +38,7 @@ export function WaveformSurface({
   viewEnd = 1,
   playhead = 0,
   isPlaying = false,
+  playheadVisible = isPlaying,
   onData,
   onMarkerSelect,
   onMarkerContextMenu,
@@ -42,30 +46,39 @@ export function WaveformSurface({
   onMarkerRangeChange,
   onRangeCreate,
   onSelectionChange,
+  onPlayheadChange,
   onWheelZoom,
   useMarkerStyleForSelection = false,
+  showBorder = true,
+  showRulerTicks = true,
 }: WaveformSurfaceProps) {
-  const waveform = useWaveform(audioPath, Math.max(bucketCount, 2048), revision);
+  const safeViewStart = clamp(viewStart, 0, 1);
+  const safeViewEnd = clamp(viewEnd, safeViewStart + 0.0000001, 1);
+  const waveform = useWaveform(audioPath, Math.max(bucketCount, 2048), revision, safeViewStart, safeViewEnd);
   const clipId = useId().replace(/:/gu, "");
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const [selectionDragActive, setSelectionDragActive] = useState(false);
   const [activeDragMarkerId, setActiveDragMarkerId] = useState<string | null>(null);
   const [draftSelection, setDraftSelection] = useState<{ start: number; end: number } | null>(null);
   const dragRef = useRef<{
-    mode: "selection-left" | "selection-right" | "selection-range" | "create" | "marker-left" | "marker-right" | "marker-range";
+    mode: "selection-left" | "selection-right" | "selection-range" | "create" | "marker-left" | "marker-right" | "marker-range" | "playhead";
     startClientX: number;
     selectionStart: number;
     selectionEnd: number;
     markerId?: string;
   } | null>(null);
-  const safeViewStart = clamp(viewStart, 0, 1);
-  const safeViewEnd = clamp(viewEnd, safeViewStart + 0.001, 1);
-  const renderedPeaks = useMemo(() => resamplePeaks(waveform.data.peaks, safeViewStart, safeViewEnd, bucketCount), [bucketCount, safeViewEnd, safeViewStart, waveform.data.peaks]);
-  const hasWaveform = Boolean(audioPath) && renderedPeaks.length > 0;
   const viewBoxHeight = 100;
   const trackTop = 0;
   const trackHeight = viewBoxHeight;
-  const wavePath = useMemo(() => createWavePath(renderedPeaks, 0, trackTop, 100, trackHeight), [renderedPeaks, trackHeight, trackTop]);
+  const envelopeMinPeaks = waveform.data.minPeaks ?? waveform.data.peaks.map((peak) => -peak);
+  const envelopeMaxPeaks = waveform.data.maxPeaks ?? waveform.data.peaks;
+  const samples = waveform.data.samples ?? [];
+  const sampleLineVisible = waveform.data.mode === "samples" && samples.length > 0;
+  const hasWaveform = Boolean(audioPath) && (sampleLineVisible || envelopeMinPeaks.length > 0);
+  const wavePath = useMemo(
+    () => sampleLineVisible ? createSamplePath(samples, 0, trackTop, 100, trackHeight) : createEnvelopePath(envelopeMinPeaks, envelopeMaxPeaks, 0, trackTop, 100, trackHeight),
+    [envelopeMaxPeaks, envelopeMinPeaks, sampleLineVisible, samples, trackHeight, trackTop],
+  );
   const selection = normalizeSelection(selectionStart, selectionEnd, safeViewStart, safeViewEnd);
   const normalizedDraftSelection = normalizeSelection(draftSelection?.start, draftSelection?.end, safeViewStart, safeViewEnd);
   const normalizedMarkers = useMemo(() => buildNormalizedMarkers(markers, safeViewStart, safeViewEnd), [markers, safeViewEnd, safeViewStart]);
@@ -100,12 +113,16 @@ export function WaveformSurface({
     const mode = dragRef.current?.mode;
     return mode === "selection-left" || mode === "selection-right" || mode === "marker-left" || mode === "marker-right";
   })();
-  const markerTransitionStyle = isResizeDragging
-    ? { transition: "fill 140ms ease, opacity 140ms ease" }
-    : { transition: "left 120ms ease-out, width 120ms ease-out, fill 140ms ease, opacity 140ms ease" };
-  const markerHandleTransitionStyle = isResizeDragging
-    ? { transition: "stroke 140ms ease, stroke-width 140ms ease" }
-    : { transition: "x1 120ms ease-out, x2 120ms ease-out, stroke 140ms ease, stroke-width 140ms ease" };
+  const markerTransitionStyle = animateMarkerTransitions
+    ? isResizeDragging
+      ? { transition: "fill 140ms ease, opacity 140ms ease" }
+      : { transition: "x 120ms ease-out, width 120ms ease-out, fill 140ms ease, opacity 140ms ease" }
+    : undefined;
+  const markerHandleTransitionStyle = animateMarkerTransitions
+    ? isResizeDragging
+      ? { transition: "stroke 140ms ease, stroke-width 140ms ease" }
+      : { transition: "x1 120ms ease-out, x2 120ms ease-out, stroke 140ms ease, stroke-width 140ms ease" }
+    : undefined;
   const displayedSelectionWaveOpacity = normalizedDraftSelection ? draftSelectionWaveOpacity : selectionWaveOpacity;
   const playheadX = progressToViewportX(playhead, safeViewStart, safeViewEnd);
   const markerBadgeAnchors = useMemo(
@@ -114,7 +131,7 @@ export function WaveformSurface({
   );
 
   useEffect(() => {
-    if (!onSelectionChange && !onRangeCreate && !onMarkerRangeChange) {
+    if (!onSelectionChange && !onRangeCreate && !onMarkerRangeChange && !onPlayheadChange) {
       return;
     }
 
@@ -127,7 +144,12 @@ export function WaveformSurface({
 
       event.preventDefault();
       const progressDelta = ((event.clientX - drag.startClientX) / rect.width) * (safeViewEnd - safeViewStart);
-      const minimumWidth = 0.00005;
+      const minimumWidth = MIN_INTERACTIVE_RANGE_WIDTH;
+
+      if (drag.mode === "playhead") {
+        onPlayheadChange?.(clientXToProgress(event.clientX, rect, safeViewStart, safeViewEnd));
+        return;
+      }
 
       if (drag.mode === "create") {
         const progress = clientXToProgress(event.clientX, rect, safeViewStart, safeViewEnd);
@@ -183,8 +205,10 @@ export function WaveformSurface({
       if (drag?.mode === "create" && onRangeCreate) {
         const start = Math.min(drag.selectionStart, drag.selectionEnd);
         const end = Math.max(drag.selectionStart, drag.selectionEnd);
-        if (end - start >= 0.00005) {
+        if (end - start >= MIN_INTERACTIVE_RANGE_WIDTH) {
           onRangeCreate(start, end);
+        } else {
+          onPlayheadChange?.(end);
         }
       }
       dragRef.current = null;
@@ -199,10 +223,10 @@ export function WaveformSurface({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [draftSelection, onMarkerRangeChange, onRangeCreate, onSelectionChange, safeViewEnd, safeViewStart]);
+  }, [draftSelection, onMarkerRangeChange, onPlayheadChange, onRangeCreate, onSelectionChange, safeViewEnd, safeViewStart]);
 
-  const beginSelectionDrag = (event: ReactMouseEvent<SVGSVGElement>) => {
-    if (event.button !== 0 || (!onSelectionChange && !onRangeCreate) || !hasWaveform) {
+  const beginSelectionDrag = (event: ReactMouseEvent<SVGSVGElement | HTMLDivElement>) => {
+    if (event.button !== 0 || (!onSelectionChange && !onRangeCreate && !onPlayheadChange) || !hasWaveform) {
       return;
     }
 
@@ -256,13 +280,24 @@ export function WaveformSurface({
       return;
     }
 
+    if (onPlayheadChange) {
+      dragRef.current = {
+        mode: "playhead",
+        startClientX: event.clientX,
+        selectionStart: progress,
+        selectionEnd: progress,
+      };
+      onPlayheadChange(progress);
+      return;
+    }
+
     if (!allowsSelectionCreationOnClick || !onSelectionChange) {
       return;
     }
 
-    const halfWidth = Math.max(0.00005, (safeViewEnd - safeViewStart) * 0.1);
+    const halfWidth = Math.max(MIN_INTERACTIVE_RANGE_WIDTH, (safeViewEnd - safeViewStart) * 0.1);
     const nextStart = clamp(progress - halfWidth, 0, 1 - halfWidth * 2);
-    const nextEnd = clamp(progress + halfWidth, nextStart + 0.00005, 1);
+    const nextEnd = clamp(progress + halfWidth, nextStart + MIN_INTERACTIVE_RANGE_WIDTH, 1);
     onSelectionChange(nextStart, nextEnd);
     dragRef.current = {
       mode: "selection-range",
@@ -271,6 +306,28 @@ export function WaveformSurface({
       selectionEnd: nextEnd,
     };
     setSelectionDragActive(true);
+  };
+
+  const beginPlayheadDrag = (event: ReactMouseEvent<SVGGElement>) => {
+    if (event.button !== 0 || !onPlayheadChange || !hasWaveform) {
+      return;
+    }
+
+    const rect = surfaceRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    const progress = clientXToProgress(event.clientX, rect, safeViewStart, safeViewEnd);
+    dragRef.current = {
+      mode: "playhead",
+      startClientX: event.clientX,
+      selectionStart: progress,
+      selectionEnd: progress,
+    };
+    onPlayheadChange(progress);
   };
 
   const beginMarkerDrag = (marker: WaveformMarker, event: ReactMouseEvent<Element>) => {
@@ -316,7 +373,12 @@ export function WaveformSurface({
       ref={surfaceRef}
       className={cn(
         "relative grid h-full min-h-[22px] overflow-visible",
-        showRuler ? (rulerPosition === "bottom" ? "grid-rows-[minmax(0,1fr)_24px]" : "grid-rows-[24px_minmax(0,1fr)]") : "grid-rows-[minmax(0,1fr)]",
+        showRuler
+          ? (rulerPosition === "bottom"
+              ? (showRulerTicks ? "grid-rows-[minmax(0,1fr)_24px]" : "grid-rows-[minmax(0,1fr)_14px]")
+              : (showRulerTicks ? "grid-rows-[24px_minmax(0,1fr)]" : "grid-rows-[14px_minmax(0,1fr)]"))
+          : "grid-rows-[minmax(0,1fr)]",
+        showRuler && "gap-y-3",
         muted && "opacity-35",
         className
       )}
@@ -332,13 +394,18 @@ export function WaveformSurface({
       }}
     >
       {showRuler && rulerPosition === "top" && waveform.data.durationSeconds > 0 ? (
-        <TimeRuler durationSeconds={waveform.data.durationSeconds} viewStart={safeViewStart} viewEnd={safeViewEnd} position="top" />
+        <TimeRuler durationSeconds={waveform.data.durationSeconds} viewStart={safeViewStart} viewEnd={safeViewEnd} position="top" showTicks={showRulerTicks} />
       ) : null}
       {hasWaveform ? (
-        <div className={cn("relative h-full min-h-0 w-full overflow-visible", framedTrack && "border-t border-b border-[var(--panel-stroke)]")}>
-          <svg className="block h-full w-full min-h-0" preserveAspectRatio="none" viewBox={`0 0 100 ${viewBoxHeight}`} role="img" aria-label="WAV waveform" onMouseDown={beginSelectionDrag}>
+        <div className={cn("relative h-full min-h-0 w-full overflow-visible", framedTrack && showBorder && "border-t border-b border-[var(--panel-stroke)]")} onMouseDown={beginSelectionDrag}>
+          <svg className="block h-full w-full min-h-0 overflow-visible" preserveAspectRatio="none" viewBox={`0 0 100 ${viewBoxHeight}`} role="img" aria-label="WAV waveform">
           <rect x="0" y={trackTop} width="100" height={trackHeight} fill="transparent" />
-          <path d={wavePath} fill="var(--waveform-base)" opacity="0.88" />
+          <line x1="0" x2="100" y1={trackTop + trackHeight / 2} y2={trackTop + trackHeight / 2} stroke="var(--panel-stroke)" strokeWidth="0.35" vectorEffect="non-scaling-stroke" />
+          {sampleLineVisible ? (
+            <path d={wavePath} fill="none" stroke="var(--waveform-base)" strokeWidth="1.1" vectorEffect="non-scaling-stroke" opacity="0.94" />
+          ) : (
+            <path d={wavePath} fill="var(--waveform-base)" opacity="0.88" />
+          )}
           {displayedMarkers.map(({ marker, selection: markerSelection, parts }) => (
             <g
               key={marker.id}
@@ -351,7 +418,7 @@ export function WaveformSurface({
                 y={trackTop}
                 width={markerSelection.width}
                 height={trackHeight}
-                fill={marker.selected ? "rgba(150,124,224,.58)" : "rgba(132,108,195,.32)"}
+                fill={marker.selected ? "var(--waveform-marker-selected-fill)" : "var(--waveform-marker-fill)"}
                 opacity={marker.selected ? 0.86 : 0.72}
                 style={markerTransitionStyle}
               />
@@ -419,7 +486,7 @@ export function WaveformSurface({
                     y={trackTop}
                     width={displayedSelection.width}
                     height={trackHeight}
-                    fill="rgba(132,108,195,.32)"
+                    fill="var(--waveform-marker-fill)"
                     opacity={0.72}
                     pointerEvents="none"
                     style={markerTransitionStyle}
@@ -451,13 +518,17 @@ export function WaveformSurface({
                   <clipPath id={clipId}>
                     <rect x={displayedSelection.x} y={trackTop} width={displayedSelection.width} height={trackHeight} />
                   </clipPath>
-                  <path d={wavePath} clipPath={`url(#${clipId})`} fill="var(--waveform-selected-wave)" opacity={displayedSelectionWaveOpacity} pointerEvents="none" />
+                  {sampleLineVisible ? (
+                    <path d={wavePath} clipPath={`url(#${clipId})`} fill="none" stroke="var(--waveform-selected-wave)" strokeWidth="1.35" vectorEffect="non-scaling-stroke" opacity={displayedSelectionWaveOpacity} pointerEvents="none" />
+                  ) : (
+                    <path d={wavePath} clipPath={`url(#${clipId})`} fill="var(--waveform-selected-wave)" opacity={displayedSelectionWaveOpacity} pointerEvents="none" />
+                  )}
                 </>
               )}
             </>
           ) : null}
           {displayedMarkerParts.map(({ part, selection: partSelection }) =>
-            part.selected ? <rect key={`selected-part-${part.id}`} x={partSelection.x} y={trackTop} width={partSelection.width} height={trackHeight} fill="rgba(121,84,209,.62)" pointerEvents="none" style={markerTransitionStyle} /> : null,
+            part.selected ? <rect key={`selected-part-${part.id}`} x={partSelection.x} y={trackTop} width={partSelection.width} height={trackHeight} fill="var(--waveform-marker-part-selected-fill)" pointerEvents="none" style={markerTransitionStyle} /> : null,
           )}
           {displayedMarkerParts.map(({ part, index, selection: partSelection }) =>
             index > 0 ? (
@@ -476,24 +547,24 @@ export function WaveformSurface({
               />
             ) : null,
           )}
-          {displayedSelection ? <SelectionHandles selection={displayedSelection} trackTop={trackTop} trackHeight={trackHeight} style={selectionHandleStyle} /> : null}
-          {isPlaying && playheadX !== null ? (
-            <g>
-              <line x1={playheadX} x2={playheadX} y1={trackTop} y2={viewBoxHeight} stroke="rgba(0,0,0,.55)" strokeWidth="0.45" />
-              <line x1={playheadX} x2={playheadX} y1={trackTop} y2={viewBoxHeight} stroke="var(--primary-text)" strokeWidth="0.16" />
+          {playheadVisible && playheadX !== null ? (
+            <g className={onPlayheadChange ? "cursor-ew-resize" : undefined} onMouseDown={beginPlayheadDrag}>
+              <line x1={playheadX} x2={playheadX} y1={trackTop} y2={viewBoxHeight} stroke="transparent" strokeWidth="14" vectorEffect="non-scaling-stroke" />
+              <line x1={playheadX} x2={playheadX} y1={trackTop} y2={viewBoxHeight} stroke="var(--waveform-playhead)" strokeWidth="2" vectorEffect="non-scaling-stroke" pointerEvents="none" />
             </g>
           ) : null}
-          {!framedTrack && <rect x="0.1" y={trackTop + 0.1} width="99.8" height={trackHeight - 0.2} rx="1.6" fill="none" stroke="var(--panel-stroke)" strokeWidth="0.25" />}
+          {!framedTrack && showBorder && <rect x="0.1" y={trackTop + 0.1} width="99.8" height={trackHeight - 0.2} rx="1.6" fill="none" stroke="var(--panel-stroke)" strokeWidth="0.25" />}
           </svg>
           <WaveformBadgeLayer anchors={markerBadgeAnchors} />
+          {displayedSelection ? <SelectionHandles selection={displayedSelection} trackTop={trackTop} trackHeight={trackHeight} style={selectionHandleStyle} /> : null}
         </div>
       ) : (
-        <div className={cn("row-start-1 row-end-[-1] flex h-full min-h-[86px] items-center justify-center px-4 text-center text-sm text-[var(--secondary-text)]", framedTrack && "border-t border-b border-[var(--panel-stroke)]")}>
+        <div className={cn("row-start-1 row-end-[-1] flex h-full min-h-[86px] items-center justify-center px-4 text-center text-sm text-[var(--secondary-text)]", framedTrack && showBorder && "border-t border-b border-[var(--panel-stroke)]")}>
           {waveform.loading ? "파형을 읽는 중입니다." : waveform.data.error || emptyText}
         </div>
       )}
       {showRuler && rulerPosition === "bottom" && waveform.data.durationSeconds > 0 ? (
-        <TimeRuler durationSeconds={waveform.data.durationSeconds} viewStart={safeViewStart} viewEnd={safeViewEnd} position="bottom" />
+        <TimeRuler durationSeconds={waveform.data.durationSeconds} viewStart={safeViewStart} viewEnd={safeViewEnd} position="bottom" showTicks={showRulerTicks} />
       ) : null}
     </div>
   );

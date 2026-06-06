@@ -238,6 +238,7 @@ function trainingCheckpointRow(
       elapsed: "",
       checkpoint: checkpointName,
       status: "completed",
+      remarks: "-",
     },
   };
 }

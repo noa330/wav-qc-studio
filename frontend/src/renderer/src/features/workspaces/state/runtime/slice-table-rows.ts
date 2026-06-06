@@ -40,9 +40,11 @@ export function createSliceComponentRow(sourceRow: DataTableRow, components: Sli
       fileName,
       startSec: formatSecondsCell(startSec),
       endSec: formatSecondsCell(endSec),
+      rangeSec: formatRangeCell(startSec, endSec),
       durationSec: `${durationSec.toFixed(2)}s`,
       markerCount: `${sortedComponents.length}`,
       status: "edited",
+      remarks: "-",
       outputPath: "",
     },
   };
@@ -89,4 +91,8 @@ export function createSliceRowIdAllocator(rows: DataTableRow[]): () => string {
     nextId += 1;
     return id;
   };
+}
+
+function formatRangeCell(startSec: number, endSec: number): string {
+  return `${formatSecondsCell(startSec)} - ${formatSecondsCell(endSec)}`;
 }

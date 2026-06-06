@@ -1,7 +1,7 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type { WaveformData } from "@shared/ipc";
 
-export type SelectionHandleStyle = "grip" | "markerBadge" | "trimHandles" | "none";
+export type SelectionHandleStyle = "grip" | "line" | "markerBadge" | "trimHandles" | "dumbbell" | "none";
 
 export type ViewportSelection = {
   x: number;
@@ -15,6 +15,7 @@ export type WaveformSurfaceProps = {
   emptyText?: string;
   framedTrack?: boolean;
   allowsSelectionCreationOnClick?: boolean;
+  animateMarkerTransitions?: boolean;
   markerHandleWidth?: number;
   selectedMarkerHandleStyle?: "line" | "markerBadge";
   selectedMarkerHandleWidth?: number;
@@ -34,6 +35,7 @@ export type WaveformSurfaceProps = {
   viewEnd?: number;
   playhead?: number;
   isPlaying?: boolean;
+  playheadVisible?: boolean;
   onData?: (data: WaveformData) => void;
   onMarkerSelect?: (markerId: string, additive: boolean) => void;
   onMarkerContextMenu?: (markerId: string, event: ReactMouseEvent<Element>) => void;
@@ -41,8 +43,11 @@ export type WaveformSurfaceProps = {
   onMarkerRangeChange?: (markerId: string, start: number, end: number) => void;
   onRangeCreate?: (start: number, end: number) => void;
   onSelectionChange?: (start: number, end: number) => void;
+  onPlayheadChange?: (progress: number) => void;
   onWheelZoom?: (anchor: number, deltaY: number) => void;
   useMarkerStyleForSelection?: boolean;
+  showBorder?: boolean;
+  showRulerTicks?: boolean;
 };
 
 export type WaveformMarker = {

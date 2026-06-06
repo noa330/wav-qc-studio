@@ -307,7 +307,7 @@ function ContextMenuCue({ rect }: { rect: SpotlightRect }) {
   return (
     <div className="pointer-events-none fixed inset-0 z-[3001]" aria-hidden="true">
       <motion.div
-        className="fixed min-w-[184px] rounded-[4px] border border-[var(--panel-stroke)] bg-[var(--field-bg)] py-1 text-sm text-[var(--primary-text)] shadow-[var(--app-menu-shadow)]"
+        className="fixed min-w-[184px] rounded-[4px] border border-[var(--panel-stroke)] bg-[var(--popover)] py-1 text-sm text-[var(--primary-text)] shadow-[var(--app-menu-shadow)]"
         style={{ left: menuLeft, top: menuTop }}
         initial={{ opacity: 0, scale: 0.96, y: -4 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}

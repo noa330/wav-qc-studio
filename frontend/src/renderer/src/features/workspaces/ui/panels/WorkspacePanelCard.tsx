@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
-import { SlidersHorizontal } from "lucide-react";
+import { FolderCog } from "lucide-react";
 import type { WorkspaceId } from "@shared/ipc";
 import { useAppPersistence } from "@/app/app-persistence";
 import { cn } from "@/lib/utils";
@@ -19,16 +19,17 @@ import { resolveBrowserTree } from "../../model/workspace-browser-tree";
 import type { WorkspaceRuntime } from "../../state/use-workspace-runtime";
 import { BatchAudioHeaderControls, BatchAudioPlaybackPanel, BatchModelSettingsBody, BatchSpeakerSelectionBody, BatchTimelineBody } from "../pages/batch/BatchPanels";
 import { OverviewModelSettingsBody, OverviewModulesBody } from "../pages/overview/OverviewPanels";
-import { SliceEditorBody, SliceEditorHeaderControls, focusSliceViewOnRow, setSliceViewRange, type SliceEditorViewActions, type SliceEditorViewContext, type SliceEditorViewState, zoomSliceView } from "../pages/slice/SliceEditorPanel";
+import { SliceEditorActionsBody, SliceEditorBody, SliceEditorHeaderControls, focusSliceViewOnRow, setSliceViewRange, type SliceEditorViewActions, type SliceEditorViewContext, type SliceEditorViewState, zoomSliceView } from "../pages/slice/SliceEditorPanel";
 import { SliceSettingsBody } from "../pages/slice/SliceSettingsPanel";
 import { SpeakerAudioComparisonPanel } from "../pages/speaker/SpeakerAudioComparisonPanel";
 import { SpeakerModelBody, SpeakerSettingsBody } from "../pages/speaker/SpeakerPanels";
 import { TaggingSchemaBody } from "../pages/tagging/TaggingPanels";
 import { TaggingSettingsBody } from "../pages/tagging/TaggingSettingsPanel";
-import { TrainingModelBody, TrainingPlanBody, TrainingPlanHeaderControl, TrainingSettingsBody } from "../pages/training/TrainingPanels";
-import { InferenceModelBody, InferenceReferenceHeaderControl, InferenceSettingsBody } from "../pages/inference/InferencePanels";
+import { TrainingModelBody, TrainingPlanBody, TrainingSettingsBody } from "../pages/training/TrainingPanels";
+import { InferenceModelBody, InferenceSettingsBody } from "../pages/inference/InferencePanels";
 import { InferenceAudioComparisonPanel } from "../pages/inference/InferenceAudioComparisonPanel";
 import { WorkspaceAudioPlaybackPanel } from "../shared/WorkspaceAudioPlaybackPanel";
+import { WorkspaceSelectedAudioInfo } from "../shared/WorkspaceSelectedAudioInfo";
 import { BackendStatusBody, DetailFieldList } from "../shared/workspace-panel-primitives";
 import { findSelectedRow } from "../shared/workspace-ui-utils";
 import { WorkspaceDataGrid, TableHeaderSearch } from "../table/WorkspaceDataGrid";
@@ -52,8 +53,7 @@ const overviewDetailHelp: Record<string, string> = {
   오류: "처리 중 백엔드가 기록한 오류 메시지입니다.",
 };
 
-
-function collapseModeUsesAxis(mode: PanelCollapseMode, axis: WorkspaceResizeAxis): boolean {
+export function collapseModeUsesAxis(mode: PanelCollapseMode, axis: WorkspaceResizeAxis): boolean {
   return axis === "width" ? mode === "vertical" || mode === "compact" : mode === "horizontal" || mode === "compact";
 }
 
@@ -77,7 +77,7 @@ function resolvePanelTourRegion(layoutId?: string): "left" | "center" | "right" 
   return undefined;
 }
 
-function resolveAutoCollapseSuppression(
+export function resolveAutoCollapseSuppression(
   base: PanelAutoCollapseSuppression | undefined,
   activeResizeAxis: WorkspaceResizeAxis | undefined,
   previousMode: PanelCollapseMode,
@@ -110,12 +110,10 @@ export function renderPanelHeaderControls(
   workspaceState: ReturnType<WorkspaceRuntime["getState"]>,
 ): ReactNode {
   const isBatchAudioPanel = workspaceId === "batch" && panel.id === "batch-audio";
-  const isInferenceAudioPanel = workspaceId === "inference" && panel.id === "inference-audio";
   const isTablePanel = panel.kind === "table" || panel.kind === "progress";
 
   return (
     <>
-      {expanded && workspaceId === "training" && panel.id === "training-plan" ? <TrainingPlanHeaderControl runtime={runtime} /> : null}
       {expanded && isTablePanel ? (
         <>
           <SheetSelectorDropdown workspaceId={workspaceId} runtime={runtime} />
@@ -123,57 +121,12 @@ export function renderPanelHeaderControls(
         </>
       ) : null}
       {expanded && isBatchAudioPanel ? <BatchAudioHeaderControls runtime={runtime} disabled={!workspaceState.selectedAudioPath} /> : null}
-      {expanded && isInferenceAudioPanel ? <InferenceReferenceHeaderControl runtime={runtime} /> : null}
       {expanded && panel.kind === "browser" ? (
         <BrowserHeaderDropdown workspaceId={workspaceId} runtime={runtime} />
       ) : null}
     </>
   );
 }
-
-// ─── Selected File Info ──────────────────────────────────────────────────────
-// Renders the selected audio file name (truncated) + relative path below it.
-// Exported so TabbedPanelStack can embed the same display for all tab panels.
-
-export function PanelCardSelectedFileInfo({
-  selectedAudioPath,
-  inputPath,
-}: {
-  selectedAudioPath: string;
-  inputPath?: string;
-}) {
-  const filename = (() => {
-    const parts = selectedAudioPath.split(/[\\/]/).filter(Boolean);
-    return parts[parts.length - 1] ?? "";
-  })();
-  const relativePath = (() => {
-    let rel = selectedAudioPath;
-    if (inputPath && rel.startsWith(inputPath)) {
-      rel = rel.substring(inputPath.length);
-      if (rel.startsWith("/") || rel.startsWith("\\")) {
-        rel = rel.substring(1);
-      }
-    }
-    return rel.replace(/\\/g, "/");
-  })();
-
-  return (
-    <div className="flex flex-col min-w-0 shrink text-left gap-3">
-      <div className="flex items-center gap-2">
-        <h3 className="min-w-0 truncate whitespace-nowrap text-base font-semibold leading-5 text-[var(--primary-text)]">
-          {filename}
-        </h3>
-      </div>
-      <div
-        className="min-w-0 truncate text-xs text-[var(--secondary-text)]"
-        title={relativePath}
-      >
-        {relativePath}
-      </div>
-    </div>
-  );
-}
-
 
 export function PanelCard({
   layoutId,
@@ -185,6 +138,7 @@ export function PanelCard({
   collapseMode,
   contentSizing = false,
   autoCollapseSuppression,
+  sliceEditorContext: providedSliceEditorContext,
   cardMode = "standalone",
 }: {
   layoutId?: string;
@@ -196,6 +150,7 @@ export function PanelCard({
   collapseMode: PanelCollapseMode;
   contentSizing?: boolean;
   autoCollapseSuppression?: PanelAutoCollapseSuppression;
+  sliceEditorContext?: SliceEditorViewContext;
   /** "standalone": normal card with border, radius, header (default).
    *  "tabbed": no card chrome, no header row — intended for embedding inside TabbedPanelStack. */
   cardMode?: "standalone" | "tabbed";
@@ -208,11 +163,16 @@ export function PanelCard({
   const cardSize = useElementBoxSize(cardRef, layoutResizing);
   const resizeCollapseMode = useElementResizeCollapseMode(cardRef, layoutResizing, collapseMode, activeAutoCollapseSuppression);
   const isSliceEditor = workspaceId === "slice" && panel.kind === "waveform";
+  const isSliceActionPanel = workspaceId === "slice" && panel.kind === "slice-actions";
   const isBatchAudioPanel = workspaceId === "batch" && panel.id === "batch-audio";
-  const isInferenceAudioPanel = workspaceId === "inference" && panel.id === "inference-audio";
+  const isAudioComparisonPanel = panel.kind === "audio-comparison";
+  const isTrainingPlanPanel = workspaceId === "training" && panel.id === "training-plan";
   const persistence = useAppPersistence();
   const initialWorkspaceUiRef = useRef(persistence.getWorkspaceUiSnapshot(workspaceId));
   const [sliceEditorState, setSliceEditorState] = useState<SliceEditorViewState>(() => initialWorkspaceUiRef.current.sliceEditor);
+  const [sliceSelectedComponentIds, setSliceSelectedComponentIds] = useState<string[]>([]);
+  const [sliceAnimateMarkerTransitions, setSliceAnimateMarkerTransitions] = useState(false);
+  const sliceMarkerTransitionTimeoutRef = useRef<number | undefined>(undefined);
   const [pageSize, setPageSize] = useState<number>(() => {
     const snapshot = initialWorkspaceUiRef.current;
     return snapshot.grid?.pageSize ?? 100;
@@ -240,20 +200,41 @@ export function PanelCard({
     [],
   );
   const workspaceState = runtime.getState(workspaceId);
-  const sliceEditorContext = useMemo<SliceEditorViewContext>(
+  const triggerSliceMarkerTransitions = useCallback(() => {
+    setSliceAnimateMarkerTransitions(true);
+    if (sliceMarkerTransitionTimeoutRef.current !== undefined) {
+      window.clearTimeout(sliceMarkerTransitionTimeoutRef.current);
+    }
+    sliceMarkerTransitionTimeoutRef.current = window.setTimeout(() => {
+      setSliceAnimateMarkerTransitions(false);
+      sliceMarkerTransitionTimeoutRef.current = undefined;
+    }, 220);
+  }, []);
+  const localSliceEditorContext = useMemo<SliceEditorViewContext>(
     () => ({
       state: sliceEditorState,
       actions: sliceEditorActions,
+      selectedComponentIds: sliceSelectedComponentIds,
+      setSelectedComponentIds: setSliceSelectedComponentIds,
+      animateMarkerTransitions: sliceAnimateMarkerTransitions,
+      triggerMarkerTransitions: triggerSliceMarkerTransitions,
     }),
-    [sliceEditorActions, sliceEditorState],
+    [sliceAnimateMarkerTransitions, sliceEditorActions, sliceEditorState, sliceSelectedComponentIds, triggerSliceMarkerTransitions],
   );
+  const sliceEditorContext = providedSliceEditorContext ?? localSliceEditorContext;
   const sliceEditorEnabled = Boolean(workspaceState.selectedAudioPath);
 
   useEffect(() => {
-    if (isSliceEditor) {
+    if (isSliceEditor && !providedSliceEditorContext) {
       persistence.recordWorkspaceUiSnapshot(workspaceId, { sliceEditor: sliceEditorState });
     }
-  }, [isSliceEditor, persistence, sliceEditorState, workspaceId]);
+  }, [isSliceEditor, persistence, providedSliceEditorContext, sliceEditorState, workspaceId]);
+
+  useEffect(() => () => {
+    if (sliceMarkerTransitionTimeoutRef.current !== undefined) {
+      window.clearTimeout(sliceMarkerTransitionTimeoutRef.current);
+    }
+  }, []);
   const isTablePanel = panel.kind === "table" || panel.kind === "progress";
   const isTableLikePanel = isTablePanel || panel.id === "batch-timeline";
   // In tabbed mode the host TabbedCenterStack controls visibility; collapse logic is not needed.
@@ -265,16 +246,36 @@ export function PanelCard({
   const verticalCollapsed = measuredCollapseMode === "vertical";
   const horizontalCollapsed = measuredCollapseMode === "horizontal";
   const compactCollapsed = measuredCollapseMode === "compact";
+  const selectedAudioInfoVisible = !isAudioComparisonPanel && (panel.kind === "playback" || isSliceEditor) && Boolean(workspaceState.selectedAudioPath) && !verticalCollapsed && !compactCollapsed;
+  const bodyOwnsHeader = isTrainingPlanPanel && expanded;
+  const panelTitleVisible = !isAudioComparisonPanel && !bodyOwnsHeader && !selectedAudioInfoVisible && !compactCollapsed;
+  const standaloneHeaderControlsVisible = !isAudioComparisonPanel && !bodyOwnsHeader && expanded && (
+    isTablePanel
+    || isSliceEditor
+    || isBatchAudioPanel
+    || panel.kind === "browser"
+  );
+  const standaloneHeaderVisible = selectedAudioInfoVisible || panelTitleVisible || standaloneHeaderControlsVisible || verticalCollapsed || compactCollapsed;
   const panelTourRegion = resolvePanelTourRegion(layoutId);
   const bodyMinSize = getPanelBodyMinSize(panel, detail);
   const bodyLayoutMode = getPanelBodyLayoutMode(panel);
   const bodyFillsAvailableSpace = bodyLayoutMode === "fill";
   const effectiveBodyLayoutMode = bodyFillsAvailableSpace ? "fill" : "content";
   const bodyScrollFillsAvailableSpace = bodyFillsAvailableSpace || contentSizing;
+  const bodyOwnsScrollbarInset =
+    panel.kind === "browser"
+    || panel.kind === "detail"
+    || (panel.kind === "filter" && panel.id !== "batch-speakers" && panel.id !== "overview-modules")
+    || panel.kind === "model"
+    || panel.kind === "queue"
+    || panel.kind === "settings";
+  const batchSpeakerPanel = workspaceId === "batch" && panel.id === "batch-speakers";
+  const normalPanelPadding = bodyOwnsScrollbarInset || batchSpeakerPanel ? "pl-4 pt-4 pb-4 pr-[2px]" : "p-4";
+  const standaloneBodyTopMargin = selectedAudioInfoVisible ? "mt-[22px]" : standaloneHeaderVisible ? "mt-4" : "mt-0";
   const bodyGridRowsClass = expanded
     ? contentSizing
-      ? cardMode === "tabbed" ? "flex-auto grid-rows-[minmax(0,1fr)]" : "mt-3 flex-auto grid-rows-[minmax(0,1fr)]"
-      : cardMode === "tabbed" ? "flex-1 grid-rows-[minmax(0,1fr)]" : "mt-3 flex-1 grid-rows-[minmax(0,1fr)]"
+      ? cardMode === "tabbed" ? "flex-auto grid-rows-[minmax(0,1fr)]" : `${standaloneBodyTopMargin} flex-auto grid-rows-[minmax(0,1fr)]`
+      : cardMode === "tabbed" ? "flex-1 grid-rows-[minmax(0,1fr)]" : `${standaloneBodyTopMargin} flex-1 grid-rows-[minmax(0,1fr)]`
     : "mt-0 grid-rows-[0fr]";
   const motionLayoutId = layoutAnimationEnabled && layoutId ? `${workspaceId}:${layoutId}` : undefined;
   const collapsedClass =
@@ -288,16 +289,37 @@ export function PanelCard({
     previousMeasuredCollapseModeRef.current = measuredCollapseMode;
   }, [measuredCollapseMode]);
 
+  if (isSliceActionPanel) {
+    return (
+      <WpfCard
+        ref={cardRef}
+        layout={layoutAnimationEnabled ? "position" : false}
+        layoutId={motionLayoutId}
+        transition={layoutAnimationEnabled ? workspaceCardSpring : { duration: 0 }}
+        className={cn("workspace-panel-card wpf-transparent-card flex h-full min-h-0 min-w-max flex-none flex-col overflow-visible border-0", className)}
+        data-workspace-card-layout-id={layoutId}
+        data-collapse-mode={measuredCollapseMode}
+        data-app-tour-panel-id={panel.id}
+        data-app-tour-panel-kind={panel.kind}
+        data-app-tour-panel-region={panelTourRegion}
+      >
+        <div className="flex h-full min-h-0 min-w-max items-center">
+          {renderPanelBody(workspaceId, panel, runtime, sliceEditorContext, layoutResizing, pageSize, handlePageSizeChange)}
+        </div>
+      </WpfCard>
+    );
+  }
+
   // In tabbed mode: render a plain div (no WpfCard chrome) and omit the header row.
   // The host TabbedCenterStack is responsible for the card border, radius, and unified tab header.
   if (cardMode === "tabbed") {
-    const tabbedPadding = detail
-      ? "p-5"
+    const tabbedPadding = isTrainingPlanPanel
+        ? "p-0"
       : panel.kind === "waveform"
         ? "p-[15px]"
         : isTableLikePanel
           ? "px-0 pt-4 pb-0"
-          : "p-4";
+          : normalPanelPadding;
     return (
       <div
         ref={cardRef as React.RefObject<HTMLDivElement>}
@@ -315,7 +337,10 @@ export function PanelCard({
         <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col", tabbedPadding)}>
           <div className={cn("grid min-h-0 min-w-0 flex-1", bodyGridRowsClass)}>
             <div className="min-h-0 min-w-0 overflow-hidden">
-              <div className={cn("workspace-panel-body-scroll app-scrollbar min-h-0 min-w-0 overflow-auto", bodyScrollFillsAvailableSpace ? "h-full" : "max-h-full")}>
+              <div className={cn(
+                "workspace-panel-body-scroll min-h-0 min-w-0",
+                bodyScrollFillsAvailableSpace ? "h-full overflow-hidden" : "app-scrollbar max-h-full overflow-auto"
+              )}>
                 <div
                   data-body-layout={effectiveBodyLayoutMode}
                   className={cn("workspace-panel-body-content min-h-0 min-w-0", bodyFillsAvailableSpace ? "h-full" : "h-auto")}
@@ -349,55 +374,65 @@ export function PanelCard({
     >
       <div className={cn(
         "flex min-h-0 min-w-0 flex-1 flex-col",
-        detail 
-          ? "p-5" 
-          : panel.kind === "waveform" 
-            ? "p-[15px]" 
-            : isTableLikePanel
-              ? "px-0 pt-4 pb-0"
-              : "p-4",
+        detail
+          ? normalPanelPadding
+          : isAudioComparisonPanel || isTrainingPlanPanel
+            ? "p-0"
+          : panel.kind === "waveform"
+            ? "p-[15px]"
+          : isTableLikePanel
+            ? "px-0 pt-4 pb-0"
+            : normalPanelPadding,
         verticalCollapsed && "h-full items-center px-2 py-4",
         compactCollapsed && "items-center p-1",
-        horizontalCollapsed && "justify-center"
+        horizontalCollapsed && "justify-center p-4"
       )}>
-        <div className={cn("flex min-h-[24px] min-w-0 items-center justify-between gap-2 overflow-hidden", verticalCollapsed && "h-full min-h-0 flex-col justify-start gap-3 overflow-hidden", compactCollapsed && "flex-col justify-start gap-0.5 overflow-hidden", isTableLikePanel && "px-4")}>
-          <div className={cn("flex min-w-0 shrink items-center gap-2 text-left", verticalCollapsed && "min-h-0 flex-1 flex-col justify-start", compactCollapsed && "justify-center")}>
-            {panel.kind === "playback" && workspaceState.selectedAudioPath && !verticalCollapsed && !compactCollapsed ? (
-              <PanelCardSelectedFileInfo
-                selectedAudioPath={workspaceState.selectedAudioPath}
-                inputPath={workspaceState.inputPath}
-              />
-            ) : (
-              <>
-                {verticalCollapsed ? (
-                  <h3 key="vertical-title" className="[writing-mode:vertical-rl] min-h-0 flex-1 truncate text-base font-semibold leading-5 text-[var(--primary-text)]">{panel.title}</h3>
-                ) : compactCollapsed ? null : (
-                  <h3 key="normal-title" className="min-w-0 truncate whitespace-nowrap text-base font-semibold leading-5 text-[var(--primary-text)]">{panel.title}</h3>
-                )}
-              </>
-            )}
+        {standaloneHeaderVisible ? (
+          <div className={cn(
+            "flex min-h-8 min-w-0 items-center justify-between gap-2 overflow-hidden",
+            verticalCollapsed && "h-full min-h-0 flex-col justify-start gap-3 overflow-hidden",
+            compactCollapsed && "flex-col justify-start gap-0.5 overflow-hidden",
+            isTableLikePanel ? "px-4" : bodyOwnsScrollbarInset && "pr-[14px]"
+          )}>
+            <div className={cn("flex min-w-0 shrink items-center gap-2 text-left", verticalCollapsed && "min-h-0 flex-1 flex-col justify-start", compactCollapsed && "justify-center")}>
+              {selectedAudioInfoVisible && workspaceState.selectedAudioPath ? (
+                <WorkspaceSelectedAudioInfo
+                  audioPath={workspaceState.selectedAudioPath}
+                />
+              ) : (
+                <>
+                  {verticalCollapsed ? (
+                    <h3 key="vertical-title" className="[writing-mode:vertical-rl] min-h-0 flex-1 truncate text-base font-semibold leading-5 text-[var(--primary-text)]">{panel.title}</h3>
+                  ) : compactCollapsed || !panelTitleVisible ? null : (
+                    <h3 key="normal-title" className="min-w-0 truncate whitespace-nowrap text-base font-semibold leading-5 text-[var(--primary-text)]">{panel.title}</h3>
+                  )}
+                </>
+              )}
+            </div>
+            <div className={cn("flex items-center gap-3", isTablePanel ? "min-w-0 shrink justify-end" : "min-w-max shrink-0", (verticalCollapsed || compactCollapsed) && "flex-col gap-1")}>
+              {expanded && isTablePanel ? (
+                <>
+                  <SheetSelectorDropdown workspaceId={workspaceId} runtime={runtime} />
+                  <PageSizeDropdown pageSize={pageSize} onChange={handlePageSizeChange} />
+                  <TableHeaderSearch workspaceId={workspaceId} runtime={runtime} />
+                  <div id={`workspace-header-widget-slot-${workspaceId}`} className="flex shrink-0 items-center gap-3 empty:hidden" />
+                </>
+              ) : null}
+              {expanded && isSliceEditor ? <SliceEditorHeaderControls view={sliceEditorContext.state} actions={sliceEditorContext.actions} disabled={!sliceEditorEnabled} /> : null}
+              {expanded && isBatchAudioPanel ? <BatchAudioHeaderControls runtime={runtime} disabled={!workspaceState.selectedAudioPath} /> : null}
+              {expanded && panel.kind === "browser" ? (
+                <BrowserHeaderDropdown workspaceId={workspaceId} runtime={runtime} />
+              ) : null}
+            </div>
           </div>
-          <div className={cn("flex min-w-max shrink-0 items-center gap-2", (verticalCollapsed || compactCollapsed) && "flex-col gap-1")}>
-            {expanded && workspaceId === "training" && panel.id === "training-plan" ? <TrainingPlanHeaderControl runtime={runtime} /> : null}
-            {expanded && isTablePanel ? (
-              <>
-                <SheetSelectorDropdown workspaceId={workspaceId} runtime={runtime} />
-                <PageSizeDropdown pageSize={pageSize} onChange={handlePageSizeChange} />
-                <TableHeaderSearch workspaceId={workspaceId} runtime={runtime} />
-                <div id={`workspace-header-widget-slot-${workspaceId}`} className="flex shrink-0 items-center empty:hidden" />
-              </>
-            ) : null}
-            {expanded && isSliceEditor ? <SliceEditorHeaderControls view={sliceEditorContext.state} actions={sliceEditorContext.actions} disabled={!sliceEditorEnabled} /> : null}
-            {expanded && isBatchAudioPanel ? <BatchAudioHeaderControls runtime={runtime} disabled={!workspaceState.selectedAudioPath} /> : null}
-            {expanded && isInferenceAudioPanel ? <InferenceReferenceHeaderControl runtime={runtime} /> : null}
-            {expanded && panel.kind === "browser" ? (
-              <BrowserHeaderDropdown workspaceId={workspaceId} runtime={runtime} />
-            ) : null}
-          </div>
-        </div>
+        ) : null}
         <div aria-hidden={!expanded} className={cn("grid min-h-0 min-w-0", !expanded && "pointer-events-none", bodyGridRowsClass)}>
           <div className="min-h-0 min-w-0 overflow-hidden">
-            <div className={cn("workspace-panel-body-scroll app-scrollbar min-h-0 min-w-0 overflow-auto", expanded ? "opacity-100" : "opacity-0", bodyScrollFillsAvailableSpace ? "h-full" : "max-h-full")}>
+            <div className={cn(
+              "workspace-panel-body-scroll min-h-0 min-w-0",
+              bodyScrollFillsAvailableSpace ? "h-full overflow-hidden" : "app-scrollbar max-h-full overflow-auto",
+              expanded ? "opacity-100" : "opacity-0"
+            )}>
               <div
                 data-body-layout={effectiveBodyLayoutMode}
                 className={cn("workspace-panel-body-content min-h-0 min-w-0", bodyFillsAvailableSpace ? "h-full" : "h-auto")}
@@ -423,9 +458,10 @@ function renderPanelBody(workspaceId: WorkspaceId, panel: WorkspacePanel, runtim
   if (panel.kind === "browser") {
     const inputTree = resolveBrowserTree(workspaceId, "input", state.inputTree, table, state.inputPath);
     const outputTree = resolveBrowserTree(workspaceId, "output", state.outputTree, table, state.outputPath);
-    const inferenceInputNodeChecks: FileBrowserNodeChecks | undefined = workspaceId === "inference" && runtime.settings.inference.inferenceRunMode === "batch"
+    const inferenceInputNodeChecks: FileBrowserNodeChecks | undefined = workspaceId === "inference"
       ? {
           checkedPaths: runtime.settings.inference.batchReferenceAudioPaths,
+          revealMode: "hover-when-empty",
           onToggleNode: (node) => {
             if (!state.inferenceMultiReferenceOpen) {
               runtime.selectFileNode("inference", node);
@@ -491,6 +527,7 @@ function renderPanelBody(workspaceId: WorkspaceId, panel: WorkspacePanel, runtim
         onRequestWindow={(purpose, direction, metrics, targetPath) => runtime.loadFileBrowserWindow(workspaceId, purpose, direction, metrics, targetPath)}
         onSelectNode={(node) => runtime.selectFileNode(workspaceId, node)}
         audioDurations={audioDurations}
+        reviewedFilePaths={state.reviewedFilePaths}
       />
     );
   }
@@ -516,6 +553,21 @@ function renderPanelBody(workspaceId: WorkspaceId, panel: WorkspacePanel, runtim
     );
   }
 
+  if (workspaceId === "slice" && panel.kind === "slice-actions") {
+    return (
+      <SliceEditorActionsBody
+        row={findSelectedRow(state.table.rows, state.selectedRowId)}
+        audioPath={state.selectedAudioPath}
+        onSplitOrUnmergeSegment={(sourceRow, componentIds) => runtime.splitOrUnmergeSliceSegment(workspaceId, sourceRow, componentIds)}
+        onMergeSegments={() => runtime.mergeSliceSegments(workspaceId)}
+        selectedRowIds={state.selectedRowIds}
+        selectedComponentIds={sliceEditorContext?.selectedComponentIds ?? []}
+        setSelectedComponentIds={sliceEditorContext?.setSelectedComponentIds}
+        onMarkerTransitionRequest={sliceEditorContext?.triggerMarkerTransitions ?? (() => undefined)}
+      />
+    );
+  }
+
   if (panel.kind === "waveform") {
     return (
       <SliceEditorBody
@@ -534,12 +586,23 @@ function renderPanelBody(workspaceId: WorkspaceId, panel: WorkspacePanel, runtim
         onCopySegment={(sourceRow) => runtime.copyRows(workspaceId, [sourceRow.id])}
         onDeleteSegment={(sourceRow) => runtime.deleteSliceSegment(workspaceId, sourceRow)}
         selectedRowIds={state.selectedRowIds}
+        selectedComponentIds={sliceEditorContext?.selectedComponentIds}
+        onSelectedComponentIdsChange={sliceEditorContext?.setSelectedComponentIds}
+        animateMarkerTransitions={sliceEditorContext?.animateMarkerTransitions}
+        onMarkerTransitionRequest={sliceEditorContext?.triggerMarkerTransitions}
       />
     );
   }
 
-  if (workspaceId === "speaker" && panel.kind === "playback") {
-    return <SpeakerAudioComparisonPanel row={findSelectedRow(state.table.rows, state.selectedRowId)} originalPath={state.selectedAudioPath} resultPath={state.selectedResultAudioPath} audioEditScopeId={state.activeSheetId} />;
+  if (workspaceId === "speaker" && panel.kind === "audio-comparison") {
+    return (
+      <SpeakerAudioComparisonPanel
+        row={findSelectedRow(state.table.rows, state.selectedRowId)}
+        originalPath={state.selectedAudioPath}
+        resultPath={state.selectedResultAudioPath}
+        audioEditScopeId={state.activeSheetId}
+      />
+    );
   }
 
   if (workspaceId === "batch" && panel.kind === "playback") {
@@ -554,7 +617,7 @@ function renderPanelBody(workspaceId: WorkspaceId, panel: WorkspacePanel, runtim
     return <WorkspaceAudioPlaybackPanel row={findSelectedRow(state.table.rows, state.selectedRowId)} audioPath={state.selectedAudioPath} cropEnabled emptyText="오디오 행을 선택하세요." syncKey="tagging" audioEditScopeId={state.activeSheetId} />;
   }
 
-  if (workspaceId === "inference" && panel.id === "inference-audio") {
+  if (workspaceId === "inference" && panel.kind === "audio-comparison") {
     return <InferenceAudioComparisonPanel runtime={runtime} />;
   }
 
@@ -627,7 +690,7 @@ function renderPanelBody(workspaceId: WorkspaceId, panel: WorkspacePanel, runtim
 
 // ─── Header Dropdown Selectors ──────────────────────────────────────────────
 
-const tableToolbarDropdownClass = "w-[168px] min-w-[168px] shrink-0";
+const tableToolbarDropdownClass = "wpf-header-field-width";
 
 function SheetSelectorDropdown({
   workspaceId,
@@ -648,11 +711,12 @@ function SheetSelectorDropdown({
   }));
 
   return (
-    <div className={tableToolbarDropdownClass}>
+    <div className={tableToolbarDropdownClass} data-app-tour-target="data-grid-sheets">
       <SelectField
         value={activeSheetId ?? ""}
         options={options}
         onChange={(sheetId) => runtime.selectSheet(workspaceId, sheetId)}
+        density="header"
         ariaLabel="시트 선택"
       />
     </div>
@@ -681,6 +745,7 @@ function PageSizeDropdown({
         value={String(pageSize)}
         options={options}
         onChange={(val) => onChange(Number(val))}
+        density="header"
         ariaLabel="표시 행 수"
       />
     </div>
@@ -760,10 +825,10 @@ function BrowserHeaderDropdown({
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="wpf-button flex size-[38px] items-center justify-center text-[var(--control-arrow)]"
+        className="wpf-button wpf-header-control flex size-8 items-center justify-center text-[var(--control-arrow)]"
         title="폴더 및 파일 설정"
       >
-        <SlidersHorizontal className="size-4" />
+        <FolderCog className="size-4" />
       </button>
       {open && geometry
         ? createPortal(

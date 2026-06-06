@@ -1,13 +1,6 @@
-import type { GptVersion } from "../../../model/voice-training-pretrained";
+import { gptVersionOptions, type GptVersion } from "../../../model/voice-training-pretrained";
 
-export const gptVersionOptions = [
-  { value: "v1", label: "v1" },
-  { value: "v2", label: "v2" },
-  { value: "v3", label: "v3" },
-  { value: "v4", label: "v4" },
-  { value: "v2Pro", label: "v2Pro" },
-  { value: "v2ProPlus", label: "v2ProPlus" },
-] as const;
+export { gptVersionOptions };
 
 export const gptModeOptions = [
   { value: "zero-shot", label: "제로샷" },

@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
 import { motion } from "motion/react";
-import { Copy, Terminal, Trash2, X } from "lucide-react";
+import { Copy, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { dialogPanelMotion, menuMotion, softPressTap, tightPressTap } from "@/shared/motion";
 import type { WorkspaceTerminalState } from "../../state/workspace-runtime-store";
@@ -32,13 +32,10 @@ export function WorkspaceTerminalDialog({ terminal, title, onClear, onClose }: W
     >
       <motion.div
         {...dialogPanelMotion}
-        className="flex h-[min(780px,calc(100vh-48px))] w-[min(1240px,calc(100vw-48px))] min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-5 shadow-[var(--app-dialog-shadow)]"
+        className="flex h-[min(780px,calc(100vh-48px))] w-[min(1240px,calc(100vw-48px))] min-h-0 flex-col rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--panel-bg)] p-4 shadow-[var(--app-dialog-shadow)]"
       >
         <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-[5px] bg-[var(--table-header-bg)] text-[var(--primary-text)]">
-              <Terminal className="size-4" strokeWidth={1.8} />
-            </span>
+          <div className="flex min-w-0 items-center">
             <div className="min-w-0">
               <h4 className="truncate text-base font-semibold leading-5 text-[var(--primary-text)]">{title}</h4>
               <div className="mt-0.5 flex min-w-0 items-center gap-2 text-[13px] font-normal leading-[18px] text-[var(--secondary-text)]">
@@ -69,7 +66,7 @@ export function WorkspaceTerminalDialog({ terminal, title, onClear, onClose }: W
         ) : null}
         <div className="min-h-0 flex-1 overflow-hidden rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--field-bg)]">
           {terminal.text.trim() ? (
-            <WorkspacePtyTerminal text={terminal.text} className="h-full w-full px-3 py-3" fontSize={13} />
+            <WorkspacePtyTerminal text={terminal.text} className="h-full w-full pl-3 pr-0 py-3" fontSize={13} />
           ) : (
             <div className="flex h-full min-h-[180px] items-center justify-center text-center font-sans text-sm text-[var(--secondary-text)]">
               아직 표시할 콘솔 출력이 없습니다.

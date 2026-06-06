@@ -1,9 +1,8 @@
-import { Check } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
-import { checkPopMotion, menuMotion, quickEase, softPressTap, tightPressTap } from "@/shared/motion";
+import { menuMotion, quickEase, softPressTap, tightPressTap } from "@/shared/motion";
 import { CONTROL_ARROW_SLOT_CLASS } from "./control-styles";
 import { ChevronGlyph } from "./chevron-glyph";
 
@@ -178,7 +177,7 @@ export function ToggleSwitch({ checked, onChange, disabled = false }: { checked:
       disabled={disabled}
       onClick={() => onChange(!checked)}
       whileTap={disabled ? undefined : tightPressTap}
-      className={cn("relative ml-auto h-[18px] w-9 shrink-0 justify-self-end rounded-full transition", checked ? "bg-[var(--accent-blue)]" : "bg-[#5A6470]", disabled && "opacity-45")}
+      className={cn("relative ml-auto h-[18px] w-9 shrink-0 justify-self-end rounded-full transition", checked ? "bg-[var(--accent-blue)]" : "bg-[var(--switch-off-bg)]", disabled && "opacity-45")}
     >
       <motion.span
         initial={false}
@@ -187,6 +186,86 @@ export function ToggleSwitch({ checked, onChange, disabled = false }: { checked:
         className="absolute left-0 top-0.5 size-3.5 rounded-full bg-white shadow-xs"
       />
     </motion.button>
+  );
+}
+
+export function SelectionCheck({
+  checked,
+  mixed = false,
+  disabled = false,
+  size = 18,
+  className,
+}: {
+  checked: boolean;
+  mixed?: boolean;
+  disabled?: boolean;
+  size?: number;
+  className?: string;
+}) {
+  const active = checked || mixed;
+  const glyphSize = Math.max(10, Math.round(size * 0.62));
+  const ringWidth = Math.max(1, Math.round(size * 0.08));
+
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      {active ? (
+        <motion.span
+          key={mixed ? "mixed" : "checked"}
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.5, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 500, damping: 28 }}
+          className={cn(
+            "relative flex shrink-0 items-center justify-center rounded-full bg-[var(--model-card-check-bg)] text-white",
+            disabled && "opacity-65",
+            className,
+          )}
+          style={{ width: size, height: size, border: `${ringWidth}px solid var(--model-card-check-ring)`, boxSizing: "border-box" }}
+          aria-hidden="true"
+        >
+          <svg
+            viewBox="0 0 12 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={mixed ? 2 : 1.85}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ width: glyphSize, height: glyphSize }}
+          >
+            {mixed ? (
+              <motion.path
+                d="M3 6H9"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 0.2, delay: 0.04, ease: "easeOut" }}
+              />
+            ) : (
+              <motion.path
+                d="M2.7 6.3L5 8.6L9.3 3.6"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 0.25, delay: 0.05, ease: "easeOut" }}
+              />
+            )}
+          </svg>
+        </motion.span>
+      ) : (
+        <motion.span
+          key="unchecked"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className={cn(
+            "flex shrink-0 items-center justify-center rounded-full border border-[var(--model-card-check-border)] bg-transparent transition-colors group-hover:border-[var(--model-option-hover-border)]",
+            disabled && "opacity-45",
+            className,
+          )}
+          style={{ width: size, height: size }}
+          aria-hidden="true"
+        />
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -244,7 +323,7 @@ export function Tooltip({ label, description, width, className, children }: { la
   }, [open, updatePosition]);
 
   return (
-    <span ref={rootRef} className={cn("inline-flex", className)} onPointerEnter={show} onPointerLeave={scheduleHide} onFocus={show} onBlur={scheduleHide}>
+    <span ref={rootRef} className={cn("inline-flex max-w-full min-w-0", className)} onPointerEnter={show} onPointerLeave={scheduleHide} onFocus={show} onBlur={scheduleHide}>
       {children}
       {open
         ? createPortal(
@@ -253,7 +332,7 @@ export function Tooltip({ label, description, width, className, children }: { la
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: position.placement === "top" ? 4 : -4, scale: 0.985 }}
               transition={menuMotion.transition}
-              className="app-scrollbar fixed z-[1000] max-h-[360px] overflow-auto rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--field-bg)]/95 p-3 text-[13px] leading-5 text-[var(--secondary-text)] shadow-[var(--app-popover-shadow)] backdrop-blur"
+              className="app-scrollbar fixed z-[1000] max-h-[360px] overflow-auto rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--popover)]/95 p-3 text-[13px] leading-5 text-[var(--secondary-text)] shadow-[var(--app-popover-shadow)] backdrop-blur"
               style={{
                 left: position.left,
                 top: position.top,
@@ -276,11 +355,16 @@ export function Tooltip({ label, description, width, className, children }: { la
 
 export function CheckItem({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
-    <motion.button type="button" onClick={() => onChange(!checked)} whileTap={softPressTap} className="flex items-center text-sm text-[var(--primary-text)]">
-      <span className={cn("mr-2 flex size-[18px] items-center justify-center rounded-[3px] border border-[var(--secondary-text)]", checked && "border-[var(--accent-blue)] bg-[var(--accent-blue)]")}>
-        <AnimatePresence initial={false}>{checked ? <motion.span {...checkPopMotion}><Check className="size-3 text-white" /></motion.span> : null}</AnimatePresence>
-      </span>
-      {label}
+    <motion.button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      whileTap={softPressTap}
+      className="group flex items-center text-sm text-[var(--primary-text)]"
+    >
+      <SelectionCheck checked={checked} className="mr-2" />
+      <span>{label}</span>
     </motion.button>
   );
 }

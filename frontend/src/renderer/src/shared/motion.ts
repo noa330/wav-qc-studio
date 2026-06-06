@@ -147,3 +147,13 @@ export const loadingDotTransition = {
   ease: "easeInOut",
   repeat: Infinity,
 } as const;
+
+export const shapeMorphVariants = {
+  circle: { borderRadius: "9999px" },
+  square: { borderRadius: "3px" },
+} as const;
+
+export const shapeMorphTransition = {
+  duration: 0.24,
+  ease: "easeInOut",
+} as const;

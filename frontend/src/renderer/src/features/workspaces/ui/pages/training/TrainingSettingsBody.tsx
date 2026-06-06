@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { studioBackend } from "@/services/studio-backend";
 import { ComboboxField, SelectField, ToggleSwitch } from "@/shared/components/controls";
 import { filterTrainingCheckpoints, selectedCheckpointPath, settingsWithGptSovitsAutoCheckpoints } from "../../../model/voice-training-checkpoints";
-import { gptPretrainedDefaults, omniPretrainedDefaults } from "../../../model/voice-training-pretrained";
+import { gptPretrainedDefaults, gptVersionOptions, omniPretrainedDefaults, trainingSettingsWithGptVersion, type GptVersion } from "../../../model/voice-training-pretrained";
 import type { WorkspaceRuntime } from "../../../state/use-workspace-runtime";
 import { NumberSetting, SelectSetting, SettingGroup, TextSetting } from "../../shared/workspace-panel-primitives";
 import { defaultTrainingModelNames, shouldAutoReplaceTrainingModelName } from "./training-panel-config";
@@ -11,7 +11,7 @@ import { defaultTrainingModelNames, shouldAutoReplaceTrainingModelName } from ".
 const emptyCheckpoints: TrainingCheckpointSummary[] = [];
 
 const trainingSettingHelp = {
-  common: "학습 실행에 공통으로 전달되는 모델 루트, 모델명, GPU, 유휴 타임아웃 설정입니다. 학습 모델 목록과 체크포인트 탐색의 기준이 됩니다.",
+  common: "학습 실행에 공통으로 전달되는 모델 루트, 모델명, GPU, 유휴 타임아웃 설정입니다. GPT-SoVITS 선택 시 버전도 이 기준에 맞춰 관리합니다.",
   gptSovits: "GPT-SoVITS SoVITS 단계의 재개 체크포인트와 pretrained_s2G/s2D 경로를 지정합니다. 선택한 버전의 공식 로그 및 체크포인트 구조를 사용합니다.",
   gptModel: "GPT-SoVITS GPT 단계의 재개 체크포인트와 pretrained_s1 경로를 지정합니다. GPT_weights 및 logs_s1 체크포인트 목록과 연결됩니다.",
   omniVoice: "OmniVoice 학습 재개, 초기 체크포인트, LLM 경로, 모델 저장 방식을 지정합니다. work/omnivoice 모델 실험 폴더의 체크포인트 구조를 사용합니다.",
@@ -20,6 +20,7 @@ const trainingSettingHelp = {
 const trainingSettingFieldHelp = {
   toolRoot: "학습 도구가 설치된 루트 경로입니다. 비워두면 앱의 기본 학습 레포 경로를 사용합니다.",
   modelName: "학습 결과와 체크포인트를 묶는 모델 이름입니다. 선택한 학습 모델 목록에서 기존 항목을 고를 수 있습니다.",
+  gptVersion: "GPT와 SoVITS pretrained 경로, 로그/체크포인트 루트, 버전별 훈련 기본값을 함께 맞추는 GPT-SoVITS 모델 패밀리입니다.",
   gpu: "학습 프로세스에 전달할 GPU 지정 값입니다. 여러 장을 쓸 때는 실행 스크립트가 받는 형식에 맞춰 입력합니다.",
   idleTimeoutSec: "학습 백엔드가 작업 없이 대기하다가 자동 종료되는 시간입니다.",
   gptPretrainedS2G: "GPT-SoVITS SoVITS generator 초기 가중치 경로입니다.",
@@ -79,6 +80,9 @@ export function TrainingSettingsBody({ runtime }: { runtime: WorkspaceRuntime })
   const requestIdRef = useRef(0);
   const update = <K extends keyof VoiceTrainingSettings>(key: K, value: VoiceTrainingSettings[K]) => {
     runtime.setSettings((current) => ({ ...current, training: { ...current.training, [key]: value } }));
+  };
+  const updateGptVersion = (gptVersion: GptVersion) => {
+    runtime.setSettings((current) => ({ ...current, training: trainingSettingsWithGptVersion(current.training, gptVersion) }));
   };
 
   useEffect(() => {
@@ -278,6 +282,11 @@ export function TrainingSettingsBody({ runtime }: { runtime: WorkspaceRuntime })
         <SelectSetting label="모델명" help={trainingSettingFieldHelp.modelName}>
           <ComboboxField value={settings.modelName} options={modelSelectState.options} onChange={(value) => update("modelName", value)} ariaLabel="모델명" />
         </SelectSetting>
+        {settings.selectedModel === "gpt-sovits" ? (
+          <SelectSetting label="GPT-SoVITS 버전" help={trainingSettingFieldHelp.gptVersion}>
+            <SelectField value={settings.gptVersion} options={[...gptVersionOptions]} onChange={(value) => updateGptVersion(value)} ariaLabel="GPT-SoVITS 버전" />
+          </SelectSetting>
+        ) : null}
         <TextSetting label="GPU" value={settings.gpu} onChange={(value) => update("gpu", value)} help={trainingSettingFieldHelp.gpu} />
         <NumberSetting label="유휴 타임아웃" value={settings.idleTimeoutSec} min={60} max={7200} onChange={(value) => update("idleTimeoutSec", value)} help={trainingSettingFieldHelp.idleTimeoutSec} />
       </SettingGroup>

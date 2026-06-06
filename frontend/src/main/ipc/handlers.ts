@@ -11,6 +11,7 @@ import {
   type TensorBoardSessionRequest,
   type TrainingModelListRequest,
   type VoiceModelRuntimeRequest,
+  type WaveformReadOptions,
   type WorkspaceBatchSpeakerDiarizationRequest,
   type WorkspaceCancelRequest,
   type WorkspaceCancelResult,
@@ -35,7 +36,7 @@ import { checkVoiceModelRuntime, installVoiceModelRuntime } from "../backend/voi
 import { cleanupInactiveAudioConversionCaches, cleanupWorkspaceRunCaches, loadWorkspaceFromPath, resolveWorkspaceOutputPath, runBatchSpeakerDiarization, runWorkspace } from "../backend/workspace-runner";
 import { updateStartupSplashProgress } from "../startup-splash-window";
 import { checkAppUpdate, getAppUpdateState, installAppUpdate } from "../app-updater";
-import { cancelWorkspaceOperation, registerWorkspaceOperation, unregisterWorkspaceOperation } from "./workspace-operation-registry";
+import { cancelAllWorkspaceOperations, cancelWorkspaceOperation, registerWorkspaceOperation, unregisterWorkspaceOperation } from "./workspace-operation-registry";
 
 function formatBytes(value: number): string {
   if (!Number.isFinite(value) || value <= 0) {
@@ -120,7 +121,7 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.scanPath, async (_event, path: string, options?: FileTreeScanOptions) => scanFileTree(path, options));
 
-  ipcMain.handle(IPC_CHANNELS.readWaveform, async (_event, path: string, bucketCount?: number) => readWaveformData(path, bucketCount));
+  ipcMain.handle(IPC_CHANNELS.readWaveform, async (_event, path: string, options?: number | WaveformReadOptions) => readWaveformData(path, options));
 
   ipcMain.handle(IPC_CHANNELS.cropWave, async (_event, request: AudioCropRequest) => cropWaveFileWithBackup(request));
   ipcMain.handle(IPC_CHANNELS.editWave, async (_event, request: AudioEditRequest) => editWaveFileInCache(request));
@@ -148,7 +149,7 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(IPC_CHANNELS.runWorkspace, async (event, request: WorkspaceRunRequest): Promise<WorkspaceRunResult> => {
-    const controller = registerWorkspaceOperation(request.workspaceId, "batchSpeaker");
+    const controller = registerWorkspaceOperation(request.workspaceId, "run");
     try {
       return await runWorkspace(request, (progress) => {
         if (!event.sender.isDestroyed()) {
@@ -164,7 +165,7 @@ export function registerIpcHandlers(): void {
         details: [{ label: "오류", value: error instanceof Error ? error.message : String(error) }],
       };
     } finally {
-      unregisterWorkspaceOperation(request.workspaceId, "batchSpeaker", controller);
+      unregisterWorkspaceOperation(request.workspaceId, "run", controller);
     }
   });
 
@@ -215,7 +216,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.startTensorBoard, async (_event, request: TensorBoardSessionRequest) => startTensorBoard(request));
 
   ipcMain.handle(IPC_CHANNELS.runBatchSpeakerDiarization, async (event, request: WorkspaceBatchSpeakerDiarizationRequest): Promise<WorkspaceRunResult> => {
-    const controller = registerWorkspaceOperation(request.workspaceId, "run");
+    const controller = registerWorkspaceOperation(request.workspaceId, "batchSpeaker");
     try {
       return await runBatchSpeakerDiarization(request, (progress) => {
         if (!event.sender.isDestroyed()) {
@@ -231,7 +232,7 @@ export function registerIpcHandlers(): void {
         details: [{ label: "오류", value: error instanceof Error ? error.message : String(error) }],
       };
     } finally {
-      unregisterWorkspaceOperation(request.workspaceId, "run", controller);
+      unregisterWorkspaceOperation(request.workspaceId, "batchSpeaker", controller);
     }
   });
 
@@ -273,6 +274,7 @@ export function registerIpcHandlers(): void {
   });
 
   app.on("will-quit", () => {
+    cancelAllWorkspaceOperations();
     cleanupWorkspaceRunCaches();
     cleanupInactiveAudioConversionCaches();
     cleanupTensorBoardSessions();

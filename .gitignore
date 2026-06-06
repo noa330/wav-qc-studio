@@ -45,6 +45,7 @@ projects/
 *.mp3
 
 # Manual copy/backup folders
+frontend/src--/
 *복사본*/
 *백업*/
 *버림*/

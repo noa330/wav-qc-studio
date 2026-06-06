@@ -175,7 +175,7 @@ function ResizablePair({
   return (
     <div
       ref={rootRef}
-      className="grid h-full min-h-0 min-w-0 overflow-hidden"
+      className="grid h-full min-h-0 min-w-0 overflow-visible"
       style={{
         "--workspace-split-first": `${ratio}fr`,
         "--workspace-split-second": `${1 - ratio}fr`,
@@ -322,7 +322,7 @@ export function PanelStack({
 
   return (
     <WorkspaceLayoutResizeProvider value={stackResizeContext}>
-      <div ref={stackRef} className="grid h-full min-h-0 min-w-0 overflow-hidden" style={{ gridTemplateRows }}>
+      <div ref={stackRef} className="grid h-full min-h-0 min-w-0 overflow-visible" style={{ gridTemplateRows }}>
         <AnimatePresenceShim>
           {orderedItems.map((item, index) => (
             <Fragment key={item.panel.id}>
@@ -336,6 +336,7 @@ export function PanelStack({
                 collapseMode: "none",
                 contentSizing: (policies[index] ?? defaultResolvedStackSizing).mode === "content",
                 autoCollapseSuppression: panelAutoCollapseSuppression,
+                sliceEditorContext: item.sliceEditorContext,
               })}
               {index < orderedItems.length - 1 ? <PanelResizeHandle orientation="horizontal" onMouseDown={(event) => resizeStackSplit(index, event.clientY)} /> : null}
             </Fragment>

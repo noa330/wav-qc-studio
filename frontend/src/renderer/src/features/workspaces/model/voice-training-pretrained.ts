@@ -14,6 +14,15 @@ export type GptPretrainedDefaults = {
   s2d: string;
 };
 
+export const gptVersionOptions = [
+  { value: "v1", label: "v1" },
+  { value: "v2", label: "v2" },
+  { value: "v3", label: "v3" },
+  { value: "v4", label: "v4" },
+  { value: "v2Pro", label: "v2Pro" },
+  { value: "v2ProPlus", label: "v2ProPlus" },
+] as const satisfies ReadonlyArray<{ value: GptVersion; label: string }>;
+
 export const gptPretrainedDefaults: Record<GptVersion, GptPretrainedDefaults> = {
   v1: {
     s1: `${gptHfRoot}\\s1bert25hz-2kh-longer-epoch=68e-step=50232.ckpt`,
@@ -46,6 +55,38 @@ export const gptPretrainedDefaults: Record<GptVersion, GptPretrainedDefaults> = 
     s2d: `${gptHfRoot}\\v2Pro\\s2Dv2ProPlus.pth`,
   },
 };
+
+const gptStageDefaults = { epochs: 15, saveEveryEpoch: 5 };
+const gptSovitsDefaultsByVersion: Record<GptVersion, { epochs: number; saveEveryEpoch: number }> = {
+  v1: { epochs: 8, saveEveryEpoch: 4 },
+  v2: { epochs: 8, saveEveryEpoch: 4 },
+  v3: { epochs: 2, saveEveryEpoch: 1 },
+  v4: { epochs: 2, saveEveryEpoch: 1 },
+  v2Pro: { epochs: 8, saveEveryEpoch: 4 },
+  v2ProPlus: { epochs: 8, saveEveryEpoch: 4 },
+};
+
+export function usesGptSovitsLora(version: GptVersion): boolean {
+  return version === "v3" || version === "v4";
+}
+
+export function trainingSettingsWithGptVersion(current: VoiceTrainingSettings, gptVersion: GptVersion): VoiceTrainingSettings {
+  const previousDefaults = gptPretrainedDefaults[current.gptVersion];
+  const nextDefaults = gptPretrainedDefaults[gptVersion];
+  const previousTrainDefaults = gptSovitsDefaultsByVersion[current.gptVersion];
+  const nextTrainDefaults = gptSovitsDefaultsByVersion[gptVersion];
+  return {
+    ...current,
+    gptVersion,
+    gptSovitsEpochs: current.gptSovitsEpochs === previousTrainDefaults.epochs ? nextTrainDefaults.epochs : current.gptSovitsEpochs,
+    gptSovitsSaveEveryEpoch: current.gptSovitsSaveEveryEpoch === previousTrainDefaults.saveEveryEpoch ? nextTrainDefaults.saveEveryEpoch : current.gptSovitsSaveEveryEpoch,
+    gptEpochs: current.gptEpochs || gptStageDefaults.epochs,
+    gptSaveEveryEpoch: current.gptSaveEveryEpoch || gptStageDefaults.saveEveryEpoch,
+    gptPretrainedS2G: shouldReplaceGptPretrainedPath(current.gptPretrainedS2G, previousDefaults.s2g, "s2g") ? nextDefaults.s2g : current.gptPretrainedS2G,
+    gptPretrainedS2D: shouldReplaceGptPretrainedPath(current.gptPretrainedS2D, previousDefaults.s2d, "s2d") ? nextDefaults.s2d : current.gptPretrainedS2D,
+    gptPretrainedS1: shouldReplaceGptPretrainedPath(current.gptPretrainedS1, previousDefaults.s1, "s1") ? nextDefaults.s1 : current.gptPretrainedS1,
+  };
+}
 
 export function isDefaultGptPretrainedPath(value: string, key: keyof GptPretrainedDefaults): boolean {
   const normalized = normalizePath(value);

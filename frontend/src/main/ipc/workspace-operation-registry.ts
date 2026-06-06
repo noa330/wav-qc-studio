@@ -25,6 +25,14 @@ export function cancelWorkspaceOperation(workspaceId: WorkspaceId, operation: Wo
   }
 }
 
+export function cancelAllWorkspaceOperations(): void {
+  for (const controller of activeWorkspaceOperations.values()) {
+    if (!controller.signal.aborted) {
+      controller.abort();
+    }
+  }
+}
+
 function operationKey(workspaceId: WorkspaceId, operation: WorkspaceOperation): string {
   return `${workspaceId}:${operation}`;
 }

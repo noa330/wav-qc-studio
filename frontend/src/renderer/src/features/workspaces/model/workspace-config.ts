@@ -27,8 +27,10 @@ export type WorkspacePanelKind =
   | "detail"
   | "settings"
   | "waveform"
+  | "slice-actions"
   | "queue"
   | "playback"
+  | "audio-comparison"
   | "progress"
   | "model";
 
@@ -62,6 +64,7 @@ export const workspaces: WorkspaceDefinition[] = [
     left: { id: "slice-browser", title: "파일 브라우저", icon: FolderTree, kind: "browser" },
     center: [
       { id: "slice-editor", title: "슬라이스 에디터", icon: Waves, kind: "waveform" },
+      { id: "slice-actions", title: "슬라이스 액션", icon: Scissors, kind: "slice-actions" },
       { id: "slice-results", title: "결과 테이블", icon: ClipboardCheck, kind: "table" },
     ],
     right: [{ id: "slice-settings", title: "슬라이스 설정", icon: Settings2, kind: "settings" }],
@@ -91,7 +94,7 @@ export const workspaces: WorkspaceDefinition[] = [
     left: { id: "speaker-browser", title: "파일 브라우저", icon: FolderTree, kind: "browser" },
     center: [
       { id: "speaker-progress", title: "디노이즈 진행", icon: ChartNoAxesColumnIncreasing, kind: "progress" },
-      { id: "speaker-audio", title: "오디오 비교", icon: AudioLines, kind: "playback" },
+      { id: "speaker-audio-comparison", title: "원본/결과 오디오", icon: AudioLines, kind: "audio-comparison" },
     ],
     right: [
       { id: "speaker-model", title: "모델 선택", icon: Boxes, kind: "model" },
@@ -142,7 +145,7 @@ export const workspaces: WorkspaceDefinition[] = [
     metricLabels: ["모델", "행", "체크포인트", "상태"],
     left: { id: "training-browser", title: "데이터셋 브라우저", icon: FolderTree, kind: "browser" },
     center: [
-      { id: "training-plan", title: "학습 옵션", icon: Settings2, kind: "settings" },
+      { id: "training-plan", title: "모델 훈련", icon: Settings2, kind: "settings" },
       { id: "training-results", title: "학습 결과", icon: ClipboardCheck, kind: "table" },
     ],
     right: [
@@ -160,7 +163,7 @@ export const workspaces: WorkspaceDefinition[] = [
     left: { id: "inference-browser", title: "레퍼런스 브라우저", icon: FolderTree, kind: "browser" },
     center: [
       { id: "inference-results", title: "추론 결과", icon: ClipboardCheck, kind: "table" },
-      { id: "inference-audio", title: "오디오 비교", icon: AudioLines, kind: "playback" },
+      { id: "inference-audio-comparison", title: "레퍼런스/출력 오디오", icon: AudioLines, kind: "audio-comparison" },
     ],
     right: [
       { id: "inference-model", title: "모델 선택", icon: Boxes, kind: "model" },

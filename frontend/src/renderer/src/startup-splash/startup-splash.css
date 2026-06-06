@@ -38,14 +38,10 @@ body {
   overflow: hidden;
   border: 1px solid var(--startup-widget-stroke, rgba(255, 255, 255, 0.07));
   border-radius: 12px;
-  background: linear-gradient(180deg, #0e1115, #080a0c);
+  background: linear-gradient(180deg, var(--startup-widget-bg), var(--startup-widget-surface));
   box-shadow: 
     0 24px 64px var(--startup-widget-shadow, rgba(0, 0, 0, 0.6)),
     inset 0 1px 0 var(--startup-widget-highlight, rgba(255, 255, 255, 0.05));
-}
-
-html.light .startup-splash__card {
-  background: linear-gradient(180deg, var(--startup-widget-bg, #FEFEFE), var(--startup-widget-surface, #F7F8FA));
 }
 
 .startup-splash__content {
@@ -74,9 +70,9 @@ html.light .startup-splash__card {
   width: 76px;
   height: 76px;
   flex: 0 0 auto;
-  border-radius: 999px;
-  object-fit: cover;
-  filter: drop-shadow(0 8px 20px rgba(131, 94, 225, 0.22));
+  border-radius: 16px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 20px rgba(139, 108, 239, 0.22));
 }
 
 html.light .startup-splash__logo {
@@ -154,7 +150,7 @@ html.light .startup-splash__logo {
   position: relative;
   width: 100%;
   height: 3px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(148, 163, 204, 0.08);
   border-radius: 999px;
   margin-top: 10px;
   overflow: visible;
@@ -170,8 +166,8 @@ html.light .startup-splash__progress-track {
   left: 0;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #835EE1, #b39cf7);
-  box-shadow: 0 0 8px rgba(131, 94, 225, 0.5);
+  background: linear-gradient(90deg, #8B6CEF, #A594FD);
+  box-shadow: 0 0 8px rgba(139, 108, 239, 0.5);
   transition: width 120ms ease-out;
 }
 
@@ -181,8 +177,8 @@ html.light .startup-splash__progress-track {
   width: 100%;
   margin-top: 32px;
   padding: 12px 18px;
-  background: rgba(255, 255, 255, 0.015);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(148, 163, 204, 0.02);
+  border: 1px solid rgba(148, 163, 204, 0.05);
   border-radius: 8px;
 }
 
@@ -201,7 +197,7 @@ html.light .startup-splash__steps {
 }
 
 .startup-splash__step:not(:last-child) {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(148, 163, 204, 0.04);
 }
 
 html.light .startup-splash__step:not(:last-child) {
@@ -228,7 +224,7 @@ html.light .startup-splash__step:not(:last-child) {
   height: 16px;
   align-items: center;
   justify-content: center;
-  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border: 1.5px solid rgba(148, 163, 204, 0.15);
   border-radius: 999px;
   transition: all 200ms ease;
 }
@@ -239,9 +235,9 @@ html.light .startup-splash__step-checkbox {
 
 .startup-splash__step-checkbox--done {
   border-color: transparent;
-  background: #835EE1;
+  background: #8B6CEF;
   color: #ffffff;
-  box-shadow: 0 0 10px rgba(131, 94, 225, 0.3);
+  box-shadow: 0 0 10px rgba(139, 108, 239, 0.3);
 }
 
 .startup-splash__step-checkbox--done svg {
@@ -252,8 +248,8 @@ html.light .startup-splash__step-checkbox {
 }
 
 .startup-splash__step-checkbox--active {
-  border-color: #835EE1;
-  border-top-color: rgba(131, 94, 225, 0.2);
+  border-color: #8B6CEF;
+  border-top-color: rgba(139, 108, 239, 0.2);
   animation: startup-step-spin 900ms linear infinite;
 }
 
@@ -263,7 +259,7 @@ html.light .startup-splash__step-checkbox--active {
 }
 
 .startup-splash__step-checkbox--pending {
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(148, 163, 204, 0.1);
 }
 
 html.light .startup-splash__step-checkbox--pending {
@@ -279,9 +275,9 @@ html.light .startup-splash__step-checkbox--pending {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid rgba(148, 163, 204, 0.05);
   padding: 16px 40px 18px 40px;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(200, 210, 230, 0.3);
   font-size: 11px;
   line-height: 16px;
 }

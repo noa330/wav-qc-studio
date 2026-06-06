@@ -3,7 +3,7 @@ import type { WaveformData } from "@shared/ipc";
 import { studioBackend } from "@/services/studio-backend";
 import { emptyWaveform } from "./waveform-types";
 
-export function useWaveform(audioPath: string | undefined, bucketCount: number, revision: number) {
+export function useWaveform(audioPath: string | undefined, bucketCount: number, revision: number, viewStart = 0, viewEnd = 1) {
   const [data, setData] = useState<WaveformData>(emptyWaveform);
   const [loading, setLoading] = useState(false);
 
@@ -17,44 +17,49 @@ export function useWaveform(audioPath: string | undefined, bucketCount: number, 
     }
 
     if (path.startsWith("guide://")) {
-      setData(createGuideWaveform(path, bucketCount));
+      setData(createGuideWaveform(path, bucketCount, viewStart, viewEnd));
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    void studioBackend
-      .readWaveform(path, bucketCount)
-      .then((nextData) => {
-        if (!disposed) {
-          setData(nextData);
-        }
-      })
-      .catch((error) => {
-        if (!disposed) {
-          setData({ path, durationSeconds: 0, peaks: [], error: error instanceof Error ? error.message : String(error) });
-        }
-      })
-      .finally(() => {
-        if (!disposed) {
-          setLoading(false);
-        }
-      });
+    const delayMs = viewStart === 0 && viewEnd === 1 ? 0 : 45;
+    const timeoutId = window.setTimeout(() => {
+      void studioBackend
+        .readWaveform(path, { bucketCount, viewStart, viewEnd })
+        .then((nextData) => {
+          if (!disposed) {
+            setData(nextData);
+          }
+        })
+        .catch((error) => {
+          if (!disposed) {
+            setData({ path, durationSeconds: 0, peaks: [], error: error instanceof Error ? error.message : String(error) });
+          }
+        })
+        .finally(() => {
+          if (!disposed) {
+            setLoading(false);
+          }
+        });
+    }, delayMs);
 
     return () => {
       disposed = true;
+      window.clearTimeout(timeoutId);
     };
-  }, [audioPath, bucketCount, revision]);
+  }, [audioPath, bucketCount, revision, viewEnd, viewStart]);
 
   return { data, loading };
 }
 
-function createGuideWaveform(path: string, bucketCount: number): WaveformData {
+function createGuideWaveform(path: string, bucketCount: number, viewStart: number, viewEnd: number): WaveformData {
   const durationSeconds = guideDuration(path);
   const count = Math.max(128, bucketCount);
   const seed = Array.from(path).reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 2166136261);
   const peaks = Array.from({ length: count }, (_, index) => {
-    const t = index / Math.max(1, count - 1);
+    const ratio = index / Math.max(1, count - 1);
+    const t = viewStart + (viewEnd - viewStart) * ratio;
     const envelope = Math.sin(Math.PI * t) ** 0.42;
     const carrier = Math.abs(Math.sin(t * 28 + seed * 0.00003));
     const detail = Math.abs(Math.sin(t * 93 + seed * 0.00011)) * 0.38;
@@ -65,6 +70,11 @@ function createGuideWaveform(path: string, bucketCount: number): WaveformData {
     path,
     durationSeconds,
     peaks,
+    minPeaks: peaks.map((peak) => -peak),
+    maxPeaks: peaks,
+    viewStart,
+    viewEnd,
+    mode: "envelope",
   };
 }
 

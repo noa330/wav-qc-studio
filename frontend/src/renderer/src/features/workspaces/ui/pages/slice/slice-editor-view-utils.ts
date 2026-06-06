@@ -3,7 +3,8 @@ import { readSliceRowBounds } from "../../../model/slice-segments";
 import { clamp } from "../../shared/workspace-ui-utils";
 import type { SliceEditorViewState } from "./SliceEditorPanel";
 
-const minSliceViewSpan = 0.035;
+const minSliceViewSpan = 0.0000001;
+const sliceViewEpsilon = 0.000001;
 
 export function zoomSliceView(view: SliceEditorViewState, factor: number, anchor: number): SliceEditorViewState {
   const safeStart = clamp(view.viewStart, 0, 1);
@@ -55,7 +56,7 @@ export function focusSliceViewOnRow(view: SliceEditorViewState, rows: DataTableR
   const selected = orderedRows.find((entry) => entry.row.id === selectedRow.id) ?? orderedRows[0];
 
   if (totalSeconds <= 0 || !selected) {
-    return {
+    return sameSliceViewRange(view, 0, 1) ? view : {
       ...view,
       viewStart: 0,
       viewEnd: 1,
@@ -84,9 +85,19 @@ export function focusSliceViewOnRow(view: SliceEditorViewState, rows: DataTableR
   start = clamp(start, 0, Math.max(0, totalSeconds - desiredSpan));
   end = clamp(start + desiredSpan, start + 0.001, totalSeconds);
 
+  const nextViewStart = clamp(start / totalSeconds, 0, 1);
+  const nextViewEnd = clamp(end / totalSeconds, start / totalSeconds, 1);
+  if (sameSliceViewRange(view, nextViewStart, nextViewEnd)) {
+    return view;
+  }
+
   return {
     ...view,
-    viewStart: clamp(start / totalSeconds, 0, 1),
-    viewEnd: clamp(end / totalSeconds, start / totalSeconds, 1),
+    viewStart: nextViewStart,
+    viewEnd: nextViewEnd,
   };
+}
+
+function sameSliceViewRange(view: SliceEditorViewState, viewStart: number, viewEnd: number): boolean {
+  return Math.abs(view.viewStart - viewStart) <= sliceViewEpsilon && Math.abs(view.viewEnd - viewEnd) <= sliceViewEpsilon;
 }

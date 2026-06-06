@@ -143,6 +143,7 @@ function sanitizeWorkspaceRecord(workspaceId: string, record: Record<string, unk
     isBatchSpeakerRunning: false,
     progressPercent: 0,
     progress: undefined,
+    statusText: workspaceId === "batch" && hasTransientBatchSpeakerStages(record.table) ? "Idle" : record.statusText,
     error: undefined,
   };
 }
@@ -184,6 +185,7 @@ function sanitizeDataTable(workspaceId: string, table: unknown, audioMappings: A
     ? table.rows
       .filter(isRecord)
       .map((row) => sanitizeDataTableRowAudioMapping(row, audioMappings))
+      .map((row) => sanitizeTransientBatchSpeakerRow(workspaceId, row))
       .filter((row) => rowHasAvailablePath(workspaceId, row))
     : [];
 
@@ -191,6 +193,48 @@ function sanitizeDataTable(workspaceId: string, table: unknown, audioMappings: A
     ...table,
     rows,
   };
+}
+
+function sanitizeTransientBatchSpeakerRow(workspaceId: string, row: Record<string, unknown>): Record<string, unknown> {
+  if (workspaceId !== "batch") {
+    return row;
+  }
+
+  const raw = isRecord(row.raw) ? row.raw : {};
+  const activeStage = stringValue(raw.activeStage || raw.active_stage).trim().toLowerCase();
+  if (activeStage !== "diarizing" && activeStage !== "preparing_diarization") {
+    return row;
+  }
+
+  const cells = isRecord(row.cells) ? row.cells : {};
+  return {
+    ...row,
+    raw: {
+      ...raw,
+      status: "failed",
+      activeStage: "cancelled",
+      active_stage: "cancelled",
+      error: stringValue(raw.error) || "Interrupted when the app closed.",
+    },
+    cells: {
+      ...cells,
+      speaker: stringValue(raw.speaker) || stringValue(raw.speaker_groups) || "speaker_unknown",
+    },
+  };
+}
+
+function hasTransientBatchSpeakerStages(table: unknown): boolean {
+  if (!isRecord(table) || !Array.isArray(table.rows)) {
+    return false;
+  }
+
+  return table.rows.some((row) => {
+    if (!isRecord(row) || !isRecord(row.raw)) {
+      return false;
+    }
+    const activeStage = stringValue(row.raw.activeStage || row.raw.active_stage).trim().toLowerCase();
+    return activeStage === "diarizing" || activeStage === "preparing_diarization";
+  });
 }
 
 function sanitizeDataTableRowAudioMapping(row: Record<string, unknown>, audioMappings: AudioSourceMapping[]): Record<string, unknown> {

@@ -1,12 +1,12 @@
 import type { DataTableRow } from "@shared/ipc";
-import { LoaderCircle, Square, Check, Pencil, MoreVertical, Sparkles, GitMerge, Power } from "lucide-react";
+import { LoaderCircle, Square, Pencil, MoreVertical, Sparkles, GitMerge, Power } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState, useEffect } from "react";
 import type { KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
-import { ToggleSwitch } from "@/shared/components/controls";
+import { SelectionCheck, ToggleSwitch } from "@/shared/components/controls";
 import { DataGrid } from "@/shared/components/data-grid";
-import { loadingDotTransition, loadingSpinnerTransition, tightPressTap, checkPopMotion, softPressTap } from "@/shared/motion";
+import { loadingDotTransition, loadingSpinnerTransition, tightPressTap, checkPopMotion, softPressTap, shapeMorphVariants, shapeMorphTransition } from "@/shared/motion";
 import { readBatchTranscriptGaps, readBatchTranscriptMuteIntervals, readBatchWords, type BatchTranscriptGap, type BatchWordAlignment } from "../../../model/batch-alignment";
 import { collectBatchSpeakers } from "../../../model/batch-filter";
 import type { WorkspaceRuntime } from "../../../state/use-workspace-runtime";
@@ -36,6 +36,17 @@ function getSpeakerColor(speaker: string): string {
   }
   const index = Math.abs(hash) % SPEAKER_COLORS.length;
   return SPEAKER_COLORS[index];
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const clean = hex.replace("#", "");
+  if (clean.length !== 6) {
+    return `rgba(156, 163, 175, ${alpha})`;
+  }
+  const red = Number.parseInt(clean.slice(0, 2), 16);
+  const green = Number.parseInt(clean.slice(2, 4), 16);
+  const blue = Number.parseInt(clean.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
 export function BatchSpeakerSelectionBody({ runtime, rows }: { runtime: WorkspaceRuntime; rows: DataTableRow[] }) {
@@ -211,57 +222,70 @@ export function BatchSpeakerSelectionBody({ runtime, rows }: { runtime: Workspac
     setCheckedSpeakers(new Set());
   };
 
-  const speakerContent = speakers.length === 0 && speakerRunning ? (
-    <BatchSpeakerLoadingPanel />
-  ) : speakers.length === 0 ? (
-    <EmptyPanel text="표시할 결과가 없습니다." />
-  ) : (
-    <div className="app-scrollbar h-full min-h-0 overflow-auto pr-1">
+  const speakerContent = (
+    <div className="scroll-window-viewport mt-0 min-h-0 flex-1 overflow-y-scroll pb-2">
       {speakerRunning ? <BatchSpeakerLoadingPanel compact /> : null}
-      {filteredSpeakers.length === 0 ? (
-        <div className="flex h-full min-h-[120px] items-center justify-center text-center text-sm text-[var(--secondary-text)]">
+      {speakers.length === 0 && !speakerRunning ? (
+        <div className="pr-1">
+          <EmptyPanel text="표시할 결과가 없습니다." />
+        </div>
+      ) : filteredSpeakers.length === 0 ? (
+        <div className="mr-1 flex h-full min-h-[120px] items-center justify-center text-center text-sm text-[var(--secondary-text)]">
           검색 결과가 없습니다.
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2 pr-1">
           {filteredSpeakers.map((speaker) => {
             const isChecked = checkedSpeakers.has(speaker);
+            const speakerColor = getSpeakerColor(speaker);
             return (
               <div 
                 key={speaker} 
-                className="flex flex-col gap-2 rounded-xl border border-[var(--panel-stroke)] bg-[var(--field-bg)] p-3.5 shadow-sm transition hover:border-[var(--accent-blue)]"
+                onClick={() => toggleChecked(speaker)}
+                className={cn(
+                  "group flex items-center gap-3 rounded-[var(--radius-md)] border px-4 py-3 transition cursor-pointer bg-[var(--field-bg)] hover:bg-[var(--soft-selection-hover)]",
+                  isChecked ? "border-[var(--tag-border)]" : "border-[var(--panel-stroke)]",
+                )}
+                style={
+                  {
+                    "--speaker-color": speakerColor,
+                    "--speaker-selection-halo": hexToRgba(speakerColor, 0.16),
+                  } as React.CSSProperties
+                }
               >
-                <div className="flex items-center gap-3">
-                  {/* Standalone Checkbox */}
-                  <button
-                    type="button"
-                    onClick={() => toggleChecked(speaker)}
-                    className="flex size-[18px] shrink-0 items-center justify-center rounded-[3px] border transition"
-                    style={{
-                      borderColor: isChecked ? "var(--accent-blue)" : "var(--control-stroke)",
-                      backgroundColor: isChecked ? "var(--accent-blue)" : "transparent"
-                    }}
-                  >
-                    <AnimatePresence initial={false}>
-                      {isChecked ? (
-                        <motion.span {...checkPopMotion}>
-                          <Check className="size-3 text-white" strokeWidth={3} />
-                        </motion.span>
-                      ) : null}
-                    </AnimatePresence>
-                  </button>
-
-                  {/* Color Dot */}
-                  <span 
-                    className="size-2.5 shrink-0 rounded-full" 
-                    style={{ backgroundColor: getSpeakerColor(speaker) }} 
+                {/* Color Dot / Checkbox */}
+                <div className="relative flex size-[30px] shrink-0 items-center justify-center self-center">
+                  {isChecked ? (
+                    <motion.span
+                      aria-hidden="true"
+                      className="absolute size-6 rounded-full bg-[var(--speaker-selection-halo)]"
+                      initial={{ opacity: 0, scale: 0.72 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.18, ease: "easeOut" }}
+                    />
+                  ) : null}
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "absolute size-3 rounded-full bg-[var(--speaker-color)] transition-all duration-200",
+                      "group-hover:scale-75 group-hover:opacity-0 group-focus-within:scale-75 group-focus-within:opacity-0",
+                    )}
                   />
+                  <span
+                    className="absolute flex items-center justify-center opacity-0 scale-75 transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 group-focus-within:opacity-100 group-focus-within:scale-100"
+                    aria-hidden="true"
+                  >
+                    <SelectionCheck checked={isChecked} />
+                  </span>
+                </div>
 
-                  {/* Speaker Name / Inline Rename Input */}
+                {/* Name + Line Count */}
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
                   {renamingSpeaker === speaker ? (
                     <input
                       type="text"
                       value={renameValue}
+                      onClick={(e) => e.stopPropagation()}
                       onChange={(e) => setRenameValue(e.target.value)}
                       onBlur={() => commitRename(speaker)}
                       onKeyDown={(e) => {
@@ -269,34 +293,37 @@ export function BatchSpeakerSelectionBody({ runtime, rows }: { runtime: Workspac
                         if (e.key === "Escape") setRenamingSpeaker(null);
                       }}
                       autoFocus
-                      className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-[var(--primary-text)] outline-none border-b border-[var(--accent-blue)]"
+                      className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold text-[var(--primary-text)] outline-none border-b border-[var(--accent-blue)]"
                     />
                   ) : (
-                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                      <span className="truncate text-sm font-semibold text-[var(--primary-text)]">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate text-[13px] font-semibold leading-snug text-[var(--primary-text)]">
                         {speaker}
                       </span>
                       <button
                         type="button"
-                        onClick={() => startRename(speaker)}
-                        className="inline-flex items-center text-[var(--secondary-text)] hover:text-[var(--primary-text)] transition"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startRename(speaker);
+                        }}
+                        className="inline-flex items-center text-[var(--secondary-text)] hover:text-[var(--primary-text)] transition opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                         title="이름 수정"
                       >
-                        <Pencil className="size-3.5 shrink-0" />
+                        <Pencil className="size-3 shrink-0" />
                       </button>
                     </div>
                   )}
+                  <span className="text-[12px] leading-none text-[var(--secondary-text)]">
+                    대사 {getSpeakerLineCount(speaker)}개
+                  </span>
+                </div>
 
-                  {/* ToggleSwitch */}
+                {/* ToggleSwitch (Vertically Centered) */}
+                <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
                   <ToggleSwitch 
                     checked={state.batchSpeakerChecks[speaker] !== false} 
                     onChange={() => runtime.toggleBatchSpeaker(speaker)} 
                   />
-                </div>
-
-                {/* Subtext: Speech line count */}
-                <div className="pl-[30px] text-xs text-[var(--secondary-text)]">
-                  대사 {getSpeakerLineCount(speaker)}개
                 </div>
               </div>
             );
@@ -307,28 +334,31 @@ export function BatchSpeakerSelectionBody({ runtime, rows }: { runtime: Workspac
   );
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col gap-4">
-      {/* 화자 구분 */}
-      <div className="flex shrink-0 flex-col gap-2.5">
-        <div className="flex items-center justify-between min-h-5 mb-1.5">
-          <p className="text-sm font-normal text-[var(--primary-text)]">화자 구분</p>
+    <div className="flex h-full min-h-0 min-w-0 flex-col">
+      {/* ── 화자 구분 ── */}
+      <div className="flex shrink-0 flex-col pb-5 pr-[14px]">
+        <div className="mb-4 flex min-h-5 items-center justify-between">
+          <p className="text-[14px] font-medium text-[var(--primary-text)]">화자 구분</p>
           {rows.length > 0 ? (
-            <span className="text-xs text-[var(--secondary-text)]">
-              전체 오디오 길이 {formatTotalDuration(totalDuration)}
+            <span className="text-[12px] tabular-nums text-[var(--secondary-text)]">
+              {formatTotalDuration(totalDuration)}
             </span>
           ) : null}
         </div>
         {runSpeakerButton}
       </div>
 
-      {/* 화자 목록 */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 border-t border-[var(--panel-stroke)] pt-3 overflow-hidden">
-        <div className="flex items-center justify-between min-h-5">
-          <p className="text-sm font-normal text-[var(--primary-text)]">화자 목록</p>
+      {/* ── 화자 목록 ── */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-t border-[var(--panel-stroke)] pt-4 pb-5">
+        <div className="mb-2.5 flex shrink-0 items-center justify-between min-h-5 pr-[14px]">
+          <p className="text-[14px] font-medium text-[var(--primary-text)]">화자 목록</p>
+          {speakers.length > 0 ? (
+            <span className="text-[12px] tabular-nums text-[var(--secondary-text)]">{speakers.length}명</span>
+          ) : null}
         </div>
 
         {/* Search Field */}
-        <div className="shrink-0">
+        <div className="shrink-0 pb-2 pr-[14px]">
           <ColumnSearchField
             value={searchText}
             onChange={setSearchText}
@@ -343,18 +373,20 @@ export function BatchSpeakerSelectionBody({ runtime, rows }: { runtime: Workspac
         </div>
 
         {/* Main Speakers List Card */}
-        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
-          {speakerContent}
-        </div>
+        {speakerContent}
       </div>
 
-      {/* Bottom Actions Section */}
-      <div className="flex shrink-0 flex-col gap-3.5 border-t border-[var(--panel-stroke)] pt-4">
-        {/* Selected Speaker Actions Container */}
-        <div className="flex flex-col gap-2.5 bg-[var(--table-header-bg)] border border-[var(--panel-stroke)] rounded-[5px] p-4 shadow-sm">
-          <h5 className="text-[14px] font-semibold text-[var(--primary-text)] mb-0.5">
-            선택 화자 작업
-          </h5>
+      {/* ── 선택 화자 작업 ── */}
+      <div className="flex shrink-0 flex-col border-t border-[var(--panel-stroke)] pt-6 pb-1 pr-[14px]">
+        <div className="flex flex-col gap-2.5 rounded-[5px] border border-[var(--panel-stroke)] bg-[var(--table-header-bg)] p-4">
+          <div className="mb-0.5 flex min-h-5 items-center justify-between">
+            <h5 className="text-[14px] font-medium text-[var(--primary-text)]">선택 화자 작업</h5>
+            {checkedSpeakers.size > 0 ? (
+              <span className="text-[12px] tabular-nums text-[var(--secondary-text)]">
+                {checkedSpeakers.size}명 선택
+              </span>
+            ) : null}
+          </div>
 
           {/* Merge Speakers */}
           <motion.button
@@ -362,44 +394,27 @@ export function BatchSpeakerSelectionBody({ runtime, rows }: { runtime: Workspac
             disabled={checkedSpeakers.size < 2 || state.isRunning || state.isExporting || speakerRunning}
             onClick={handleMergeSelectedSpeakers}
             whileTap={checkedSpeakers.size >= 2 && !speakerRunning ? softPressTap : undefined}
-            className="wpf-action-button flex h-[38px] w-full items-center justify-center gap-2 px-4 text-sm font-semibold transition"
+            className="wpf-action-button flex h-[38px] w-full items-center justify-center gap-2 px-4 text-sm font-semibold transition disabled:opacity-45 disabled:cursor-not-allowed"
           >
-            <GitMerge 
-              className={cn(
-                "size-4 shrink-0 transition", 
-                (checkedSpeakers.size < 2 || state.isRunning || state.isExporting || speakerRunning)
-                  ? "text-[var(--secondary-text)]/40" 
-                  : "text-[var(--accent-blue)]/90"
-              )} 
-            />
+            <GitMerge className="size-4 shrink-0 transition" />
             선택 화자 병합
           </motion.button>
 
-
-
-          {/* Rerun Selected Speakers Block */}
+          {/* Rerun Selected Speakers */}
           <motion.button
             type="button"
             disabled={checkedSpeakers.size === 0 || state.isRunning || state.isExporting || speakerRunning}
             onClick={handleRerunSelectedSpeakers}
             whileTap={checkedSpeakers.size > 0 && !speakerRunning ? softPressTap : undefined}
-            className="wpf-action-button flex h-[38px] w-full items-center justify-center gap-2 px-4 text-sm font-semibold transition"
+            className="wpf-action-button flex h-[38px] w-full items-center justify-center gap-2 px-4 text-sm font-semibold transition disabled:opacity-45 disabled:cursor-not-allowed"
           >
-            <Power 
-              className={cn(
-                "size-4 shrink-0 transition", 
-                (checkedSpeakers.size === 0 || state.isRunning || state.isExporting || speakerRunning)
-                  ? "text-[var(--secondary-text)]/40" 
-                  : "text-[var(--accent-blue)]/90"
-              )} 
-            />
+            <Power className="size-4 shrink-0 transition" />
             선택 화자 재분리
           </motion.button>
 
-          {/* Unified compact description */}
-          <div className="text-[12px] leading-5 text-[var(--secondary-text)] flex flex-col gap-0.5 mt-2 px-0.5">
-            <span>• 병합: 2개 이상 선택 시 첫 번째 화자로 병합됩니다.</span>
-            <span>• 재분리: 선택 화자의 오디오 구간만 다시 분리를 시도합니다.</span>
+          <div className="mt-2 flex flex-col gap-0.5 px-0.5 text-[12px] leading-5 text-[var(--secondary-text)]">
+            <span>병합: 2명 이상 선택 시 첫 번째 화자로 병합합니다.</span>
+            <span>재분리: 선택 화자의 오디오 구간만 다시 분리를 시도합니다.</span>
           </div>
         </div>
       </div>

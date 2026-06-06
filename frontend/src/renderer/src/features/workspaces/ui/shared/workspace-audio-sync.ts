@@ -31,6 +31,7 @@ export type WorkspaceAudioSyncSnapshot = {
   focusRequest?: SeekRequest;
   previewRequest?: SegmentPreviewRequest;
   activeTabId?: string;
+  activeTabIsPlayback?: boolean;
   playRequest?: PlayRequest;
   volumeRequest?: VolumeRequest;
 };
@@ -130,13 +131,14 @@ export function requestWorkspaceAudioVolume(key: string | undefined, volume: num
   });
 }
 
-export function publishWorkspaceActiveTab(key: string | undefined, tabId: string): void {
+export function publishWorkspaceActiveTab(key: string | undefined, tabId: string, isPlaybackTab: boolean): void {
   if (!key) {
     return;
   }
 
   updateWorkspaceAudioSync(key, {
     activeTabId: tabId,
+    activeTabIsPlayback: isPlaybackTab,
   });
 }
 
@@ -194,6 +196,7 @@ function sameSnapshot(left: WorkspaceAudioSyncSnapshot, right: WorkspaceAudioSyn
     left.focusRequest?.id === right.focusRequest?.id &&
     left.previewRequest?.id === right.previewRequest?.id &&
     left.activeTabId === right.activeTabId &&
+    left.activeTabIsPlayback === right.activeTabIsPlayback &&
     left.playRequest?.id === right.playRequest?.id &&
     left.volumeRequest?.id === right.volumeRequest?.id
   );

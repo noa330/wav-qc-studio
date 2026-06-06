@@ -134,6 +134,7 @@ export type { WorkspaceRuntimeState } from "./workspace-runtime-store";
 export type WorkspaceRuntime = {
   guideMode?: {
     activeStepId: string;
+    focusPanelId?: string;
     terminalOpen: boolean;
   };
   settings: WorkspaceSettings;
@@ -1170,6 +1171,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       if (workspaceId === "inference" && state.inferenceMultiReferenceOpen && settingsRef.current.inference.selectedModel === "gpt-sovits" && audioSelection.selectedAudioPath) {
         updateSheetState("inference", {
           inferenceAuxReferenceAudioPaths: addPath(state.inferenceAuxReferenceAudioPaths, audioSelection.selectedAudioPath),
+          reviewedFilePaths: addReviewedSelectionPaths(state.reviewedFilePaths, matchingRow, node.path, audioSelection.selectedFilePath, audioSelection.selectedAudioPath),
         });
         return;
       }
@@ -1180,6 +1182,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         selectedRowIds: matchingRow ? [matchingRow.id] : [],
         selectedAudioPath: audioSelection.selectedAudioPath,
         selectedResultAudioPath: audioSelection.selectedResultAudioPath,
+        reviewedFilePaths: addReviewedSelectionPaths(state.reviewedFilePaths, matchingRow, node.path, audioSelection.selectedFilePath, audioSelection.selectedAudioPath),
         tableRevealRequestId: matchingRow ? state.tableRevealRequestId + 1 : state.tableRevealRequestId,
         details: matchingRow ? state.table.columns.map((column) => ({ label: column.label, value: matchingRow.cells[column.key] || "" })) : state.details,
       });
@@ -1217,6 +1220,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         selectedFilePath: audioSelection.selectedFilePath,
         selectedAudioPath: audioSelection.selectedAudioPath,
         selectedResultAudioPath: audioSelection.selectedResultAudioPath,
+        reviewedFilePaths: addReviewedSelectionPaths(state.reviewedFilePaths, row, audioSelection.selectedFilePath, audioSelection.selectedAudioPath),
         browserRevealRequestId: state.browserRevealRequestId + 1,
         details: state.table.columns.map((column) => ({ label: column.label, value: row.cells[column.key] || "" })),
       });
@@ -1237,6 +1241,10 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         selectedFilePath: audioSelection.selectedFilePath,
         selectedAudioPath: audioSelection.selectedAudioPath,
         selectedResultAudioPath: audioSelection.selectedResultAudioPath,
+        reviewedFilePaths: selectedRows.reduce(
+          (paths, row) => addReviewedSelectionPaths(paths, row),
+          addReviewedSelectionPaths(state.reviewedFilePaths, selectedRow, audioSelection.selectedFilePath, audioSelection.selectedAudioPath),
+        ),
         browserRevealRequestId: selectedRow ? state.browserRevealRequestId + 1 : state.browserRevealRequestId,
         details: selectedRow ? state.table.columns.map((column) => ({ label: column.label, value: selectedRow.cells[column.key] || "" })) : state.details,
       });
@@ -1261,6 +1269,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         selectedFilePath: audioSelection.selectedFilePath,
         selectedAudioPath: audioSelection.selectedAudioPath,
         selectedResultAudioPath: audioSelection.selectedResultAudioPath,
+        reviewedFilePaths: addReviewedSelectionPaths(state.reviewedFilePaths, nextRow, audioSelection.selectedFilePath, audioSelection.selectedAudioPath),
         browserRevealRequestId: state.browserRevealRequestId + 1,
         details: state.table.columns.map((column) => ({ label: column.label, value: nextRow.cells[column.key] || "" })),
       });
@@ -1756,6 +1765,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       }
 
       const inferenceRunAudioPaths = workspaceId === "inference" ? resolveInferenceRunAudioPaths(settings.inference, state) : [];
+      const inferredInferenceRunMode: WorkspaceSettings["inference"]["inferenceRunMode"] = workspaceId === "inference" && inferenceRunAudioPaths.length >= 2 ? "batch" : "single";
       const inferenceAuxReferenceAudioPaths = workspaceId === "inference" && settings.inference.selectedModel === "gpt-sovits"
         ? state.inferenceAuxReferenceAudioPaths
         : [];
@@ -1824,12 +1834,13 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
             ...settings,
             inference: {
               ...settings.inference,
+              inferenceRunMode: inferredInferenceRunMode,
               referenceAudioPath: inferenceRunAudioPaths[0] || state.selectedAudioPath || settings.inference.referenceAudioPath,
               referenceText: inferenceRunAudioPaths[0]
                 ? settings.inference.referenceTextsByAudioPath[inferenceRunAudioPaths[0]] ?? settings.inference.referenceText
                 : settings.inference.referenceText,
               gptAuxReferenceAudioPaths: inferenceAuxReferenceAudioPaths,
-              batchReferenceAudioPaths: settings.inference.inferenceRunMode === "batch"
+              batchReferenceAudioPaths: inferredInferenceRunMode === "batch"
                 ? inferenceRunAudioPaths
                 : settings.inference.batchReferenceAudioPaths,
             },
@@ -2255,7 +2266,7 @@ function inferenceActiveSelectionPatch(progress: WorkspaceRunProgressEvent, stat
 }
 
 function resolveInferenceRunAudioPaths(settings: WorkspaceSettings["inference"], state: WorkspaceRuntimeState): string[] {
-  const requestedPaths = settings.inferenceRunMode === "batch" && settings.batchReferenceAudioPaths.length > 0
+  const requestedPaths = settings.batchReferenceAudioPaths.length > 0
     ? settings.batchReferenceAudioPaths
     : [state.selectedAudioPath || settings.referenceAudioPath || findFirstAudioPath(state.inputTree)];
   const seen = new Set<string>();
@@ -2278,6 +2289,26 @@ function addPath(paths: string[], path: string): string[] {
     return paths;
   }
   return [...paths, path];
+}
+
+function addReviewedSelectionPaths(paths: string[], row?: DataTableRow, ...selectedPaths: Array<string | undefined>): string[] {
+  const raw = row?.raw ?? {};
+  return [
+    ...selectedPaths,
+    row?.sourcePath,
+    raw.originalPath,
+    raw.original_path,
+    raw.absolute_path,
+    raw.inputPath,
+    raw.input_path,
+    raw.cachedPath,
+    raw.cached_path,
+    raw.outputPath,
+    raw.outputAudioPath,
+    raw.output_audio_path,
+    raw.referenceAudioPath,
+    raw.reference_audio_path,
+  ].reduce((reviewedPaths, path) => path ? addPath(reviewedPaths, path) : reviewedPaths, paths);
 }
 
 function removePath(paths: string[], path: string): string[] {
