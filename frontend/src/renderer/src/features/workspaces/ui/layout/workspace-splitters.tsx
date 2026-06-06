@@ -69,7 +69,7 @@ export function PanelResizeHandle({
     <div className={cn(resizeHandleClass, orientation === "vertical" ? "w-[14px] cursor-col-resize" : "h-[14px] cursor-row-resize")}>
       <button
         type="button"
-        aria-label={orientation === "vertical" ? "?⑤꼸 ??議곗젅" : "?⑤꼸 ?믪씠 議곗젅"}
+        aria-label={orientation === "vertical" ? "\ud328\ub110\u0020\ub108\ube44\u0020\uc870\uc808" : "\ud328\ub110\u0020\ub192\uc774\u0020\uc870\uc808"}
         data-app-tour-target="workspace-resize-handle"
         data-resize-orientation={orientation}
         onMouseEnter={() => setActive(true)}

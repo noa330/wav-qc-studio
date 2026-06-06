@@ -92,7 +92,7 @@ export async function exportWorkspace(request: WorkspaceExportRequest, onProgres
   return {
     ok: !cancelled && failed.length === 0,
     workspaceId: request.workspaceId,
-    error: !cancelled && failed.length > 0 ? `${failed.length}媛??됱쓽 ?ㅻ뵒?ㅻ? ?대낫?댁? 紐삵뻽?듬땲?? 濡쒓렇瑜??뺤씤?섏꽭??` : undefined,
+    error: !cancelled && failed.length > 0 ? `${failed.length}\uac1c\u0020\ud56d\ubaa9\uc758\u0020\uc624\ub514\uc624\ub97c\u0020\ub0b4\ubcf4\ub0b4\uc9c0\u0020\ubabb\ud588\uc2b5\ub2c8\ub2e4\u002e\u0020\ub85c\uadf8\ub97c\u0020\ud655\uc778\ud558\uc138\uc694\u002e` : undefined,
     cancelled,
     outputPath: sessionPath,
     outputCsvPath: csvPath,
