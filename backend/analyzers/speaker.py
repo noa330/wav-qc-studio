@@ -6,11 +6,12 @@ from pathlib import Path
 from typing import Any
 
 from .speaker_fallback import SpeakerFallbackMixin
+from .speaker_diarizen import DiariZenScoreSpeakerAnalyzer
 from .speaker_msdd import SpeakerMsddMixin
 from .speaker_runtime import LocalSpeakerEmbedding, SpeakerRuntimeMixin
 
 
-class SpeakerAnalyzer(SpeakerRuntimeMixin, SpeakerMsddMixin, SpeakerFallbackMixin):
+class _NemoSpeakerAnalyzer(SpeakerRuntimeMixin, SpeakerMsddMixin, SpeakerFallbackMixin):
     def __init__(self, cfg: dict[str, Any], method: str = "msdd") -> None:
         self.initialize_runtime(cfg, method)
 
@@ -38,6 +39,19 @@ class SpeakerAnalyzer(SpeakerRuntimeMixin, SpeakerMsddMixin, SpeakerFallbackMixi
             raise RuntimeError(f"NeMo local diarization failed: {type(e).__name__}: {e}") from e
         finally:
             shutil.rmtree(work_dir, ignore_errors=True)
+
+
+class SpeakerAnalyzer:
+    def __init__(self, cfg: dict[str, Any], method: str = "msdd") -> None:
+        speaker_cfg = cfg.get("speaker", {})
+        backend = str(speaker_cfg.get("backend", "nemo") or "nemo").strip().lower()
+        if backend == "diarizen":
+            self._impl = DiariZenScoreSpeakerAnalyzer(cfg)
+        else:
+            self._impl = _NemoSpeakerAnalyzer(cfg, method)
+
+    def analyze(self, wav_path: str) -> dict[str, Any]:
+        return self._impl.analyze(wav_path)
 
 
 __all__ = ["LocalSpeakerEmbedding", "SpeakerAnalyzer"]

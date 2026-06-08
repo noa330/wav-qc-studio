@@ -1,20 +1,25 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import math
 import os
+import shutil
 import sys
 import types
+import zipfile
 from dataclasses import dataclass
 from importlib.machinery import ModuleSpec
 from pathlib import Path
 from typing import Callable
 
+from ..downloads import download_url_to_path
+from ..runtime import package_cache_dir
 from .schema import SlicerDetectedEvent, SlicerFrameTag, SlicerFrameTagRow, SlicerSettings
 
 LogFn = Callable[[str], None]
 
-DEFAULT_PRETRAINED_SED_APP_DIR = Path("D:/코덱스용/PretrainedSED_Tagger_Tk")
-PRETRAINED_SED_APP_DIR = Path(os.environ.get("PRETRAINEDSED_TAGGER_DIR", str(DEFAULT_PRETRAINED_SED_APP_DIR)))
+PRETRAINED_SED_REPO_URL = "https://github.com/fschmid56/PretrainedSED/archive/refs/heads/main.zip"
+DEFAULT_PRETRAINED_SED_APP_DIR = package_cache_dir("pretrainedsed-tagger")
+PRETRAINED_SED_APP_DIR = Path(os.environ.get("PRETRAINEDSED_TAGGER_DIR", str(DEFAULT_PRETRAINED_SED_APP_DIR))).resolve()
 PRETRAINED_SED_REPO_DIR = PRETRAINED_SED_APP_DIR / "PretrainedSED"
 
 MODEL_CONFIG = {
@@ -45,7 +50,7 @@ class PretrainedSedFrameTagger:
         self.device = None
 
     def ensure_model(self, settings: SlicerSettings, log: LogFn) -> None:
-        modules = self._ensure_modules()
+        modules = self._ensure_modules(log)
         torch = modules["torch"]
         device = torch.device("cuda") if settings.device_preference != "cpu" and torch.cuda.is_available() else torch.device("cpu")
         model_key = settings.pretrained_sed_model_key
@@ -73,7 +78,7 @@ class PretrainedSedFrameTagger:
         if self.model is None or self.device is None:
             raise RuntimeError("PretrainedSED frame tagger is not loaded.")
 
-        modules = self._ensure_modules()
+        modules = self._ensure_modules(log)
         torch = modules["torch"]
         librosa = modules["librosa"]
         np = modules["np"]
@@ -209,12 +214,11 @@ class PretrainedSedFrameTagger:
             for rank, label_idx in enumerate(top_indices, start=1)
         ]
 
-    def _ensure_modules(self) -> dict[str, object]:
+    def _ensure_modules(self, log: LogFn | None = None) -> dict[str, object]:
         if self.modules is not None:
             return self.modules
 
-        if not (PRETRAINED_SED_REPO_DIR / "inference.py").exists():
-            raise FileNotFoundError(f"PretrainedSED repository not found: {PRETRAINED_SED_REPO_DIR}")
+        _ensure_pretrained_sed_repository(log or _noop_log)
 
         if str(PRETRAINED_SED_REPO_DIR) not in sys.path:
             sys.path.insert(0, str(PRETRAINED_SED_REPO_DIR))
@@ -228,9 +232,6 @@ class PretrainedSedFrameTagger:
             import scipy.ndimage
             import torch
             from data_util import audioset_classes
-            from models.atstframe.ATSTF_wrapper import ATSTWrapper
-            from models.beats.BEATs_wrapper import BEATsWrapper
-            from models.frame_passt.fpasst_wrapper import FPaSSTWrapper
             from models.prediction_wrapper import PredictionsWrapper
         finally:
             os.chdir(previous_cwd)
@@ -241,9 +242,6 @@ class PretrainedSedFrameTagger:
             "scipy_ndimage": scipy.ndimage,
             "torch": torch,
             "audioset_classes": audioset_classes,
-            "ATSTWrapper": ATSTWrapper,
-            "BEATsWrapper": BEATsWrapper,
-            "FPaSSTWrapper": FPaSSTWrapper,
             "PredictionsWrapper": PredictionsWrapper,
         }
         return self.modules
@@ -278,19 +276,73 @@ class PretrainedSedFrameTagger:
     def _build_model(model_key: str, modules: dict[str, object]):
         model_label, checkpoint = MODEL_CONFIG[model_key]
         if model_key == "beats":
-            base_model = modules["BEATsWrapper"]()
+            from models.beats.BEATs_wrapper import BEATsWrapper
+
+            base_model = BEATsWrapper()
         elif model_key == "atst_f":
-            base_model = modules["ATSTWrapper"]()
+            from models.atstframe.ATSTF_wrapper import ATSTWrapper
+
+            base_model = ATSTWrapper()
         elif model_key == "fpasst":
-            base_model = modules["FPaSSTWrapper"]()
+            from models.frame_passt.fpasst_wrapper import FPaSSTWrapper
+
+            base_model = FPaSSTWrapper()
         else:
             raise ValueError(f"Unsupported PretrainedSED model: {model_key}")
         return model_label, checkpoint, modules["PredictionsWrapper"](base_model, checkpoint=checkpoint)
 
 
+
+def _ensure_pretrained_sed_repository(log: LogFn) -> None:
+    if (PRETRAINED_SED_REPO_DIR / "inference.py").exists():
+        return
+
+    PRETRAINED_SED_APP_DIR.mkdir(parents=True, exist_ok=True)
+    if PRETRAINED_SED_REPO_DIR.exists():
+        log(f"[model cache reset] Removing incomplete PretrainedSED repository: {PRETRAINED_SED_REPO_DIR}")
+        shutil.rmtree(PRETRAINED_SED_REPO_DIR)
+
+    zip_path = PRETRAINED_SED_APP_DIR / "PretrainedSED-main.zip"
+    extract_dir = PRETRAINED_SED_APP_DIR / "_extract"
+    if extract_dir.exists():
+        shutil.rmtree(extract_dir)
+
+    log(f"[model download] PretrainedSED source: {PRETRAINED_SED_REPO_URL}")
+    download_url_to_path(
+        PRETRAINED_SED_REPO_URL,
+        zip_path,
+        label="PretrainedSED source",
+        log=log,
+        retry_label="PretrainedSED source",
+    )
+
+    try:
+        extract_dir.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(zip_path) as archive:
+            archive.extractall(extract_dir)
+        extracted_repo = extract_dir / "PretrainedSED-main"
+        if not (extracted_repo / "inference.py").exists():
+            raise FileNotFoundError(f"Downloaded PretrainedSED archive did not contain inference.py: {extracted_repo}")
+        shutil.move(str(extracted_repo), str(PRETRAINED_SED_REPO_DIR))
+        log(f"[model cache ready] PretrainedSED source: {PRETRAINED_SED_REPO_DIR}")
+    finally:
+        try:
+            zip_path.unlink()
+        except FileNotFoundError:
+            pass
+        if extract_dir.exists():
+            shutil.rmtree(extract_dir, ignore_errors=True)
+
+
+def _noop_log(_message: str) -> None:
+    return
 def _is_path_under(path: Path, parent: Path) -> bool:
     try:
         path.resolve().relative_to(parent.resolve())
     except ValueError:
         return False
     return True
+
+
+
+

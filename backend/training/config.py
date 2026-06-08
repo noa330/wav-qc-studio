@@ -5,7 +5,7 @@ OMNI_HF_REPO_ID = "k2-fsa/OmniVoice"
 MINICONDA_URL = "https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe"
 GPT_CONDA_ENV_NAME = "GPTSoVits"
 OMNI_OFFICIAL_DEPS_STAMP = "omnivoice-uv-sync-v1"
-GPT_REQUIREMENTS_STAMP = "gpt-sovits-official-ps1-v3"
+GPT_REQUIREMENTS_STAMP = "gpt-sovits-official-ps1-v4"
 
 BLOCKED_NETWORK_ENV_KEYS = {
     "ALL_PROXY",

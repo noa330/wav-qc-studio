@@ -1,5 +1,4 @@
 import { existsSync } from "node:fs";
-import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { copyFile, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
@@ -167,11 +166,11 @@ export async function editWaveFileInCache(request: AudioEditRequest): Promise<Au
       return { ok: false, sourcePath, error: "오디오 편집 결과를 만들 수 없습니다." };
     }
 
-    const outputPath = await writeAudioEditCacheFile(sourcePath, request.operation, output.buffer);
+    await overwriteWaveFileWithBackup(sourcePath, request.operation, output.buffer);
     return {
       ok: true,
       sourcePath,
-      outputPath,
+      outputPath: sourcePath,
       clipboardPath,
       durationSeconds: output.durationSeconds,
       clipboardDurationSeconds,
@@ -350,12 +349,29 @@ function buildWaveFromAudioBuffers(format: CropWaveFormat, audioBuffers: Buffer[
 }
 
 async function writeAudioEditCacheFile(sourcePath: string, label: string, buffer: Buffer): Promise<string> {
-  const cacheRoot = join(tmpdir(), "wav-qc-studio", "audio-edits", createHash("sha1").update(sourcePath.replace(/\\/gu, "/").toLowerCase()).digest("hex").slice(0, 16));
+  const cacheRoot = join(tmpdir(), "wav-qc-studio", "audio-clipboard");
   await mkdir(cacheRoot, { recursive: true });
   const safeLabel = label.replace(/[^a-z0-9_-]+/giu, "_").slice(0, 32) || "edit";
   const outputPath = join(cacheRoot, `${Date.now()}_${process.hrtime.bigint().toString(36)}_${safeLabel}.wav`);
   await writeFile(outputPath, buffer);
   return outputPath;
+}
+
+async function overwriteWaveFileWithBackup(sourcePath: string, label: string, buffer: Buffer): Promise<void> {
+  const sourceDirectory = dirname(sourcePath);
+  const safeLabel = label.replace(/[^a-z0-9_-]+/giu, "_").slice(0, 32) || "edit";
+  const tempPath = join(sourceDirectory, `${basename(sourcePath, extname(sourcePath))}.${Date.now()}.${safeLabel}.tmp.wav`);
+
+  await writeFile(tempPath, buffer);
+  try {
+    const backupDirectory = join(sourceDirectory, "_audio_edit_backup");
+    await mkdir(backupDirectory, { recursive: true });
+    const backupPath = resolveBackupPath(backupDirectory, sourcePath);
+    await copyFile(sourcePath, backupPath);
+    await copyFile(tempPath, sourcePath);
+  } finally {
+    await unlink(tempPath).catch(() => undefined);
+  }
 }
 
 function buildMutedWave(buffer: Buffer, format: CropWaveFormat, intervals: WaveMuteInterval[]): { buffer: Buffer; durationSeconds: number; mutedIntervals: number } {

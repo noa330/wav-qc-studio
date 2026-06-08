@@ -39,7 +39,7 @@ export async function resolveRunInputPath(
     if (preparedAudioInput) {
       return {
         inputPath: request.paths.inputPath,
-        displayInputPath: preparedAudioInput.originalInputPath || displayInputPath,
+        displayInputPath: request.paths.inputPath,
         audioSourceMappings: preparedAudioInput.mappings,
       };
     }
@@ -181,18 +181,18 @@ function uniqueRetryFileName(fileName: string, usedNames: Set<string>, index: nu
   return candidate;
 }
 
-export function restoreOriginalAudioSources(workspaceId: WorkspaceId, table: DataTable, mappings: AudioSourceMapping[] | undefined): DataTable {
+export function normalizeCachedAudioSources(workspaceId: WorkspaceId, table: DataTable, mappings: AudioSourceMapping[] | undefined): DataTable {
   if (!mappings || mappings.length === 0) {
     return table;
   }
 
   return {
     ...table,
-    rows: table.rows.map((row) => restoreOriginalAudioSourceRow(workspaceId, row, mappings)),
+    rows: table.rows.map((row) => normalizeCachedAudioSourceRow(workspaceId, row, mappings)),
   };
 }
 
-function restoreOriginalAudioSourceRow(workspaceId: WorkspaceId, row: DataTable["rows"][number], mappings: AudioSourceMapping[]): DataTable["rows"][number] {
+function normalizeCachedAudioSourceRow(workspaceId: WorkspaceId, row: DataTable["rows"][number], mappings: AudioSourceMapping[]): DataTable["rows"][number] {
   const raw = { ...(row.raw ?? {}) };
   const cells = { ...row.cells };
   const mapping = findAudioSourceMapping(row, mappings);
@@ -200,32 +200,38 @@ function restoreOriginalAudioSourceRow(workspaceId: WorkspaceId, row: DataTable[
     return row;
   }
 
-  const cachedFileName = basename(mapping.cachedPath);
-  const sourceFileName = basename(mapping.sourcePath);
-  const restoredRaw = replaceCachedSourceValues(raw, mapping.cachedPath, mapping.sourcePath);
+  const runtimePath = mapping.cachedPath;
+  const stableCachePath = isTransientRuntimeInputPath(runtimePath) ? mapping.sourcePath : mapping.cachedPath;
+  const cachedFileName = basename(stableCachePath);
+  const runtimeFileName = basename(runtimePath);
+  const normalizedRaw = replaceAudioSourceValues(raw, [runtimePath, mapping.sourcePath], stableCachePath);
   const sourceKey = workspaceId === "overview" ? "absolute_path" : "originalPath";
-  restoredRaw[sourceKey] = mapping.sourcePath;
-  restoredRaw.cachedPath = mapping.cachedPath;
-  restoredRaw.cached_path = mapping.cachedPath;
-  if (restoredRaw.fileName === cachedFileName) {
-    restoredRaw.fileName = sourceFileName;
+  normalizedRaw[sourceKey] = stableCachePath;
+  normalizedRaw.cachedPath = stableCachePath;
+  normalizedRaw.cached_path = stableCachePath;
+  if (workspaceId !== "overview") {
+    normalizedRaw.original_path = stableCachePath;
+    normalizedRaw.inputPath = stableCachePath;
+    normalizedRaw.input_path = stableCachePath;
   }
-  if (restoredRaw.file_name === cachedFileName) {
-    restoredRaw.file_name = sourceFileName;
+  if (normalizedRaw.fileName === runtimeFileName) {
+    normalizedRaw.fileName = cachedFileName;
+  }
+  if (normalizedRaw.file_name === runtimeFileName) {
+    normalizedRaw.file_name = cachedFileName;
   }
 
   for (const key of ["fileName", "file_name"] as const) {
-    if (cells[key] === cachedFileName) {
-      cells[key] = sourceFileName;
+    if (cells[key] === runtimeFileName) {
+      cells[key] = cachedFileName;
     }
   }
 
-  const sourcePath = isSameAudioPath(row.sourcePath, mapping.cachedPath) ? mapping.sourcePath : row.sourcePath;
   return {
     ...row,
-    id: isSameAudioPath(row.id, mapping.cachedPath) ? mapping.sourcePath : row.id,
-    sourcePath,
-    raw: restoredRaw,
+    id: isSameAudioPath(row.id, runtimePath) ? stableCachePath : row.id,
+    sourcePath: stableCachePath,
+    raw: normalizedRaw,
     cells,
   };
 }
@@ -245,8 +251,16 @@ function findAudioSourceMapping(row: DataTable["rows"][number], mappings: AudioS
     ?? mappings.find((mapping) => candidates.some((candidate) => basename(candidate) === basename(mapping.cachedPath)));
 }
 
-function replaceCachedSourceValues(raw: Record<string, string>, cachedPath: string, sourcePath: string): Record<string, string> {
-  return Object.fromEntries(Object.entries(raw).map(([key, value]) => [key, isSameAudioPath(value, cachedPath) ? sourcePath : value]));
+function replaceAudioSourceValues(raw: Record<string, string>, sourcePaths: string[], cachePath: string): Record<string, string> {
+  return Object.fromEntries(Object.entries(raw).map(([key, value]) => [
+    key,
+    sourcePaths.some((sourcePath) => isSameAudioPath(value, sourcePath)) ? cachePath : value,
+  ]));
+}
+
+function isTransientRuntimeInputPath(path: string): boolean {
+  const normalized = path.replace(/\\/gu, "/").toLowerCase();
+  return normalized.includes("/_retry_input_") || normalized.includes("/_edited_input_");
 }
 
 function isSameAudioPath(left: string | undefined, right: string | undefined): boolean {

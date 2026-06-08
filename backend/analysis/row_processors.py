@@ -77,7 +77,7 @@ def process_noise(row: FileAnalysisResult, tasks: TaskSelection, noise_scorer, w
 
 def process_speaker(row: FileAnalysisResult, tasks: TaskSelection, speaker_analyzer, wav_path: str, all_local_speaker_items: list[dict[str, object]]) -> None:
     if tasks.speaker and speaker_analyzer is None:
-        add_error(row, "[speaker] analyzer is unavailable. Check NeMo, GPU, or local model cache.")
+        add_error(row, "[speaker] analyzer is unavailable. Check the configured speaker backend, GPU, or local model cache.")
         return
     if speaker_analyzer is None:
         return

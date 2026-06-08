@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$InstallMain = "true",
     [string]$InstallNoise = "true",
     [string]$InstallSlice = "true"
@@ -33,8 +33,30 @@ $NoiseVenvDir = Join-Path $Root ".venv_noise"
 $NoiseVenvPy = Join-Path $NoiseVenvDir "Scripts\python.exe"
 $SlicerVenvDir = Join-Path $Root ".ven_slice"
 $SlicerVenvPy = Join-Path $SlicerVenvDir "Scripts\python.exe"
+$ParentRoot = Split-Path -Parent $Root
+$LocalAppDataToolsRoot = if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+    Join-Path $TempDir "tools"
+}
+else {
+    Join-Path $env:LOCALAPPDATA "WAV QC Studio\tools"
+}
+$PortableGitInstallRootCandidates = @(
+    (Join-Path $Root ".tools\mingit"),
+    (Join-Path $LocalAppDataToolsRoot "mingit")
+)
+$PortableGitDirCandidates = @(
+    (Join-Path $Root "tools\mingit\cmd"),
+    (Join-Path $Root "tools\git\cmd"),
+    (Join-Path $Root ".tools\mingit\cmd"),
+    (Join-Path $Root ".tools\git\cmd"),
+    (Join-Path $ParentRoot "tools\mingit\cmd"),
+    (Join-Path $ParentRoot "tools\git\cmd"),
+    (Join-Path $LocalAppDataToolsRoot "mingit\cmd"),
+    (Join-Path $LocalAppDataToolsRoot "git\cmd")
+)
 $PythonInstallUrl = "https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe"
 $BundledPythonInstaller = Join-Path $Root "python-3.11.9-amd64.exe"
+$PortableGitReleaseApiUrl = "https://api.github.com/repos/git-for-windows/git/releases/latest"
 
 $script:TorchIndexUrl = $null
 $script:NoiseTorchIndexUrl = $null
@@ -76,6 +98,194 @@ function Invoke-OptionalNative {
     finally {
         $ErrorActionPreference = $oldPreference
     }
+}
+
+function Add-ProcessPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$Directory
+    )
+
+    if (-not (Test-Path -LiteralPath $Directory)) {
+        return
+    }
+
+    $normalizedDirectory = [System.IO.Path]::GetFullPath($Directory).TrimEnd('\')
+    $existing = ($env:Path -split ';') | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object {
+        try {
+            [System.IO.Path]::GetFullPath($_).TrimEnd('\')
+        }
+        catch {
+            $_.TrimEnd('\')
+        }
+    }
+
+    if ($existing -notcontains $normalizedDirectory) {
+        $env:Path = "$normalizedDirectory;$env:Path"
+    }
+}
+
+function Find-PortableGit {
+    foreach ($dir in $PortableGitDirCandidates) {
+        $candidate = Join-Path $dir "git.exe"
+        if (Test-Path -LiteralPath $candidate) {
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
+function Find-Git {
+    $systemGit = Get-Command git.exe -ErrorAction SilentlyContinue
+    if ($systemGit) {
+        return $systemGit.Source
+    }
+
+    return Find-PortableGit
+}
+
+function Test-GitExecutable {
+    param(
+        [Parameter(Mandatory = $true)][string]$GitExe
+    )
+
+    try {
+        $version = & $GitExe --version 2>$null
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($version)) {
+            return $version
+        }
+    }
+    catch {
+    }
+
+    return $null
+}
+
+function Test-DirectoryWritable {
+    param(
+        [Parameter(Mandatory = $true)][string]$Directory
+    )
+
+    try {
+        New-Item -ItemType Directory -Force -Path $Directory | Out-Null
+        $probe = Join-Path $Directory ("write_probe_{0}.tmp" -f ([guid]::NewGuid().ToString("N")))
+        [System.IO.File]::WriteAllText($probe, "ok")
+        Remove-Item -LiteralPath $probe -Force -ErrorAction SilentlyContinue
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
+
+function Resolve-PortableGitInstallRoot {
+    foreach ($candidate in $PortableGitInstallRootCandidates) {
+        if (Test-DirectoryWritable -Directory $candidate) {
+            return $candidate
+        }
+    }
+
+    throw "No writable location was available for portable Git."
+}
+
+function Assert-SafePortableGitPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$TargetDir
+    )
+
+    $target = [System.IO.Path]::GetFullPath($TargetDir).TrimEnd('\')
+    $allowedRoots = @(
+        (Join-Path $Root ".tools"),
+        $LocalAppDataToolsRoot
+    ) | ForEach-Object { [System.IO.Path]::GetFullPath($_).TrimEnd('\') }
+
+    foreach ($allowedRoot in $allowedRoots) {
+        if ($target.StartsWith($allowedRoot + "\", [System.StringComparison]::OrdinalIgnoreCase)) {
+            return
+        }
+    }
+
+    throw "Refusing to modify unexpected portable Git path: $TargetDir"
+}
+
+function Resolve-MinGitDownloadUrl {
+    $arch = if ([Environment]::Is64BitOperatingSystem) { "64-bit" } else { "32-bit" }
+    $assetPattern = "^MinGit-.*-{0}\.zip$" -f [regex]::Escape($arch)
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+    Write-Host "Resolving latest MinGit release for Windows $arch..."
+    $release = Invoke-RestMethod -Uri $PortableGitReleaseApiUrl -Headers @{ "User-Agent" = "WAV-QC-Studio-Installer" } -UseBasicParsing
+    $assets = @($release.assets)
+    $asset = $assets | Where-Object { $_.name -match $assetPattern -and $_.name -notmatch "busybox" } | Select-Object -First 1
+    if (-not $asset) {
+        $asset = $assets | Where-Object { $_.name -match $assetPattern } | Select-Object -First 1
+    }
+    if (-not $asset -or [string]::IsNullOrWhiteSpace($asset.browser_download_url)) {
+        throw "Could not find a MinGit $arch zip asset in the latest Git for Windows release."
+    }
+
+    return $asset.browser_download_url
+}
+
+function Install-PortableGit {
+    $installRoot = Resolve-PortableGitInstallRoot
+    Assert-SafePortableGitPath -TargetDir $installRoot
+
+    $downloadUrl = Resolve-MinGitDownloadUrl
+    $zipPath = Join-Path $env:TEMP ("wav_qc_mingit_{0}.zip" -f ([guid]::NewGuid().ToString("N")))
+    try {
+        Write-Host "Git was not found. Downloading portable MinGit..."
+        Write-Host "MinGit destination: $installRoot"
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $zipPath -UseBasicParsing
+        if (-not (Test-Path -LiteralPath $zipPath)) {
+            throw "MinGit archive was not downloaded."
+        }
+
+        if (Test-Path -LiteralPath $installRoot) {
+            Remove-Item -LiteralPath $installRoot -Recurse -Force
+        }
+        New-Item -ItemType Directory -Force -Path $installRoot | Out-Null
+        Expand-Archive -LiteralPath $zipPath -DestinationPath $installRoot -Force
+
+        $gitExe = Join-Path $installRoot "cmd\git.exe"
+        if (-not (Test-Path -LiteralPath $gitExe)) {
+            throw "MinGit was extracted, but git.exe was not found at $gitExe."
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Ensure-GitOnPath {
+    $git = Find-Git
+    if ($git) {
+        $version = Test-GitExecutable -GitExe $git
+        if ($version) {
+            Add-ProcessPath -Directory (Split-Path -Parent $git)
+            Write-Host "Using Git: $git ($version)"
+            return
+        }
+
+        Write-Host "Found Git but it could not be executed: $git"
+    }
+
+    $portableGit = Find-PortableGit
+    if (-not $portableGit -or -not (Test-GitExecutable -GitExe $portableGit)) {
+        Install-PortableGit
+        $portableGit = Find-PortableGit
+    }
+    if (-not $portableGit) {
+        throw "Git could not be prepared for Git-based Python packages."
+    }
+
+    $version = Test-GitExecutable -GitExe $portableGit
+    if (-not $version) {
+        throw "Git was prepared but could not be executed: $portableGit"
+    }
+
+    Add-ProcessPath -Directory (Split-Path -Parent $portableGit)
+    Write-Host "Using Git: $portableGit ($version)"
 }
 
 function Test-PythonCommand {
@@ -373,6 +583,11 @@ try {
     Write-Host "Using Python $($python.Version)"
 
     if ($InstallMainSelected) {
+        Write-Host "[tool] Detecting Git for Git-based Python packages..."
+        Ensure-GitOnPath
+    }
+
+    if ($InstallMainSelected) {
         Write-Host "[2] Creating main virtual environment (.venv) if needed..."
         Ensure-Venv -TargetVenv $VenvDir -Python $python
     }
@@ -480,7 +695,7 @@ try {
 
     if ($InstallSliceSelected) {
         Write-Host "[16] Ensuring pip tools in .ven_slice..."
-        Invoke-Native $SlicerVenvPy @("-m", "pip", "install", "pip", "setuptools", "wheel") "pip tool installation failed for .ven_slice."
+        Invoke-Native $SlicerVenvPy @("-m", "pip", "install", "pip", "setuptools", "wheel", "Cython", "packaging") "pip/build tool installation failed for .ven_slice."
 
         Write-Host "Using slicer PyTorch wheel index: $script:TorchIndexUrl"
 
@@ -505,3 +720,5 @@ catch {
     Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 }
+
+

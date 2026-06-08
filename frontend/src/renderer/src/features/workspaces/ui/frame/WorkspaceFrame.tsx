@@ -200,7 +200,9 @@ export function WorkspaceFrame({ workspace, runtime, terminalDockOpen, terminalB
     if (!root) return;
 
     const update = () => {
-      const availableWidth = Math.max(cardCollapsedSize, root.getBoundingClientRect().width);
+      const rectWidth = root.getBoundingClientRect().width;
+      if (rectWidth <= 0) return;
+      const availableWidth = Math.max(cardCollapsedSize, rectWidth);
       setOuterLayoutSizes((current) => fitOuterLayoutSizes(current, availableWidth, { left: true, right: rightPanelsVisible }));
     };
 
@@ -251,7 +253,7 @@ export function WorkspaceFrame({ workspace, runtime, terminalDockOpen, terminalB
       document.removeEventListener("mouseup", handleUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-      setOuterLayoutSizes(nextSizes);
+      setOuterLayoutSizes({ ...nextSizes, totalWidth: rootWidth });
       setLayoutResizing(false);
     };
     document.body.style.cursor = "col-resize";

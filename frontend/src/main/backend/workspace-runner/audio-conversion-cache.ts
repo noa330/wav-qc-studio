@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import type { WorkspaceId } from "@shared/ipc";
+import { resolveProjectSheetAudioCachePath } from "../project/sheet-layout";
 import { resolveManagedProjectsRoot } from "../project/workspaces";
 import { resolveFallbackInputFolder } from "./workspace-paths";
 
@@ -10,7 +11,7 @@ const AUDIO_INPUT_CONVERSION_FOLDER = "converted-audio";
 const LOCAL_AUDIO_INPUT_CONVERSION_FOLDER = "_converted_audio";
 const activeAudioCachesFileName = "active-audio-caches.json";
 const activeAudioCachesSchemaVersion = 1;
-const audioConversionSelections = new Map<WorkspaceId, ActiveAudioCacheRecord>();
+const audioConversionSelections = new Map<string, ActiveAudioCacheRecord>();
 const audioConversionWorkspaceIds = new Set<WorkspaceId>(["slice", "tagging", "speaker", "overview", "batch", "training", "inference"]);
 
 type ActiveAudioCacheRecord = {
@@ -53,11 +54,20 @@ export async function recordActiveAudioConversionCache(workspaceId: WorkspaceId,
     activeCachePath,
     updatedAt: new Date().toISOString(),
   };
-  audioConversionSelections.set(workspaceId, record);
+  audioConversionSelections.set(activeAudioCacheRecordKey(record), record);
   await writeActiveAudioCacheRecords(mergeActiveAudioCacheRecords(readActiveAudioCacheRecordsSync(), [record]));
 }
 
 export function resolveAudioInputConversionDirectory(workspaceId: WorkspaceId, inputPath: string, projectRoot?: string): string {
+  return resolveAudioInputConversionDirectoryForSheet(workspaceId, inputPath, projectRoot);
+}
+
+export function resolveAudioInputConversionDirectoryForSheet(workspaceId: WorkspaceId, inputPath: string, projectRoot?: string, sheetId?: string): string {
+  const sheetCachePath = resolveProjectSheetAudioCachePath(projectRoot, workspaceId, sheetId);
+  if (sheetCachePath) {
+    return sheetCachePath;
+  }
+
   const inputRoot = resolveFallbackInputFolder(inputPath);
   const name = sanitizeCacheFolderName(basename(inputRoot) || "input");
   const key = createHash("sha1").update(inputRoot.replace(/\\/gu, "/").toLowerCase()).digest("hex").slice(0, 12);
@@ -187,7 +197,7 @@ function mergeActiveAudioCacheRecords(existing: ActiveAudioCacheRecord[], update
 }
 
 function activeAudioCacheRecordKey(record: ActiveAudioCacheRecord): string {
-  return `${normalizeCachePath(record.projectRoot)}|${record.workspaceId}`;
+  return `${normalizeCachePath(record.projectRoot)}|${record.workspaceId}|${normalizeCachePath(record.activeCachePath)}`;
 }
 
 function resolveActiveAudioCachesPath(): string {

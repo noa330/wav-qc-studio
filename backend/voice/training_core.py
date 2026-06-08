@@ -213,12 +213,45 @@ def project_env(extra: Optional[dict[str, str]] = None) -> dict[str, str]:
     path_parts = [str(GPT_REPO)]
     gpt_env_prefix = gpt_conda_env_prefix_if_exists()
     if gpt_env_prefix is not None:
-        path_parts.extend([str(gpt_env_prefix), str(gpt_env_prefix / "Scripts"), str(gpt_env_prefix / "Library" / "bin")])
+        path_parts.extend(
+            [
+                str(gpt_env_prefix / "ffmpeg-bin"),
+                str(gpt_env_prefix),
+                str(gpt_env_prefix / "Scripts"),
+                str(gpt_env_prefix / "Library" / "bin"),
+            ]
+        )
+    git_cmd = portable_git_cmd_dir()
+    if git_cmd is not None:
+        path_parts.append(str(git_cmd))
     path_parts.append(env.get("PATH", ""))
     env["PATH"] = os.pathsep.join(part for part in path_parts if part)
     if extra:
         env.update({k: str(v) for k, v in extra.items()})
     return env
+
+
+def portable_git_cmd_dir() -> Optional[Path]:
+    local_app_data = os.environ.get("LOCALAPPDATA") or os.environ.get("LocalAppData")
+    candidates = [
+        APP_ROOT / "tools" / "mingit" / "cmd",
+        APP_ROOT / "tools" / "git" / "cmd",
+        APP_ROOT / ".tools" / "mingit" / "cmd",
+        APP_ROOT / ".tools" / "git" / "cmd",
+        APP_ROOT.parent / "tools" / "mingit" / "cmd",
+        APP_ROOT.parent / "tools" / "git" / "cmd",
+    ]
+    if local_app_data:
+        candidates.extend(
+            [
+                Path(local_app_data) / "WAV QC Studio" / "tools" / "mingit" / "cmd",
+                Path(local_app_data) / "WAV QC Studio" / "tools" / "git" / "cmd",
+            ]
+        )
+    for path in candidates:
+        if (path / "git.exe").exists():
+            return path
+    return None
 
 
 @contextlib.contextmanager
@@ -242,25 +275,27 @@ def run_stream(
     idle_timeout: int = 900,
     visible_terminal: bool = False,
 ) -> None:
-    log("> " + " ".join(f'"{a}"' if " " in a else a for a in args))
+    run_env = env or project_env()
+    run_args = resolve_command_args(args, run_env)
+    log("> " + " ".join(f'"{a}"' if " " in a else a for a in run_args))
     if visible_terminal and os.name == "nt":
         log("[terminal] opening a separate native console for live command output")
         creationflags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
         proc = subprocess.Popen(
-            args,
+            run_args,
             cwd=str(cwd),
-            env=env or project_env(),
+            env=run_env,
             creationflags=creationflags,
         )
         proc.wait()
         if proc.returncode != 0:
-            raise ToolError(f"Command failed with exit code {proc.returncode}: {args}")
+            raise ToolError(f"Command failed with exit code {proc.returncode}: {run_args}")
         return
 
     proc = subprocess.Popen(
-        args,
+        run_args,
         cwd=str(cwd),
-        env=env or project_env(),
+        env=run_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -337,7 +372,7 @@ def run_stream(
     if live_active:
         live_line.finish()
     if proc.returncode != 0:
-        raise ToolError(f"Command failed with exit code {proc.returncode}: {args}")
+        raise ToolError(f"Command failed with exit code {proc.returncode}: {run_args}")
 
 
 def run_visible_terminal_sequence(
@@ -349,12 +384,15 @@ def run_visible_terminal_sequence(
     if not steps:
         return
 
-    for args, _cwd in steps:
+    run_env = env or project_env()
+    resolved_steps = [(resolve_command_args(args, run_env), cwd) for args, cwd in steps]
+
+    for args, _cwd in resolved_steps:
         log("> " + " ".join(f'"{a}"' if " " in a else a for a in args))
 
     if os.name != "nt":
-        for args, cwd in steps:
-            run_stream(args, cwd, log=log)
+        for args, cwd in resolved_steps:
+            run_stream(args, cwd, log=log, env=run_env)
         return
 
     log(f"[terminal] opening one separate native console for {label}")
@@ -371,14 +409,14 @@ def run_visible_terminal_sequence(
         "        raise SystemExit(completed.returncode)\n"
     )
     payload = json.dumps(
-        {"steps": [{"args": args, "cwd": str(cwd)} for args, cwd in steps]},
+        {"steps": [{"args": args, "cwd": str(cwd)} for args, cwd in resolved_steps]},
         ensure_ascii=False,
     )
     creationflags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
     proc = subprocess.Popen(
         [sys.executable, "-c", runner, payload],
         cwd=str(PROJECT_ROOT),
-        env=env or project_env(),
+        env=run_env,
         creationflags=creationflags,
     )
     proc.wait()
@@ -387,10 +425,12 @@ def run_visible_terminal_sequence(
 
 
 def run_capture(args: list[str], cwd: Path, env: Optional[dict[str, str]] = None) -> str:
+    run_env = env or project_env()
+    run_args = resolve_command_args(args, run_env)
     proc = subprocess.run(
-        args,
+        run_args,
         cwd=str(cwd),
-        env=env or project_env(),
+        env=run_env,
         text=True,
         encoding="utf-8",
         errors="replace",
@@ -400,6 +440,18 @@ def run_capture(args: list[str], cwd: Path, env: Optional[dict[str, str]] = None
     if proc.returncode != 0:
         raise ToolError(proc.stdout)
     return proc.stdout
+
+
+def resolve_command_args(args: list[str], env: dict[str, str]) -> list[str]:
+    if not args:
+        return args
+    command = args[0]
+    if any(separator in command for separator in ("/", "\\")):
+        return args
+    resolved = shutil.which(command, path=env.get("PATH") or env.get("Path") or "")
+    if not resolved:
+        return args
+    return [resolved, *args[1:]]
 
 
 def find_python311() -> str:

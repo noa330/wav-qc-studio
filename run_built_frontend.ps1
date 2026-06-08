@@ -5,6 +5,12 @@ $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $Root
 
 $FrontendDir = Join-Path $Root "frontend"
+$NodeDirCandidates = @(
+    (Join-Path $Root ".tools\node-v24.14.0-win-x64"),
+    (Join-Path $Root "tools\nodejs"),
+    (Join-Path (Split-Path -Parent $Root) "tools\nodejs")
+)
+$NodeDir = $NodeDirCandidates | Where-Object { Test-Path (Join-Path $_ "node.exe") } | Select-Object -First 1
 $ElectronExe = Join-Path $FrontendDir "node_modules\electron\dist\electron.exe"
 $MainBundle = Join-Path $FrontendDir "out\main\index.js"
 $RendererIndex = Join-Path $FrontendDir "out\renderer\index.html"
@@ -29,6 +35,10 @@ try {
 
     if (-not (Test-Path $RendererIndex)) {
         throw "Built renderer index was not found: $RendererIndex. Run build_and_run_frontend.bat first."
+    }
+
+    if ($NodeDir) {
+        $env:Path = "$NodeDir;$env:Path"
     }
 
     Write-Host "Launching already-built Electron frontend..."

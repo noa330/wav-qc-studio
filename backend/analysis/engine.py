@@ -41,11 +41,7 @@ class AnalysisEngine:
             factory=lambda: NoiseScorer(self.cfg),
             name="noise",
         )
-        self.speaker = self._safe_init(
-            enabled=self.tasks.speaker,
-            factory=lambda: SpeakerAnalyzer(self.cfg, method=self.tasks.speaker_method),
-            name="speaker",
-        )
+        self.speaker = None
 
     def _safe_init(self, enabled: bool, factory, name: str):
         if not enabled:
@@ -64,6 +60,17 @@ class AnalysisEngine:
         all_local_speaker_items: list[dict[str, object]],
     ) -> list[dict[str, object]]:
         return build_output_rows(self.cfg, self.tasks, results, all_local_speaker_items)
+
+    def _get_speaker_analyzer(self):
+        if not self.tasks.speaker:
+            return None
+        if self.speaker is None:
+            self.speaker = self._safe_init(
+                enabled=True,
+                factory=lambda: SpeakerAnalyzer(self.cfg, method=self.tasks.speaker_method),
+                name="speaker",
+            )
+        return self.speaker
 
     def analyze_folder(
         self,
@@ -116,7 +123,7 @@ class AnalysisEngine:
             self._raise_if_cancelled(cancel_file, manifest_path, input_dir, total_files, failed_files, results, all_local_speaker_items)
             process_noise(row, self.tasks, self.noise, abs_wav_path)
             self._raise_if_cancelled(cancel_file, manifest_path, input_dir, total_files, failed_files, results, all_local_speaker_items)
-            process_speaker(row, self.tasks, self.speaker, abs_wav_path, all_local_speaker_items)
+            process_speaker(row, self.tasks, self._get_speaker_analyzer(), abs_wav_path, all_local_speaker_items)
 
             results.append(row)
             self._flush_progress_if_needed(

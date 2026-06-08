@@ -65,7 +65,7 @@ export function fitOuterLayoutSizes(
 
   const sideTotal = (visible.left ? left : 0) + (visible.right ? right : 0);
   if (sideTotal <= availableForSidePanels) {
-    return { left, right, totalWidth: availableWidth };
+    return isFirstLoad ? { left, right } : { left, right, totalWidth: availableWidth };
   }
 
   const overflow = sideTotal - availableForSidePanels;
@@ -83,5 +83,5 @@ export function fitOuterLayoutSizes(
 
   left = visible.left ? clampResizablePanelSize(left, leftMin, leftMax) : left;
   right = visible.right ? clampResizablePanelSize(right, rightMin, rightMax) : right;
-  return { left, right, totalWidth: availableWidth };
+  return isFirstLoad ? { left, right } : { left, right, totalWidth: availableWidth };
 }

@@ -288,8 +288,10 @@ export type DetailField = {
 
 export type WorkspacePaths = {
   inputPath: string;
+  originalInputPath?: string;
   outputPath?: string;
   projectRoot?: string;
+  sheetId?: string;
 };
 
 export type SlicerSettings = {

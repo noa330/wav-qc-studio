@@ -25,7 +25,7 @@ export async function exportWorkspace(request: WorkspaceExportRequest, onProgres
     return exportBatchWorkspace(request, OUTPUT_FOLDERS.batch, onProgress, signal);
   }
 
-  const outputRoot = resolveOutputDirectory(request.workspaceId, request.paths.inputPath, request.paths.outputPath, request.paths.projectRoot, OUTPUT_FOLDERS[request.workspaceId]);
+  const outputRoot = resolveOutputDirectory(request.workspaceId, request.paths.inputPath, request.paths.outputPath, request.paths.projectRoot, OUTPUT_FOLDERS[request.workspaceId], request.paths.sheetId);
   const sessionName = timestamp();
   const sessionPath = join(outputRoot, sessionName);
   const audioDir = join(sessionPath, "audio");

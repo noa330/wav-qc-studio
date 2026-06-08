@@ -52,7 +52,7 @@ export function buildRetryPlan(workspaceId: WorkspaceId, sheet: NonNullable<Retu
   }
 
   const allInputPaths = collectInputAudioPaths(inputTree);
-  const successful = sheetRunSucceeded(sheet);
+  const successful = sheetRunSucceeded(workspaceId, sheet, allInputPaths);
   const canResume = !successful && allInputPaths.length > 0;
   const baseTable = canResume ? tableWithRows(sheet.table, sheet.table.rows.filter((row) => rowCompletedSuccessfully(workspaceId, row))) : createEmptyWorkspaceTable(workspaceId);
   const completedSourceKeys = new Set(baseTable.rows.map((row) => normalizedSourceKey(rowSourcePath(workspaceId, row))).filter(Boolean));
@@ -233,9 +233,29 @@ function duplicateKey(workspaceId: WorkspaceId, row: DataTableRow): string {
   return normalizedSourceKey(rowSourcePath(workspaceId, row)) || fileNameKey(rowFileName(row));
 }
 
-function sheetRunSucceeded(sheet: NonNullable<ReturnType<typeof activeSheet>>): boolean {
+function sheetRunSucceeded(workspaceId: WorkspaceId, sheet: NonNullable<ReturnType<typeof activeSheet>>, allInputPaths: string[]): boolean {
   const progress = sheet.lastRun?.progress;
-  return Boolean(progress && progress.total > 0 && progress.completed === progress.total && progress.failed === 0 && progress.percent >= 100);
+  if (progress && progress.total > 0 && progress.completed === progress.total && progress.failed === 0 && progress.percent >= 100) {
+    return true;
+  }
+
+  if (sheet.table.rows.length === 0 || allInputPaths.length === 0) {
+    return false;
+  }
+
+  return sheet.table.rows.every((row) => rowCompletedSuccessfully(workspaceId, row))
+    && tableCoversInputPaths(workspaceId, sheet.table, allInputPaths);
+}
+
+function tableCoversInputPaths(workspaceId: WorkspaceId, table: DataTable, sourcePaths: string[]): boolean {
+  const completedSourceKeys = new Set(table.rows.map((row) => normalizedSourceKey(rowSourcePath(workspaceId, row))).filter(Boolean));
+  const completedFileNames = new Set(table.rows.map((row) => fileNameKey(rowFileName(row))).filter(Boolean));
+  return sourcePaths.every((sourcePath) => {
+    const sourceKey = normalizedSourceKey(sourcePath);
+    const nameKey = fileNameKey(sourcePath);
+    const wavNameKey = wavCacheFileNameKey(sourcePath);
+    return completedSourceKeys.has(sourceKey) || completedFileNames.has(nameKey) || completedFileNames.has(wavNameKey);
+  });
 }
 
 function rowCompletedSuccessfully(workspaceId: WorkspaceId, row: DataTableRow): boolean {

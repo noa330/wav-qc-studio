@@ -71,6 +71,7 @@ export type PersistedWorkspaceUiState = {
   outerLayoutSizes: {
     left: number;
     right: number;
+    totalWidth?: number;
   };
   sliceEditor: PersistedSliceEditorState;
   grid: PersistedDataGridState;

@@ -14,20 +14,24 @@ export function readProjectAudioSourceMappings(projectRoot: string | undefined, 
     return [];
   }
 
-  const convertedRoot = join(root, "converted-audio", workspaceId);
-  if (!pathIsDirectory(convertedRoot)) {
-    return [];
-  }
-
   const normalizedInputPath = normalizeStatePath(inputPath);
   const mappings: AudioSourceMapping[] = [];
-  for (const sourceMapPath of findAudioSourceMapFiles(convertedRoot)) {
-    const parsed = readAudioSourceMap(sourceMapPath);
-    if (!parsed || !audioSourceMapMatchesInput(parsed, normalizedInputPath)) {
+  for (const mappingsRoot of [
+    join(root, "sheets", workspaceId),
+    join(root, "converted-audio", workspaceId),
+  ]) {
+    if (!pathIsDirectory(mappingsRoot)) {
       continue;
     }
 
-    mappings.push(...parsed.mappings);
+    for (const sourceMapPath of findAudioSourceMapFiles(mappingsRoot)) {
+      const parsed = readAudioSourceMap(sourceMapPath);
+      if (!parsed || !audioSourceMapMatchesInput(parsed, normalizedInputPath)) {
+        continue;
+      }
+
+      mappings.push(...parsed.mappings);
+    }
   }
 
   return dedupeAudioSourceMappings(mappings);

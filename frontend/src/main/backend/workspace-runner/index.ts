@@ -9,6 +9,7 @@ import type {
   WorkspaceBatchSpeakerDiarizationRequest,
   WorkspaceProgress,
   WorkspaceId,
+  WorkspacePaths,
   WorkspaceRunProgressEvent,
   WorkspaceTerminalUpdate,
   WorkspaceRunRequest,
@@ -22,9 +23,9 @@ import { readRawTerminalSnapshot } from "../process/terminal-log";
 import { createBackendLayout } from "../project/layout";
 import { assertTrainingDatasetExtension, isVoiceDatasetPath, loadInferenceDatasetPreview, loadTrainingDatasetPreview, readVoiceDatasetItems } from "../voice/training-dataset";
 import { readWorkspaceDetails, readWorkspaceTable } from "../workspace-results/readers";
-import { recordActiveAudioConversionCache, resolveAudioInputConversionDirectory } from "./audio-conversion-cache";
-import { findFirstInputAudio, isSupportedAudioPath, isWavAudioPath } from "./audio-paths";
-import { resolveRunInputPath, restoreOriginalAudioSources } from "./run-input-sources";
+import { recordActiveAudioConversionCache, resolveAudioInputConversionDirectoryForSheet } from "./audio-conversion-cache";
+import { findFirstInputAudio, isSupportedAudioPath } from "./audio-paths";
+import { normalizeCachedAudioSources, resolveRunInputPath } from "./run-input-sources";
 import {
   boolArg,
   msToFireRedFrame,
@@ -65,13 +66,83 @@ export function cleanupWorkspaceRunCaches(): void {
 }
 
 export async function runWorkspace(request: WorkspaceRunRequest, onProgress?: WorkspaceRunProgressHandler, signal?: AbortSignal): Promise<WorkspaceRunResult> {
-  const plan = await createRunPlan(request);
+  const preparedRequest = await prepareRequestSheetAudioCache(request, onProgress);
+  const plan = await createRunPlan(preparedRequest);
   return executeWorkspacePlan(request.workspaceId, plan, "백엔드 실행이 실패했습니다. 로그 파일을 확인하세요.", onProgress, signal);
 }
 
 export async function runBatchSpeakerDiarization(request: WorkspaceBatchSpeakerDiarizationRequest, onProgress?: WorkspaceRunProgressHandler, signal?: AbortSignal): Promise<WorkspaceRunResult> {
-  const plan = await createBatchSpeakerDiarizationPlan(request);
+  const preparedRequest = await prepareRequestSheetAudioCache(request, onProgress);
+  const plan = await createBatchSpeakerDiarizationPlan(preparedRequest);
   return executeWorkspacePlan(request.workspaceId, plan, "화자 구분 실행이 실패했습니다. 로그 파일을 확인하세요.", onProgress, signal);
+}
+
+type SheetAudioCacheRequest = {
+  workspaceId: WorkspaceId;
+  paths: WorkspacePaths;
+};
+
+async function prepareRequestSheetAudioCache<T extends SheetAudioCacheRequest>(request: T, onProgress?: WorkspaceRunProgressHandler): Promise<T> {
+  const projectRoot = request.paths.projectRoot?.trim();
+  const sheetId = request.paths.sheetId?.trim();
+  if (!projectRoot || !sheetId || request.workspaceId === "training") {
+    return request;
+  }
+
+  const originalInputPath = await resolveSheetOriginalInputPath(request.paths);
+  if (!originalInputPath || !existsSync(originalInputPath) || !(await isDirectoryPath(originalInputPath))) {
+    return request;
+  }
+  if (request.workspaceId === "inference" && isVoiceDatasetPath(originalInputPath)) {
+    return request;
+  }
+
+  const expectedCachePath = resolveAudioInputConversionDirectoryForSheet(request.workspaceId, originalInputPath, projectRoot, sheetId);
+  if (sameAudioPath(originalInputPath, expectedCachePath)) {
+    return request;
+  }
+
+  const preparedInput = await prepareWorkspaceAudioInput(request.workspaceId, originalInputPath, projectRoot, sheetId, onProgress);
+  return {
+    ...request,
+    paths: {
+      ...request.paths,
+      inputPath: preparedInput.inputPath,
+      originalInputPath: preparedInput.originalInputPath,
+    },
+  };
+}
+
+async function resolveSheetOriginalInputPath(paths: WorkspacePaths): Promise<string> {
+  const mappedOriginalPath = await readAudioSourceMapOriginalInputPath(paths.inputPath);
+  const explicitOriginalPath = stringValue(paths.originalInputPath);
+  if (mappedOriginalPath && (!explicitOriginalPath || sameAudioPath(explicitOriginalPath, paths.inputPath) || isLikelyAudioCachePath(explicitOriginalPath))) {
+    return mappedOriginalPath;
+  }
+
+  return explicitOriginalPath || mappedOriginalPath;
+}
+
+async function readAudioSourceMapOriginalInputPath(inputPath: string): Promise<string> {
+  try {
+    const parsed = JSON.parse(await readFile(join(inputPath, "audio_source_map.json"), "utf8")) as unknown;
+    return isRecord(parsed) ? stringValue(parsed.originalInputPath) : "";
+  } catch {
+    return "";
+  }
+}
+
+async function isDirectoryPath(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function isLikelyAudioCachePath(path: string): boolean {
+  const normalized = normalizeAudioPathKey(path);
+  return normalized.includes("/audio-cache") || normalized.includes("/converted-audio/") || normalized.includes("/_converted_audio/");
 }
 
 async function executeWorkspacePlan(
@@ -90,10 +161,10 @@ async function executeWorkspacePlan(
     stopProgressPolling();
   }
   const rawTable = await readWorkspaceTable(workspaceId, plan.outputPath, plan.manifestPath, plan.outputCsvPath);
-  const restoredTable = restoreOriginalAudioSources(workspaceId, rawTable, plan.audioSourceMappings);
+  const normalizedTable = normalizeCachedAudioSources(workspaceId, rawTable, plan.audioSourceMappings);
   const table = workspaceId === "batch" && plan.args.includes("diarize")
-    ? settleBatchSpeakerTable(restoredTable, outcome.exitCode === 130)
-    : restoredTable;
+    ? settleBatchSpeakerTable(normalizedTable, outcome.exitCode === 130)
+    : normalizedTable;
   const details = await readWorkspaceDetails(workspaceId, table);
   const progress = await readWorkspaceProgress(plan, table);
   const inputTreePath = plan.displayInputPath ?? plan.inputPath;
@@ -168,7 +239,7 @@ function startRunProgressPolling(workspaceId: WorkspaceId, plan: PythonRunPlan, 
     }
 
     try {
-      const table = await readWorkspaceTable(workspaceId, plan.outputPath, plan.manifestPath, plan.outputCsvPath);
+      const table = normalizeCachedAudioSources(workspaceId, await readWorkspaceTable(workspaceId, plan.outputPath, plan.manifestPath, plan.outputCsvPath), plan.audioSourceMappings);
       const nextSignature = tableSignature(table);
       const progress = await readWorkspaceProgress(plan, table);
       const terminal = await readRunTerminalSnapshot(plan);
@@ -302,11 +373,15 @@ function normalizeAudioPathKey(path: string | undefined): string {
   return (path ?? "").replace(/\\/g, "/").toLowerCase();
 }
 
+function sameAudioPath(left: string | undefined, right: string | undefined): boolean {
+  return normalizeAudioPathKey(left) === normalizeAudioPathKey(right);
+}
+
 function tableSignature(table: DataTable): string {
   return JSON.stringify(table.rows.map((row) => [row.id, row.sourcePath, row.cells, row.raw]));
 }
 
-export async function loadWorkspaceFromPath(workspaceId: WorkspaceId, inputPath: string, _outputPath?: string, settings?: WorkspaceSettings, projectRoot?: string, onProgress?: WorkspaceRunProgressHandler): Promise<{
+export async function loadWorkspaceFromPath(workspaceId: WorkspaceId, inputPath: string, _outputPath?: string, settings?: WorkspaceSettings, projectRoot?: string, sheetId?: string, onProgress?: WorkspaceRunProgressHandler): Promise<{
   table: DataTable;
   details: DetailField[];
   inputPath: string;
@@ -339,18 +414,14 @@ export async function loadWorkspaceFromPath(workspaceId: WorkspaceId, inputPath:
     };
   }
 
-  const initialInputTree = await scanAudioConversionInputTree(workspaceId, inputPath);
-  if (onProgress) {
-    onProgress(await createAudioConversionProgressEvent(workspaceId, initialInputTree));
-  }
-  const preparedInput = await prepareWorkspaceAudioInput(workspaceId, inputPath, projectRoot, onProgress);
+  const preparedInput = await prepareWorkspaceAudioInput(workspaceId, inputPath, projectRoot, sheetId, onProgress);
   const table = createEmptyWorkspaceTable(workspaceId);
   return {
     table,
     details: await readWorkspaceDetails(workspaceId, table),
     inputPath: preparedInput.inputPath,
     originalInputPath: preparedInput.originalInputPath,
-    inputTree: preparedInput.inputTree ?? initialInputTree,
+    inputTree: preparedInput.inputTree,
     audioSourceMapPath: preparedInput.audioSourceMapPath,
     logPath: preparedInput.logPath,
   };
@@ -380,7 +451,7 @@ async function createSlicerPlan(request: WorkspaceRunRequest, mode: "slice" | "t
   const layout = createBackendLayout({ markerScript: "slicer_main.py", venvFolder: ".ven_slice" });
   const runStamp = timestamp();
   const outputLeaf = mode === "tagging" ? TAGGING_OUTPUT_FOLDER : SLICER_OUTPUT_FOLDER;
-  const outputPath = resolveOutputDirectory(request.paths.inputPath, request.paths.outputPath, outputLeaf, request.paths.projectRoot, request.workspaceId);
+  const outputPath = resolveOutputDirectory(request.paths.inputPath, request.paths.outputPath, outputLeaf, request.paths.projectRoot, request.workspaceId, request.paths.sheetId);
   await mkdir(outputPath, { recursive: true });
   const preparedInput = await resolveRunInputPath(request, outputPath, runStamp);
   const inputPath = preparedInput.inputPath;
@@ -483,7 +554,7 @@ async function createSpeakerPlan(request: WorkspaceRunRequest): Promise<PythonRu
   }
 
   const layout = createBackendLayout({ markerScript: "noise_main.py", venvFolder: ".venv_noise" });
-  const outputPath = join(resolveOutputDirectory(request.paths.inputPath, request.paths.outputPath, SPEAKER_OUTPUT_FOLDER, request.paths.projectRoot, request.workspaceId), runStamp);
+  const outputPath = join(resolveOutputDirectory(request.paths.inputPath, request.paths.outputPath, SPEAKER_OUTPUT_FOLDER, request.paths.projectRoot, request.workspaceId, request.paths.sheetId), runStamp);
   await mkdir(outputPath, { recursive: true });
   const preparedInput = await resolveRunInputPath(request, outputPath, runStamp);
   const inputPath = preparedInput.inputPath;
@@ -560,7 +631,7 @@ async function createOverviewPlan(request: WorkspaceRunRequest): Promise<PythonR
   await assertInputDirectory(request.paths.inputPath, "유효한 입력 폴더를 선택하세요.");
   const layout = createBackendLayout({ markerScript: "main.py", venvFolder: ".venv" });
   const runStamp = timestamp();
-  const outputPath = resolveOutputDirectory(request.paths.inputPath, request.paths.outputPath, OVERVIEW_OUTPUT_FOLDER, request.paths.projectRoot, request.workspaceId);
+  const outputPath = resolveOutputDirectory(request.paths.inputPath, request.paths.outputPath, OVERVIEW_OUTPUT_FOLDER, request.paths.projectRoot, request.workspaceId, request.paths.sheetId);
   await mkdir(outputPath, { recursive: true });
   const preparedInput = await resolveRunInputPath(request, outputPath, runStamp);
   const inputPath = preparedInput.inputPath;
@@ -616,7 +687,7 @@ async function createBatchPlan(request: WorkspaceRunRequest): Promise<PythonRunP
   await assertInputDirectory(request.paths.inputPath, "스크립트 입력 오디오 폴더를 선택하세요.");
   const layout = createBackendLayout({ markerScript: "batch_qc_main.py", venvFolder: ".venv" });
   const runStamp = timestamp();
-  const outputPath = resolveOutputDirectory(request.paths.inputPath, request.paths.outputPath, BATCH_OUTPUT_FOLDER, request.paths.projectRoot, request.workspaceId);
+  const outputPath = resolveOutputDirectory(request.paths.inputPath, request.paths.outputPath, BATCH_OUTPUT_FOLDER, request.paths.projectRoot, request.workspaceId, request.paths.sheetId);
   await mkdir(outputPath, { recursive: true });
   const preparedInput = await resolveRunInputPath(request, outputPath, runStamp);
   const inputPath = preparedInput.inputPath;
@@ -678,7 +749,7 @@ async function createTrainingPlan(request: WorkspaceRunRequest): Promise<PythonR
   const training = normalizeTrainingSettings(request.settings.training, layout.projectRoot);
   assertTrainingDatasetExtension(request.paths.inputPath, training.selectedModel);
   const runStamp = timestamp();
-  const outputPath = resolveOutputDirectory(dirname(request.paths.inputPath), request.paths.outputPath, TRAINING_OUTPUT_FOLDER, request.paths.projectRoot, request.workspaceId);
+  const outputPath = resolveOutputDirectory(dirname(request.paths.inputPath), request.paths.outputPath, TRAINING_OUTPUT_FOLDER, request.paths.projectRoot, request.workspaceId, request.paths.sheetId);
   await mkdir(outputPath, { recursive: true });
   const manifestPath = join(outputPath, `training_${runStamp}.json`);
   const logPath = join(outputPath, `training_${runStamp}.log`);
@@ -807,7 +878,7 @@ async function createInferencePlan(request: WorkspaceRunRequest): Promise<Python
   }
 
   const runStamp = timestamp();
-  const outputPath = resolveOutputDirectory(resolveFallbackInputFolder(request.paths.inputPath), request.paths.outputPath, INFERENCE_OUTPUT_FOLDER, request.paths.projectRoot, request.workspaceId);
+  const outputPath = resolveOutputDirectory(resolveFallbackInputFolder(request.paths.inputPath), request.paths.outputPath, INFERENCE_OUTPUT_FOLDER, request.paths.projectRoot, request.workspaceId, request.paths.sheetId);
   await mkdir(outputPath, { recursive: true });
   const manifestPath = join(outputPath, `inference_${runStamp}.json`);
   const logPath = join(outputPath, `inference_${runStamp}.log`);
@@ -1058,7 +1129,7 @@ async function createBatchSpeakerDiarizationPlan(request: WorkspaceBatchSpeakerD
   await assertInputDirectory(request.paths.inputPath, "스크립트 입력 오디오 폴더를 선택하세요.");
   const layout = createBackendLayout({ markerScript: "batch_qc_main.py", venvFolder: ".venv" });
   const runStamp = timestamp();
-  const outputPath = resolveOutputDirectory(request.paths.inputPath, request.paths.outputPath, BATCH_OUTPUT_FOLDER, request.paths.projectRoot, request.workspaceId);
+  const outputPath = resolveOutputDirectory(request.paths.inputPath, request.paths.outputPath, BATCH_OUTPUT_FOLDER, request.paths.projectRoot, request.workspaceId, request.paths.sheetId);
   await mkdir(outputPath, { recursive: true });
   const manifestPath = join(outputPath, `batch_qc_speaker_${runStamp}.json`);
   const logPath = join(outputPath, `batch_qc_speaker_${runStamp}.log`);
@@ -1147,7 +1218,7 @@ type PreparedWorkspaceInput = {
   logPath?: string;
 };
 
-async function prepareWorkspaceAudioInput(workspaceId: WorkspaceId, inputPath: string, projectRoot?: string, onProgress?: WorkspaceRunProgressHandler): Promise<PreparedWorkspaceInput> {
+async function prepareWorkspaceAudioInput(workspaceId: WorkspaceId, inputPath: string, projectRoot?: string, sheetId?: string, onProgress?: WorkspaceRunProgressHandler): Promise<PreparedWorkspaceInput> {
   await assertInputDirectory(inputPath, "유효한 입력 오디오 폴더를 선택하세요.");
   const summary = await summarizeInputAudio(inputPath);
   if (summary.total <= 0) {
@@ -1155,7 +1226,7 @@ async function prepareWorkspaceAudioInput(workspaceId: WorkspaceId, inputPath: s
   }
 
   const layout = createAudioConvertingLayout(workspaceId);
-  const convertedPath = resolveAudioInputConversionDirectory(workspaceId, inputPath, projectRoot);
+  const convertedPath = resolveAudioInputConversionDirectoryForSheet(workspaceId, inputPath, projectRoot, sheetId);
   await mkdir(convertedPath, { recursive: true });
   await recordActiveAudioConversionCache(workspaceId, inputPath, convertedPath, projectRoot);
 
@@ -1224,7 +1295,7 @@ function startAudioConversionTerminalPolling(workspaceId: WorkspaceId, plan: Pyt
 
     try {
       const terminal = await readRunTerminalSnapshot(plan);
-      const event = await createAudioConversionProgressEvent(workspaceId, plan.inputPath, plan.manifestPath, terminal);
+      const event = await createAudioConversionProgressEvent(workspaceId, plan.outputPath, plan.manifestPath, terminal);
       const signature = audioConversionProgressSignature(event);
       if (signature === lastSignature) {
         return;
@@ -1251,7 +1322,7 @@ async function emitAudioConversionTerminal(workspaceId: WorkspaceId, plan: Pytho
   }
 
   const terminal = await readRunTerminalSnapshot(plan);
-  onProgress(await createAudioConversionProgressEvent(workspaceId, plan.inputPath, plan.manifestPath, terminal));
+  onProgress(await createAudioConversionProgressEvent(workspaceId, plan.outputPath, plan.manifestPath, terminal));
 }
 
 async function createAudioConversionProgressEvent(workspaceId: WorkspaceId, inputPathOrTree: string | FileTreeResult, manifestPath?: string, terminal?: WorkspaceTerminalUpdate): Promise<WorkspaceRunProgressEvent> {
@@ -1331,8 +1402,11 @@ function annotateAudioConversionTree(tree: FileTreeResult, manifest: Record<stri
     }
 
     const originalPath = stringValue(job.originalPath);
-    if (originalPath) {
-      completedJobs.set(normalizeAudioPathKey(originalPath), job);
+    const cachedPath = stringValue(job.cachedPath);
+    for (const path of [originalPath, cachedPath]) {
+      if (path) {
+        completedJobs.set(normalizeAudioPathKey(path), job);
+      }
     }
   }
 
@@ -1350,7 +1424,7 @@ function annotateAudioConversionNodeStatus(node: FileTreeNode, activeSourcePath:
     };
   }
 
-  if (!isSupportedAudioPath(node.path) || isWavAudioPath(node.path)) {
+  if (!isSupportedAudioPath(node.path)) {
     return node;
   }
 

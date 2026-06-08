@@ -1,8 +1,9 @@
 import { createReadStream } from "node:fs";
 import { mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
-import { mkdirSync, renameSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import type { AppStateLoadResult, AppStateSaveRequest, AppStateSaveResult, AppStateSnapshot, ProjectStateLoadRequest, ProjectStateLoadResult } from "@shared/ipc";
+import { projectRelativePath, resolveProjectSheetStatePath } from "../project/sheet-layout";
 import { defaultManagedProjectName, resolveManagedProjectsRoot } from "../project/workspaces";
 import { sanitizePersistedAppState, sanitizeProjectRecord } from "./sanitizer";
 import { isNotFoundError, isRecord, pathIsDirectory, stringValue, toJsonValue } from "./store-utils";
@@ -12,6 +13,7 @@ const projectStateFileName = "project-state.json";
 const appStateSchemaVersion = 1;
 const activeProjectSchemaVersion = 1;
 const projectStateSchemaVersion = 1;
+const sheetStateSchemaVersion = 1;
 const appStateReadChunkBytes = 16 * 1024;
 
 export type AppStateLoadProgress = {
@@ -210,7 +212,7 @@ async function readActiveProjectName(projectsRoot: string): Promise<string> {
 async function readProjectStateFile(rootPath: string, onProgress?: (progress: AppStateLoadProgress) => void): Promise<unknown> {
   try {
     const parsed = JSON.parse(await readStateFile(resolveProjectStatePath(rootPath), onProgress)) as unknown;
-    return unwrapProjectStateFile(parsed);
+    return hydrateProjectSheetStates(rootPath, unwrapProjectStateFile(parsed));
   } catch (error) {
     if (isNotFoundError(error)) {
       return undefined;
@@ -226,7 +228,7 @@ async function writeActiveProjectStateFile(snapshot: AppStateSnapshot, project: 
     return;
   }
 
-  await writeProjectStateFile(rootPath, projectStatePayload(snapshot, project));
+  await writeProjectStateFile(rootPath, await projectStatePayloadForWrite(snapshot, project, rootPath));
 }
 
 async function writeProjectStateFile(rootPath: string, payload: unknown): Promise<void> {
@@ -242,7 +244,7 @@ function writeActiveProjectStateFileSync(snapshot: AppStateSnapshot, project: Re
     return;
   }
 
-  writeProjectStateFileSync(rootPath, projectStatePayload(snapshot, project));
+  writeProjectStateFileSync(rootPath, projectStatePayloadForWriteSync(snapshot, project, rootPath));
 }
 
 function writeProjectStateFileSync(rootPath: string, payload: unknown): void {
@@ -252,13 +254,238 @@ function writeProjectStateFileSync(rootPath: string, payload: unknown): void {
   renameSync(tempPath, filePath);
 }
 
-function projectStatePayload(snapshot: AppStateSnapshot, project: Record<string, unknown>): Record<string, unknown> {
+async function projectStatePayloadForWrite(snapshot: AppStateSnapshot, project: Record<string, unknown>, rootPath: string): Promise<Record<string, unknown>> {
+  const state = sanitizePersistedAppState(project.state, rootPath);
   return {
     schemaVersion: projectStateSchemaVersion,
     savedAt: snapshot.savedAt,
     projectId: stringValue(project.id),
-    state: sanitizePersistedAppState(project.state),
+    state: await writeProjectSheetStateFiles(rootPath, state, snapshot.savedAt),
   };
+}
+
+function projectStatePayloadForWriteSync(snapshot: AppStateSnapshot, project: Record<string, unknown>, rootPath: string): Record<string, unknown> {
+  const state = sanitizePersistedAppState(project.state, rootPath);
+  return {
+    schemaVersion: projectStateSchemaVersion,
+    savedAt: snapshot.savedAt,
+    projectId: stringValue(project.id),
+    state: writeProjectSheetStateFilesSync(rootPath, state, snapshot.savedAt),
+  };
+}
+
+async function writeProjectSheetStateFiles(rootPath: string, state: unknown, savedAt: string): Promise<unknown> {
+  if (!isRecord(state) || !isRecord(state.runtime) || !isRecord(state.runtime.states)) {
+    return state;
+  }
+
+  const nextStates: Record<string, unknown> = {};
+  for (const [workspaceId, workspaceState] of Object.entries(state.runtime.states)) {
+    nextStates[workspaceId] = await writeWorkspaceSheetStateFiles(rootPath, savedAt, workspaceId, workspaceState);
+  }
+
+  return {
+    ...state,
+    runtime: {
+      ...state.runtime,
+      states: nextStates,
+    },
+  };
+}
+
+function writeProjectSheetStateFilesSync(rootPath: string, state: unknown, savedAt: string): unknown {
+  if (!isRecord(state) || !isRecord(state.runtime) || !isRecord(state.runtime.states)) {
+    return state;
+  }
+
+  const nextStates: Record<string, unknown> = {};
+  for (const [workspaceId, workspaceState] of Object.entries(state.runtime.states)) {
+    nextStates[workspaceId] = writeWorkspaceSheetStateFilesSync(rootPath, savedAt, workspaceId, workspaceState);
+  }
+
+  return {
+    ...state,
+    runtime: {
+      ...state.runtime,
+      states: nextStates,
+    },
+  };
+}
+
+async function writeWorkspaceSheetStateFiles(rootPath: string, savedAt: string, workspaceId: string, workspaceState: unknown): Promise<unknown> {
+  if (!isRecord(workspaceState) || !Array.isArray(workspaceState.sheets)) {
+    return workspaceState;
+  }
+
+  const sheets = [];
+  for (const sheet of workspaceState.sheets) {
+    if (!isRecord(sheet)) {
+      continue;
+    }
+
+    const sheetId = stringValue(sheet.id);
+    if (!sheetId) {
+      sheets.push(sheet);
+      continue;
+    }
+
+    const statePath = resolveProjectSheetStatePath(rootPath, workspaceId, sheetId);
+    const stateFile = projectRelativePath(rootPath, statePath);
+    await writeSheetStateFile(statePath, sheetStatePayload(savedAt, workspaceId, sheetId, sheet));
+    sheets.push(sheetReference(sheet, stateFile));
+  }
+
+  return workspaceStateReference(workspaceState, sheets);
+}
+
+function writeWorkspaceSheetStateFilesSync(rootPath: string, savedAt: string, workspaceId: string, workspaceState: unknown): unknown {
+  if (!isRecord(workspaceState) || !Array.isArray(workspaceState.sheets)) {
+    return workspaceState;
+  }
+
+  const sheets = workspaceState.sheets.flatMap((sheet) => {
+    if (!isRecord(sheet)) {
+      return [];
+    }
+
+    const sheetId = stringValue(sheet.id);
+    if (!sheetId) {
+      return [sheet];
+    }
+
+    const statePath = resolveProjectSheetStatePath(rootPath, workspaceId, sheetId);
+    const stateFile = projectRelativePath(rootPath, statePath);
+    writeSheetStateFileSync(statePath, sheetStatePayload(savedAt, workspaceId, sheetId, sheet));
+    return [sheetReference(sheet, stateFile)];
+  });
+
+  return workspaceStateReference(workspaceState, sheets);
+}
+
+async function writeSheetStateFile(filePath: string, payload: unknown): Promise<void> {
+  await mkdir(dirname(filePath), { recursive: true });
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(tempPath, JSON.stringify(payload), "utf8");
+  await rename(tempPath, filePath);
+}
+
+function writeSheetStateFileSync(filePath: string, payload: unknown): void {
+  mkdirSync(dirname(filePath), { recursive: true });
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tempPath, JSON.stringify(payload), "utf8");
+  renameSync(tempPath, filePath);
+}
+
+function sheetStatePayload(savedAt: string, workspaceId: string, sheetId: string, sheet: Record<string, unknown>): Record<string, unknown> {
+  return {
+    schemaVersion: sheetStateSchemaVersion,
+    savedAt,
+    workspaceId,
+    sheetId,
+    sheet,
+  };
+}
+
+function sheetReference(sheet: Record<string, unknown>, stateFile: string): Record<string, unknown> {
+  return {
+    id: stringValue(sheet.id),
+    label: stringValue(sheet.label),
+    inputPath: stringValue(sheet.inputPath),
+    originalInputPath: stringValue(sheet.originalInputPath),
+    outputPath: stringValue(sheet.outputPath),
+    stateFile,
+  };
+}
+
+function workspaceStateReference(workspaceState: Record<string, unknown>, sheets: Record<string, unknown>[]): Record<string, unknown> {
+  const activeSheetId = stringValue(workspaceState.activeSheetId);
+  const activeSheet = sheets.find((sheet) => stringValue(sheet.id) === activeSheetId) ?? sheets[0];
+  return {
+    ...workspaceState,
+    inputPath: stringValue(activeSheet?.inputPath),
+    originalInputPath: stringValue(activeSheet?.originalInputPath),
+    outputPath: stringValue(activeSheet?.outputPath),
+    inputTree: undefined,
+    outputTree: undefined,
+    table: { columns: [], rows: [] },
+    details: [],
+    selectedRowId: undefined,
+    selectedRowIds: [],
+    selectedFilePath: undefined,
+    selectedAudioPath: undefined,
+    selectedResultAudioPath: undefined,
+    reviewedFilePaths: [],
+    rowExportChecks: {},
+    batchSpeakerChecks: {},
+    lastRun: undefined,
+    sheets,
+  };
+}
+
+function hydrateProjectSheetStates(rootPath: string, state: unknown): unknown {
+  if (!isRecord(state) || !isRecord(state.runtime) || !isRecord(state.runtime.states)) {
+    return state;
+  }
+
+  const nextStates = Object.fromEntries(Object.entries(state.runtime.states).map(([workspaceId, workspaceState]) => [
+    workspaceId,
+    hydrateWorkspaceSheetStates(rootPath, workspaceState),
+  ]));
+
+  return {
+    ...state,
+    runtime: {
+      ...state.runtime,
+      states: nextStates,
+    },
+  };
+}
+
+function hydrateWorkspaceSheetStates(rootPath: string, workspaceState: unknown): unknown {
+  if (!isRecord(workspaceState) || !Array.isArray(workspaceState.sheets)) {
+    return workspaceState;
+  }
+
+  const sheets = workspaceState.sheets.map((sheet) => hydrateSheetState(rootPath, sheet));
+  const activeSheetId = stringValue(workspaceState.activeSheetId);
+  const activeSheet = sheets.find((sheet) => isRecord(sheet) && stringValue(sheet.id) === activeSheetId) ?? sheets.find(isRecord);
+  return isRecord(activeSheet)
+    ? {
+      ...workspaceState,
+      ...activeSheet,
+      statusText: workspaceState.statusText,
+      progressPercent: workspaceState.progressPercent,
+      progress: workspaceState.progress,
+      error: workspaceState.error,
+      isRunning: false,
+      isExporting: false,
+      isBatchSpeakerRunning: false,
+      terminal: workspaceState.terminal,
+      terminalOpenRequestId: workspaceState.terminalOpenRequestId,
+      batchFilter: workspaceState.batchFilter,
+      sheets,
+      activeSheetId: stringValue(activeSheet.id),
+    }
+    : { ...workspaceState, sheets };
+}
+
+function hydrateSheetState(rootPath: string, sheet: unknown): unknown {
+  if (!isRecord(sheet)) {
+    return sheet;
+  }
+
+  const stateFile = stringValue(sheet.stateFile);
+  if (!stateFile) {
+    return sheet;
+  }
+
+  try {
+    const parsed = JSON.parse(readFileSync(join(rootPath, stateFile), "utf8")) as unknown;
+    const fullSheet = isRecord(parsed) && isRecord(parsed.sheet) ? parsed.sheet : parsed;
+    return isRecord(fullSheet) ? { ...sheet, ...fullSheet } : sheet;
+  } catch {
+    return sheet;
+  }
 }
 
 async function writeActiveProjectFile(projectsRoot: string, activeProjectName: string): Promise<void> {

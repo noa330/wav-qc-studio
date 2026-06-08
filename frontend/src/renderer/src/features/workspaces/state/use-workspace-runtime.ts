@@ -296,10 +296,12 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
     [settings.slicer, states.tagging.table, tagScoreRules],
   );
 
-  const createWorkspacePaths = useCallback((inputPath: string, outputPath?: string) => ({
+  const createWorkspacePaths = useCallback((inputPath: string, outputPath?: string, sheetId?: string, originalInputPath?: string) => ({
     inputPath,
+    originalInputPath: originalInputPath?.trim() || undefined,
     outputPath: outputPath?.trim() || undefined,
     projectRoot: activeProjectRoot,
+    sheetId,
   }), [activeProjectRoot]);
 
   const updateState = useCallback((workspaceId: WorkspaceId, patch: Partial<WorkspaceRuntimeState>) => {
@@ -396,13 +398,14 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         ? createTrainingTableForModel(settingsRef.current.training.selectedModel)
         : createEmptyWorkspaceTable(workspaceId);
       const sheet = createWorkspaceResultSheet(workspaceId, nextSheetLabel(state.sheets), {
-        inputPath: state.inputPath,
+        inputPath: state.originalInputPath || state.inputPath,
+        originalInputPath: state.originalInputPath || state.inputPath,
         outputPath: state.outputPath,
-        inputTree: state.inputTree,
+        inputTree: undefined,
         table,
         details: table.columns.map((column) => ({ label: column.label, value: "-" })),
-        selectedFilePath: findFirstAudioPath(state.inputTree),
-        selectedAudioPath: findFirstAudioPath(state.inputTree),
+        selectedFilePath: undefined,
+        selectedAudioPath: undefined,
       });
       replaceState(workspaceId, stateWithActiveSheet({ ...state, sheets: [...state.sheets, sheet], activeSheetId: sheet.id }, sheet));
     },
@@ -635,6 +638,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
           : createEmptyWorkspaceTable(workspaceId);
         const loadingSheet = createWorkspaceResultSheet(workspaceId, nextSheetLabel(state.sheets), {
           inputPath,
+          originalInputPath: inputPath,
           outputPath,
           table: loadingTable,
           details: loadingTable.columns.map((column) => ({ label: column.label, value: "-" })),
@@ -655,7 +659,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       try {
         const loaded = await studioBackend.loadWorkspace({
           workspaceId,
-          paths: createWorkspacePaths(inputPath, outputPath),
+          paths: createWorkspacePaths(inputPath, outputPath, reusableSheetId),
           settings: settingsRef.current,
         });
 
@@ -681,6 +685,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
         const terminalFromLoad = createTerminalFromLogPath(loaded.logPath);
         const sheetPatch = {
           inputPath: loaded.inputPath ?? inputPath,
+          originalInputPath: loaded.originalInputPath ?? inputPath,
           outputPath: loaded.outputPath ?? outputPath,
           inputTree: loaded.inputTree,
           outputTree: undefined,
@@ -1568,7 +1573,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
     try {
       result = await studioBackend.runBatchSpeakerDiarization({
         workspaceId,
-        paths: createWorkspacePaths(state.inputPath, state.outputPath),
+        paths: createWorkspacePaths(state.inputPath, state.outputPath, sheet.id, state.originalInputPath),
         settings,
         table: {
           ...state.table,
@@ -1671,7 +1676,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
     try {
       result = await studioBackend.runBatchSpeakerDiarization({
         workspaceId,
-        paths: createWorkspacePaths(state.inputPath, state.outputPath),
+        paths: createWorkspacePaths(state.inputPath, state.outputPath, sheet.id, state.originalInputPath),
         settings,
         table: state.table,
       });
@@ -1797,6 +1802,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       const runSheet = createWorkspaceResultSheet(workspaceId, targetSheet ? targetSheet.label : nextSheetLabel(state.sheets), {
         id: targetSheet?.id,
         inputPath: state.inputPath,
+        originalInputPath: state.originalInputPath,
         outputPath: state.outputPath,
         inputTree: state.inputTree,
         outputTree: undefined,
@@ -1851,7 +1857,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       try {
         result = await studioBackend.runWorkspace({
           workspaceId,
-          paths: createWorkspacePaths(state.inputPath, state.outputPath),
+          paths: createWorkspacePaths(state.inputPath, state.outputPath, runSheet.id, runSheet.originalInputPath),
           settings: runSettings,
           audioEdits: runAudioEdits,
         });
@@ -1885,6 +1891,8 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       }
 
       updateSheetByIdState(workspaceId, runSheet.id, {
+        inputPath: result.metadata?.inputPath ?? runSheet.inputPath,
+        originalInputPath: runSheet.originalInputPath,
         inputTree: result.inputTree,
         outputTree: undefined,
         table: finalTable,
@@ -1976,7 +1984,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       try {
         result = await studioBackend.runWorkspace({
           workspaceId,
-          paths: createWorkspacePaths(state.inputPath, state.outputPath),
+          paths: createWorkspacePaths(state.inputPath, state.outputPath, sheet.id, sheet.originalInputPath),
           settings: retrySettings,
           retry: workspaceId === "training" ? {} : retryPlan.pendingSourcePaths.length > 0 ? { sourcePaths: retryPlan.pendingSourcePaths } : undefined,
           audioEdits: retryAudioEdits,
@@ -2015,6 +2023,8 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       }
 
       updateSheetByIdState(workspaceId, sheet.id, {
+        inputPath: result.metadata?.inputPath ?? latestSheet.inputPath,
+        originalInputPath: latestSheet.originalInputPath,
         inputTree: result.inputTree ?? latestSheet.inputTree,
         outputTree: undefined,
         table,
@@ -2071,7 +2081,7 @@ function useWorkspaceRuntimeValue(): WorkspaceRuntime {
       try {
         result = await studioBackend.exportWorkspace({
           workspaceId,
-          paths: createWorkspacePaths(state.inputPath, state.outputPath),
+          paths: createWorkspacePaths(state.inputPath, state.outputPath, activeSheet(state)?.id, state.originalInputPath),
           settings: settingsRef.current,
           table,
           rowDecisions: table.rows.map((row) => ({

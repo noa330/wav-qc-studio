@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import type { WorkspaceId, WorkspaceRunMetadata } from "@shared/ipc";
 import { runPtyCommand } from "./pty-runner";
 import { readTextIfExists } from "./terminal-log";
+import { resolveProjectRoot } from "../project/layout";
 
 const BLOCKED_LOCAL_PROXY_PATTERN = /^https?:\/\/127\.0\.0\.1:9\/?$/iu;
 const PROXY_ENV_NAMES = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"] as const;
@@ -277,8 +278,11 @@ async function appendHostLog(hostLogPath: string, text: string): Promise<void> {
 }
 
 export function createBackendEnvironment(): NodeJS.ProcessEnv {
+  const pathWithBundledTools = withBundledToolPath(process.env.Path ?? process.env.PATH);
   const env: NodeJS.ProcessEnv = {
     ...process.env,
+    PATH: pathWithBundledTools,
+    Path: pathWithBundledTools,
     PYTHONUNBUFFERED: "1",
     PYTHONIOENCODING: "utf-8",
   };
@@ -290,6 +294,43 @@ export function createBackendEnvironment(): NodeJS.ProcessEnv {
   }
 
   return env;
+}
+
+function withBundledToolPath(pathValue: string | undefined): string {
+  const entries = bundledToolPathEntries();
+  if (entries.length === 0) {
+    return pathValue ?? "";
+  }
+
+  const current = (pathValue ?? "").split(";").filter(Boolean);
+  const normalizedCurrent = new Set(current.map(normalizePathEntry));
+  const missing = entries.filter((entry) => !normalizedCurrent.has(normalizePathEntry(entry)));
+  return [...missing, ...current].join(";");
+}
+
+function bundledToolPathEntries(): string[] {
+  const projectRoot = resolveProjectRoot();
+  const parentRoot = dirname(projectRoot);
+  const localAppData = process.env.LOCALAPPDATA || process.env.LocalAppData;
+  const candidates = [
+    join(projectRoot, "tools", "mingit", "cmd"),
+    join(projectRoot, "tools", "git", "cmd"),
+    join(projectRoot, ".tools", "mingit", "cmd"),
+    join(projectRoot, ".tools", "git", "cmd"),
+    join(parentRoot, "tools", "mingit", "cmd"),
+    join(parentRoot, "tools", "git", "cmd"),
+    ...(localAppData
+      ? [
+          join(localAppData, "WAV QC Studio", "tools", "mingit", "cmd"),
+          join(localAppData, "WAV QC Studio", "tools", "git", "cmd"),
+        ]
+      : []),
+  ];
+  return candidates.filter((entry) => existsSync(join(entry, "git.exe")));
+}
+
+function normalizePathEntry(value: string): string {
+  return value.replace(/\\/gu, "/").replace(/\/+$/u, "").toLowerCase();
 }
 
 function isBlockedLocalProxy(value: string | undefined): boolean {

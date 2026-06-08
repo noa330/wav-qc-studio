@@ -1,6 +1,6 @@
 {
   "name": "wav-qc-studio-electron-frontend",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Electron-only React UI shell for WAV QC Studio.",
   "private": true,
   "license": "MIT",
@@ -8,7 +8,7 @@
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit && electron-vite build",
+    "build": "node.exe ./node_modules/typescript/bin/tsc -p tsconfig.node.json --noEmit && node.exe ./node_modules/typescript/bin/tsc -p tsconfig.web.json --noEmit && node.exe ./node_modules/electron-vite/bin/electron-vite.js build",
     "prepare:development-source": "powershell -NoProfile -ExecutionPolicy Bypass -File ./build/prepare-development-source.ps1",
     "prebuild:installer": "npm run prepare:development-source",
     "build:installer": "npm run build && electron-builder --win --config electron-builder.yml",

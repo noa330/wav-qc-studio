@@ -6,6 +6,7 @@ export type WorkspaceResultSheet = {
   id: string;
   label: string;
   inputPath: string;
+  originalInputPath?: string;
   outputPath: string;
   inputTree?: FileTreeResult;
   outputTree?: FileTreeResult;
@@ -40,6 +41,7 @@ export type WorkspaceTrainingIdentity = {
 
 export type WorkspaceRuntimeState = {
   inputPath: string;
+  originalInputPath?: string;
   outputPath: string;
   inputTree?: FileTreeResult;
   outputTree?: FileTreeResult;
@@ -114,6 +116,7 @@ export function createInitialRuntimeState(workspaceId: WorkspaceId): WorkspaceRu
 
   return {
     inputPath: sheet.inputPath,
+    originalInputPath: sheet.originalInputPath,
     outputPath: sheet.outputPath,
     inputTree: sheet.inputTree,
     outputTree: sheet.outputTree,
@@ -199,6 +202,7 @@ export function createWorkspaceResultSheet(
     id: seed.id ?? `sheet-${Date.now().toString(36)}`,
     label,
     inputPath: seed.inputPath ?? "",
+    originalInputPath: seed.originalInputPath,
     outputPath: seed.outputPath ?? "",
     inputTree: seed.inputTree,
     outputTree: seed.outputTree,
@@ -245,6 +249,7 @@ export function stateWithActiveSheet(state: WorkspaceRuntimeState, sheet: Worksp
   return {
     ...state,
     inputPath: sheet.inputPath,
+    originalInputPath: sheet.originalInputPath,
     outputPath: sheet.outputPath,
     inputTree: sheet.inputTree,
     outputTree: sheet.outputTree,

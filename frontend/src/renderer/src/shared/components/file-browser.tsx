@@ -423,11 +423,8 @@ function BrowserNodeRow({
       durationStr = audioDurations[node.exportRowId];
     } else if (node.path && audioDurations?.[node.path.replace(/\\/g, "/").toLowerCase()]) {
       durationStr = audioDurations[node.path.replace(/\\/g, "/").toLowerCase()];
-    } else if (node.meta && !isNaN(parseFloat(node.meta))) {
-      durationStr = parseFloat(node.meta).toFixed(2) + "s";
     } else {
-      // Mock fallback duration for file nodes
-      durationStr = isAudio ? "5.00s" : "";
+      durationStr = "";
     }
   }
 

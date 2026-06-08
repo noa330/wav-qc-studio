@@ -22,6 +22,20 @@
     "require_cuda_provider": true,
     "bak_bad_threshold": 3.0
   },
+  "pronunciation": {
+    "asr_model": "small",
+    "language": "ko",
+    "beam_size": 5,
+    "vad_filter": true,
+    "compute_type_cpu": "int8",
+    "compute_type_cuda": "float16",
+    "scoring_backend": "asr_logprob",
+    "scorer_repo_id": "",
+    "min_score": 1.0,
+    "max_score": 5.0,
+    "bad_threshold": 3.0,
+    "empty_score": 1.0
+  },
   "speaker": {
     "backend": "diarizen",
     "diarizen_model_id": "BUT-FIT/diarizen-wavlm-large-s80-md-v2",

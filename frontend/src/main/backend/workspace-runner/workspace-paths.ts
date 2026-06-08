@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
 import type { WorkspaceId } from "@shared/ipc";
+import { resolveProjectSheetOutputPath } from "../project/sheet-layout";
 
 export const SLICER_OUTPUT_FOLDER = "_slicer_results";
 export const TAGGING_OUTPUT_FOLDER = "_tagging_results";
@@ -10,8 +11,8 @@ export const BATCH_OUTPUT_FOLDER = "_batch_qc_results";
 export const TRAINING_OUTPUT_FOLDER = "_training_results";
 export const INFERENCE_OUTPUT_FOLDER = "_voice_inference_results";
 
-export function resolveWorkspaceOutputPath(workspaceId: WorkspaceId, inputPath: string, outputPath?: string, projectRoot?: string): string {
-  return outputPath || resolveDefaultOutputPath(workspaceId, inputPath, projectRoot);
+export function resolveWorkspaceOutputPath(workspaceId: WorkspaceId, inputPath: string, outputPath?: string, projectRoot?: string, sheetId?: string): string {
+  return outputPath || resolveDefaultOutputPath(workspaceId, inputPath, projectRoot, sheetId);
 }
 
 export function outputFolderForWorkspace(workspaceId: WorkspaceId): string {
@@ -38,9 +39,16 @@ export function resolveProjectOutputPath(projectRoot: string | undefined, worksp
   return root ? join(root, "outputs", workspaceId, expectedLeafName) : undefined;
 }
 
-export function resolveOutputDirectory(inputPath: string, requestedOutputPath: string | undefined, expectedLeafName: string, projectRoot?: string, workspaceId?: WorkspaceId): string {
+export function resolveOutputDirectory(inputPath: string, requestedOutputPath: string | undefined, expectedLeafName: string, projectRoot?: string, workspaceId?: WorkspaceId, sheetId?: string): string {
   const candidate = requestedOutputPath?.trim();
   if (!candidate) {
+    if (projectRoot?.trim() && workspaceId && sheetId?.trim()) {
+      const sheetOutputPath = resolveProjectSheetOutputPath(projectRoot, workspaceId, sheetId, expectedLeafName);
+      if (sheetOutputPath) {
+        return sheetOutputPath;
+      }
+    }
+
     if (projectRoot?.trim() && workspaceId) {
       return join(projectRoot.trim(), "outputs", workspaceId, expectedLeafName);
     }
@@ -64,7 +72,12 @@ export function resolveFallbackInputFolder(inputPath: string): string {
   return extname(inputPath) ? dirname(inputPath) : inputPath;
 }
 
-function resolveDefaultOutputPath(workspaceId: WorkspaceId, inputPath: string, projectRoot?: string): string {
+function resolveDefaultOutputPath(workspaceId: WorkspaceId, inputPath: string, projectRoot?: string, sheetId?: string): string {
+  const sheetOutputPath = resolveProjectSheetOutputPath(projectRoot, workspaceId, sheetId, outputFolderForWorkspace(workspaceId));
+  if (sheetOutputPath) {
+    return sheetOutputPath;
+  }
+
   const projectOutputPath = resolveProjectOutputPath(projectRoot, workspaceId, outputFolderForWorkspace(workspaceId));
   if (projectOutputPath) {
     return projectOutputPath;

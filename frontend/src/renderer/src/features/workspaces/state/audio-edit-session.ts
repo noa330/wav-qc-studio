@@ -55,19 +55,11 @@ export function resolveEditedAudioPath(basePath: string | undefined, scopeId?: s
     return basePath;
   }
 
-  return getAudioEditEntry(basePath, scopeId).effectivePath || basePath;
+  return basePath;
 }
 
 export function getAudioEditExportMap(scopeId?: string): Record<string, string> {
-  const map: Record<string, string> = {};
-  const normalizedScope = normalizeScopeId(scopeId);
-  for (const entry of entries.values()) {
-    if (normalizeScopeId(entry.scopeId) !== normalizedScope || !entry.basePath || normalizePath(entry.basePath) === normalizePath(entry.effectivePath)) {
-      continue;
-    }
-    map[entry.basePath] = entry.effectivePath;
-  }
-  return map;
+  return {};
 }
 
 export function getAudioEditSessionSnapshot(): AudioEditSessionSnapshot {
@@ -287,7 +279,7 @@ export async function runAudioEditOperation(basePath: string | undefined, operat
   try {
     const latestEntry = getAudioEditEntry(basePath, scopeId);
     const result = await studioBackend.editWave({
-      sourcePath: latestEntry.effectivePath || basePath,
+      sourcePath: basePath,
       operation,
       startSec: marker.startSec,
       endSec: marker.endSec,
@@ -329,7 +321,7 @@ export async function runAudioEditOperation(basePath: string | undefined, operat
       const transformed = transformMarkersAfterEdit(current.markers, operation, marker, nextDuration, insertedDuration);
       return {
         ...current,
-        effectivePath: result.outputPath!,
+        effectivePath: basePath,
         revision: current.revision + 1,
         durationSeconds: nextDuration,
         markers: transformed.markers,
@@ -448,11 +440,10 @@ function normalizeAudioEditEntry(raw: unknown): AudioEditEntry[] {
   }
 
   const basePath = raw.basePath.trim();
-  const effectivePath = typeof raw.effectivePath === "string" && raw.effectivePath.trim() ? raw.effectivePath : basePath;
   return [{
     basePath,
     scopeId: typeof raw.scopeId === "string" ? normalizeScopeId(raw.scopeId) : undefined,
-    effectivePath,
+    effectivePath: basePath,
     revision: Number.isFinite(raw.revision) ? Math.max(0, Math.trunc(raw.revision as number)) : 0,
     durationSeconds: Number.isFinite(raw.durationSeconds) ? Math.max(0, raw.durationSeconds as number) : undefined,
     viewStart: clamp(Number.isFinite(raw.viewStart) ? raw.viewStart as number : 0, 0, 1 - minAudioViewSpan),

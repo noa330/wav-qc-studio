@@ -127,13 +127,13 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.editWave, async (_event, request: AudioEditRequest) => editWaveFileInCache(request));
 
   ipcMain.handle(IPC_CHANNELS.loadWorkspace, async (_event, request: WorkspaceLoadRequest) => {
-    const loaded = await loadWorkspaceFromPath(request.workspaceId, request.paths.inputPath, request.paths.outputPath, request.settings, request.paths.projectRoot, (progress) => {
+    const loaded = await loadWorkspaceFromPath(request.workspaceId, request.paths.inputPath, request.paths.outputPath, request.settings, request.paths.projectRoot, request.paths.sheetId, (progress) => {
       if (!_event.sender.isDestroyed()) {
         _event.sender.send(IPC_CHANNELS.runWorkspaceProgress, progress);
       }
     });
     const inputTree = loaded.inputTree ?? await scanFileTree(loaded.inputPath, { workspaceId: request.workspaceId, purpose: "input", offset: 0, limit: 50 });
-    const outputPath = resolveWorkspaceOutputPath(request.workspaceId, request.paths.inputPath, request.paths.outputPath, request.paths.projectRoot);
+    const outputPath = resolveWorkspaceOutputPath(request.workspaceId, request.paths.inputPath, request.paths.outputPath, request.paths.projectRoot, request.paths.sheetId);
     return {
       workspaceId: request.workspaceId,
       inputPath: loaded.inputPath,

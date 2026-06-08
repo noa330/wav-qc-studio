@@ -172,6 +172,7 @@ export function findFirstAudioPath(tree?: FileTreeResult): string {
   }
 
   const stack = [...tree.nodes];
+  let firstAudioPath = "";
   while (stack.length > 0) {
     const node = stack.shift();
     if (!node) {
@@ -179,7 +180,10 @@ export function findFirstAudioPath(tree?: FileTreeResult): string {
     }
 
     if (node.kind === "file" && isAudioPath(node.path)) {
-      return node.path;
+      if (isWavPath(node.path)) {
+        return node.path;
+      }
+      firstAudioPath ||= node.path;
     }
 
     if (node.children) {
@@ -187,7 +191,7 @@ export function findFirstAudioPath(tree?: FileTreeResult): string {
     }
   }
 
-  return "";
+  return firstAudioPath;
 }
 
 export function resolveSliceSourcePath(row?: DataTableRow, fallbackAudioPath = ""): string {

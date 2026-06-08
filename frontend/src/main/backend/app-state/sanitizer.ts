@@ -51,7 +51,7 @@ function sanitizeRowsClipboard(value: unknown, projectRoot?: string): unknown {
   const audioMappings = readProjectAudioSourceMappings(projectRoot, workspaceId, "");
   const rows = value.rows
     .filter(isRecord)
-    .map((row) => sanitizeDataTableRowAudioMapping(row, audioMappings));
+    .map((row) => sanitizeDataTableRowAudioMapping(workspaceId, row, audioMappings));
 
   return {
     ...value,
@@ -153,6 +153,7 @@ function clearWorkspaceRecord(record: Record<string, unknown>): Record<string, u
   return {
     ...record,
     inputPath: "",
+    originalInputPath: "",
     outputPath: "",
     inputTree: undefined,
     outputTree: undefined,
@@ -184,7 +185,7 @@ function sanitizeDataTable(workspaceId: string, table: unknown, audioMappings: A
   const rows = Array.isArray(table.rows)
     ? table.rows
       .filter(isRecord)
-      .map((row) => sanitizeDataTableRowAudioMapping(row, audioMappings))
+      .map((row) => sanitizeDataTableRowAudioMapping(workspaceId, row, audioMappings))
       .map((row) => sanitizeTransientBatchSpeakerRow(workspaceId, row))
       .filter((row) => rowHasAvailablePath(workspaceId, row))
     : [];
@@ -237,7 +238,7 @@ function hasTransientBatchSpeakerStages(table: unknown): boolean {
   });
 }
 
-function sanitizeDataTableRowAudioMapping(row: Record<string, unknown>, audioMappings: AudioSourceMapping[]): Record<string, unknown> {
+function sanitizeDataTableRowAudioMapping(workspaceId: string, row: Record<string, unknown>, audioMappings: AudioSourceMapping[]): Record<string, unknown> {
   if (audioMappings.length === 0) {
     return row;
   }
@@ -256,12 +257,29 @@ function sanitizeDataTableRowAudioMapping(row: Record<string, unknown>, audioMap
 
   return {
     ...row,
+    sourcePath: mapping.cachedPath,
     raw: {
-      ...raw,
+      ...rewriteRawAudioPaths(raw, sourcePath, mapping.cachedPath, workspaceId),
       cachedPath: mapping.cachedPath,
       cached_path: mapping.cachedPath,
     },
   };
+}
+
+function rewriteRawAudioPaths(raw: Record<string, unknown>, sourcePath: string, cachedPath: string, workspaceId: string): Record<string, unknown> {
+  const rewritten = Object.fromEntries(Object.entries(raw).map(([key, value]) => [
+    key,
+    normalizeStatePath(stringValue(value)) === normalizeStatePath(sourcePath) ? cachedPath : value,
+  ]));
+  if (workspaceId === "overview") {
+    rewritten.absolute_path = cachedPath;
+  } else {
+    rewritten.originalPath = cachedPath;
+    rewritten.original_path = cachedPath;
+    rewritten.inputPath = cachedPath;
+    rewritten.input_path = cachedPath;
+  }
+  return rewritten;
 }
 
 function rowHasAvailablePath(workspaceId: string, row: unknown): boolean {

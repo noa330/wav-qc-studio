@@ -127,6 +127,9 @@ function Install-FilteredRequirements {
     param ([Parameter(Mandatory=$true)][string]$RequirementsPath)
     $tempPath = Join-Path $env:TEMP ("gpt_sovits_filtered_" + [System.IO.Path]::GetFileName($RequirementsPath))
     $excluded = @("torch", "torchvision", "torchaudio", "torchcodec")
+    if ($IsWindows -or $env:OS -eq "Windows_NT") {
+        $excluded += @("pyopenjtalk", "jieba_fast", "opencc")
+    }
     $lines = Get-Content -Path $RequirementsPath -Encoding UTF8
     $filtered = @()
     foreach ($line in $lines) {
@@ -145,6 +148,144 @@ function Install-FilteredRequirements {
     Set-Content -Path $tempPath -Value $filtered -Encoding UTF8
     Invoke-Pip -r $tempPath
     Remove-Item $tempPath -Force -ErrorAction SilentlyContinue
+}
+
+function Install-WindowsTextFrontendCompatibility {
+    if (-not ($IsWindows -or $env:OS -eq "Windows_NT")) {
+        return
+    }
+
+    Write-Info "Installing Windows text frontend compatibility packages..."
+    Invoke-Pip "--prefer-binary" "pyopenjtalk-plus==0.4.1.post8" "opencc-python-reimplemented==0.1.7" "jieba==0.42.1"
+
+    $scriptPath = Join-Path $env:TEMP "gpt_sovits_install_jieba_fast_compat.py"
+    $script = @'
+from __future__ import annotations
+
+import site
+from pathlib import Path
+
+site_dirs = [Path(p) for p in site.getsitepackages()]
+target_root = next((p for p in site_dirs if p.name.lower() == "site-packages"), site_dirs[0])
+pkg = target_root / "jieba_fast"
+(pkg / "posseg").mkdir(parents=True, exist_ok=True)
+(pkg / "__init__.py").write_text("""from jieba import *
+try:
+    from jieba import setLogLevel
+except Exception:
+    pass
+""", encoding="utf-8")
+(pkg / "posseg" / "__init__.py").write_text("from jieba.posseg import *\n", encoding="utf-8")
+print(pkg)
+'@
+    Set-Content -LiteralPath $scriptPath -Value $script -Encoding UTF8
+    try {
+        python $scriptPath
+        if ($LASTEXITCODE -ne 0) {
+            throw [System.Exception]::new("failed to install jieba_fast compatibility package")
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $scriptPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Install-WindowsKoreanFrontendCompatibility {
+    if (-not ($IsWindows -or $env:OS -eq "Windows_NT")) {
+        return
+    }
+
+    Write-Info "Installing Windows Korean text frontend compatibility package..."
+    Invoke-Pip "--prefer-binary" "kiwipiepy==0.23.1"
+
+    $scriptPath = Join-Path $env:TEMP "gpt_sovits_install_eunjeon_compat.py"
+    $script = @'
+from __future__ import annotations
+
+import site
+from pathlib import Path
+
+site_dirs = [Path(p) for p in site.getsitepackages()]
+target_root = next((p for p in site_dirs if p.name.lower() == "site-packages"), site_dirs[0])
+pkg = target_root / "eunjeon"
+pkg.mkdir(parents=True, exist_ok=True)
+compat_code = r'''
+from __future__ import annotations
+
+from kiwipiepy import Kiwi
+
+
+class Mecab:
+    def __init__(self, *args, **kwargs):
+        self._kiwi = Kiwi()
+
+    def pos(self, phrase, flatten=True, join=False):
+        tokens = self._kiwi.tokenize(str(phrase))
+        pairs = [(token.form, token.tag) for token in tokens]
+        if join:
+            return [f"{form}/{tag}" for form, tag in pairs]
+        return pairs
+
+    def morphs(self, phrase):
+        return [form for form, _ in self.pos(phrase)]
+
+    def nouns(self, phrase):
+        return [form for form, tag in self.pos(phrase) if tag.startswith("N")]
+'''
+for file_name in ("__init__.py", "mecab.py"):
+    (pkg / file_name).write_text(compat_code, encoding="utf-8")
+print(pkg)
+'@
+    Set-Content -LiteralPath $scriptPath -Value $script -Encoding UTF8
+    try {
+        python $scriptPath
+        if ($LASTEXITCODE -ne 0) {
+            throw [System.Exception]::new("failed to install eunjeon compatibility package")
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $scriptPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Install-StaticFfmpegRuntime {
+    if (-not ($IsWindows -or $env:OS -eq "Windows_NT")) {
+        return
+    }
+
+    Write-Info "Installing static FFmpeg runtime..."
+    Invoke-Pip "--prefer-binary" "imageio-ffmpeg==0.6.0"
+
+    $scriptPath = Join-Path $env:TEMP "gpt_sovits_install_static_ffmpeg.py"
+    $script = @'
+from __future__ import annotations
+
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+import imageio_ffmpeg
+
+target = Path(sys.prefix) / "ffmpeg-bin" / "ffmpeg.exe"
+target.parent.mkdir(parents=True, exist_ok=True)
+source = Path(imageio_ffmpeg.get_ffmpeg_exe())
+if not source.exists():
+    raise RuntimeError(f"imageio-ffmpeg executable was not found: {source}")
+shutil.copy2(source, target)
+subprocess.run([str(target), "-version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+print(target)
+'@
+    Set-Content -LiteralPath $scriptPath -Value $script -Encoding UTF8
+    try {
+        python $scriptPath
+        if ($LASTEXITCODE -ne 0) {
+            throw [System.Exception]::new("failed to install static FFmpeg runtime")
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $scriptPath -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Invoke-TorchRuntimeForDevice {
@@ -335,11 +476,10 @@ Write-Success "PyTorch Installed"
 
 Write-Info "Installing Python Dependencies From requirements.txt..."
 Invoke-Pip -r extra-req.txt --no-deps
+Install-WindowsTextFrontendCompatibility
 Install-FilteredRequirements "requirements.txt"
-if ($IsWindows -or $env:OS -eq "Windows_NT") {
-    Write-Info "Installing Windows Korean text frontend dependency..."
-    Invoke-Pip "eunjeon==0.4.0"
-}
+Install-WindowsKoreanFrontendCompatibility
+Install-StaticFfmpegRuntime
 
 # requirements.txt can contain unpinned torch-domain packages on upstream GPT-SoVITS.
 # Re-apply the pinned runtime after requirements so pip cannot leave torch/torchaudio mismatched.

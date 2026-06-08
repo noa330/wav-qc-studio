@@ -6,8 +6,13 @@ Set-Location $Root
 
 $FrontendDir = Join-Path $Root "frontend"
 $PackageJson = Join-Path $FrontendDir "package.json"
-$NodeDir = Join-Path $Root ".tools\node-v24.14.0-win-x64"
-$BundledNpm = Join-Path $NodeDir "npm.cmd"
+$NodeVersion = "24.14.0"
+$BundledNodeDir = Join-Path $Root ".tools\node-v$NodeVersion-win-x64"
+$NodeDirCandidates = @(
+    $BundledNodeDir,
+    (Join-Path $Root "tools\nodejs"),
+    (Join-Path (Split-Path -Parent $Root) "tools\nodejs")
+)
 $ElectronExe = Join-Path $FrontendDir "node_modules\electron\dist\electron.exe"
 $MainBundle = Join-Path $FrontendDir "out\main\index.js"
 $TempDir = Join-Path $Root ".tmp"
@@ -32,23 +37,56 @@ function Invoke-Native {
     }
 }
 
+function Resolve-BundledNodeDir {
+    return $NodeDirCandidates | Where-Object {
+        (Test-Path (Join-Path $_ "node.exe")) -and (Test-Path (Join-Path $_ "npm.cmd"))
+    } | Select-Object -First 1
+}
+
+function Install-BundledNode {
+    $nodeZipName = "node-v$NodeVersion-win-x64.zip"
+    $nodeZipUrl = "https://nodejs.org/dist/v$NodeVersion/$nodeZipName"
+    $toolsDir = Join-Path $Root ".tools"
+    $nodeZipPath = Join-Path $TempDir $nodeZipName
+
+    New-Item -ItemType Directory -Force -Path $toolsDir | Out-Null
+
+    Write-Host "Node.js/npm was not found. Installing portable Node.js v$NodeVersion..."
+    Write-Host "Downloading: $nodeZipUrl"
+    Invoke-WebRequest -Uri $nodeZipUrl -OutFile $nodeZipPath
+
+    Write-Host "Extracting: $nodeZipPath"
+    Expand-Archive -LiteralPath $nodeZipPath -DestinationPath $toolsDir -Force
+
+    if (-not (Test-Path (Join-Path $BundledNodeDir "npm.cmd"))) {
+        throw "Node.js install finished, but npm.cmd was not found: $BundledNodeDir"
+    }
+
+    return $BundledNodeDir
+}
+
 function Resolve-Npm {
+    $nodeDir = Resolve-BundledNodeDir
+    if ($nodeDir) {
+        return [pscustomobject]@{
+            Path = Join-Path $nodeDir "npm.cmd"
+            NodeDir = $nodeDir
+        }
+    }
+
     $systemNpm = Get-Command npm.cmd -ErrorAction SilentlyContinue
     if ($systemNpm) {
         return [pscustomobject]@{
             Path = $systemNpm.Source
-            UsesBundledNode = $false
+            NodeDir = $null
         }
     }
 
-    if (Test-Path $BundledNpm) {
-        return [pscustomobject]@{
-            Path = $BundledNpm
-            UsesBundledNode = $true
-        }
+    $nodeDir = Install-BundledNode
+    return [pscustomobject]@{
+        Path = Join-Path $nodeDir "npm.cmd"
+        NodeDir = $nodeDir
     }
-
-    throw "npm was not found. Install Node.js 20+ or place bundled npm at: $BundledNpm"
 }
 
 try {
@@ -58,8 +96,8 @@ try {
 
     $npmInfo = Resolve-Npm
     $Npm = [string]$npmInfo.Path
-    if ($npmInfo.UsesBundledNode) {
-        $env:Path = "$NodeDir;$env:Path"
+    if ($npmInfo.NodeDir) {
+        $env:Path = "$($npmInfo.NodeDir);$env:Path"
     }
     Write-Host "Using npm: $Npm"
 

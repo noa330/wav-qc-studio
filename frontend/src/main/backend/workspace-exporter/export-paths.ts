@@ -2,6 +2,7 @@ import { existsSync, readdirSync, type Dirent } from "node:fs";
 import { basename, dirname, extname, isAbsolute, join } from "node:path";
 import { WAV_AUDIO_EXTENSIONS } from "@shared/ipc";
 import type { DataTableRow, WorkspaceExportRequest, WorkspaceId } from "@shared/ipc";
+import { resolveProjectSheetOutputPath } from "../project/sheet-layout";
 import type { ExportRowOutcome } from "./types";
 
 export function formatExportStatus(outcome: ExportRowOutcome): string {
@@ -206,10 +207,15 @@ export function fileName(path: string): string {
   return path ? basename(path) : "";
 }
 
-export function resolveOutputDirectory(workspaceId: WorkspaceId, inputPath: string, requestedOutputPath: string | undefined, projectRoot: string | undefined, expectedLeafName: string): string {
+export function resolveOutputDirectory(workspaceId: WorkspaceId, inputPath: string, requestedOutputPath: string | undefined, projectRoot: string | undefined, expectedLeafName: string, sheetId?: string): string {
   const baseInput = resolveFallbackInputFolder(inputPath);
   const candidate = requestedOutputPath?.trim();
   if (!candidate) {
+    const sheetOutputPath = resolveProjectSheetOutputPath(projectRoot, workspaceId, sheetId, expectedLeafName);
+    if (sheetOutputPath) {
+      return sheetOutputPath;
+    }
+
     if (projectRoot?.trim()) {
       return join(projectRoot.trim(), "exports", workspaceId, expectedLeafName);
     }

@@ -55,12 +55,12 @@ class WhisperPronunciationScorer(torch.nn.Module):
 
 class KoreanPronunciationAnalyzer:
     def __init__(self, cfg: dict[str, Any], language: str | None = None) -> None:
-        self.cfg = cfg["pronunciation"]
+        self.cfg = dict(cfg.get("pronunciation") or {})
         self.language = self._normalize_language(language if language is not None else self.cfg.get("language", "ko"))
         self.device = get_runtime_device()
         self.device_str = get_runtime_device_str()
 
-        asr_model = str(self.cfg["asr_model"])
+        asr_model = str(self.cfg.get("asr_model") or cfg.get("batch_transcription", {}).get("asr_model") or "small")
         compute_type = str(
             self.cfg.get(
                 "compute_type_cuda" if self.device_str == "cuda" else "compute_type_cpu",
@@ -73,7 +73,16 @@ class KoreanPronunciationAnalyzer:
         asr_model_path = self._resolve_faster_whisper_model(asr_model)
         with suppress_external_console():
             self.asr = WhisperModel(asr_model_path, device=self.device_str, compute_type=compute_type)
-        self.repo_id = self.cfg["scorer_repo_id"]
+        self.scoring_backend = str(self.cfg.get("scoring_backend", "") or "").strip().lower()
+        self.repo_id = str(self.cfg.get("scorer_repo_id", "") or "").strip()
+        self.processor = None
+        self.model = None
+        if not self.repo_id:
+            self.scoring_backend = "asr_logprob"
+            print("[model loading complete] Pronunciation ASR confidence scorer ready")
+            return
+
+        self.scoring_backend = "whisper_aux_model"
         print(f"[모델 로딩] 발음 평가 보조 모델 준비 중 · repo={self.repo_id}")
         scorer_dir = self._resolve_scorer_dir(self.repo_id)
         base_dir = self._resolve_whisper_base_dir()
@@ -174,6 +183,9 @@ class KoreanPronunciationAnalyzer:
 
     def score(self, wav_path: str) -> dict[str, Any]:
         transcript, avg_logprob, language = self.transcribe(wav_path)
+        if self.scoring_backend == "asr_logprob" or self.model is None or self.processor is None:
+            return self._score_from_asr_confidence(transcript, avg_logprob, language)
+
         wav, sr = read_audio(wav_path, target_sr=16000, mono=True)
         with suppress_external_console():
             input_features = self.processor(wav, sampling_rate=16000, return_tensors="pt").input_features.to(self.device)
@@ -190,6 +202,25 @@ class KoreanPronunciationAnalyzer:
         score = max(min(raw_score_value, max_score), min_score)
         bad = score < float(self.cfg["bad_threshold"])
 
+        return {
+            "transcript": transcript,
+            "language": language,
+            "pronunciation_score_1to5": round(score, 3),
+            "pronunciation_flag_bad": "O" if bad else "X",
+            "_avg_logprob": avg_logprob,
+        }
+
+    def _score_from_asr_confidence(self, transcript: str, avg_logprob: float | None, language: str) -> dict[str, Any]:
+        min_score = float(self.cfg.get("min_score", 1.0))
+        max_score = float(self.cfg.get("max_score", 5.0))
+        if avg_logprob is None:
+            score = float(self.cfg.get("empty_score", min_score))
+        else:
+            confidence = float(np.clip(np.exp(avg_logprob), 0.0, 1.0))
+            score = min_score + (max_score - min_score) * confidence
+
+        score = max(min(score, max_score), min_score)
+        bad = score < float(self.cfg.get("bad_threshold", 3.0))
         return {
             "transcript": transcript,
             "language": language,

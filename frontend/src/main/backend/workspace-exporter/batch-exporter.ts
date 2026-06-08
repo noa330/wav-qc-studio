@@ -10,7 +10,7 @@ import { fileName, resolveEditedExportPath, resolveOutputDirectory, resolveRowAu
 import type { WorkspaceExportProgressHandler } from "./types";
 
 export async function exportBatchWorkspace(request: WorkspaceExportRequest, expectedLeafName: string, onProgress?: WorkspaceExportProgressHandler, signal?: AbortSignal): Promise<WorkspaceExportResult> {
-  const outputRoot = resolveOutputDirectory(request.workspaceId, request.paths.inputPath, request.paths.outputPath, request.paths.projectRoot, expectedLeafName);
+  const outputRoot = resolveOutputDirectory(request.workspaceId, request.paths.inputPath, request.paths.outputPath, request.paths.projectRoot, expectedLeafName, request.paths.sheetId);
   const runStamp = timestamp();
   const requestPath = join(outputRoot, `batch_qc_export_request_${runStamp}.json`);
   const manifestPath = join(outputRoot, `batch_qc_export_${runStamp}.json`);
